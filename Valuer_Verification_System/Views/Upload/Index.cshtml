@@ -1,0 +1,200 @@
+﻿@model Valuer_Verification_System.Models.ViewModels.UploadExtractVm
+@{
+    ViewData["Title"] = "Upload Extract";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Upload Extract</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="~/css/upload/indexcss.css" rel="stylesheet" />
+</head>
+<body>
+    <div class="dash-wrapper">
+
+        <!-- HEADER -->
+        <header class="page-header">
+            <div class="page-eyebrow">Valuer Verification System</div>
+            <h1 class="page-title">Upload <span>Extract</span></h1>
+        </header>
+
+        <!-- SUCCESS ALERT -->
+        @if (TempData["Success"] != null)
+        {
+            <div class="alert alert-success">
+                <span class="alert-icon">✓</span>
+                <div class="alert-body">@TempData["Success"]</div>
+            </div>
+        }
+
+        <!-- SELECTED WEEK INFO BANNER -->
+        @{
+            var selected = Model.WeekWindows.FirstOrDefault(x => x.Id == Model.WeekWindowId);
+        }
+        @if (selected != null)
+        {
+            <div class="alert alert-info">
+                <span class="alert-icon">📅</span>
+                <div class="alert-body">
+                    <strong>Selected Week:</strong>
+                    @selected.WeekStart.ToString("yyyy-MM-dd") (Mon) → @selected.WeekEnd.ToString("yyyy-MM-dd") (Sun)
+                    &nbsp;|&nbsp;
+                    <strong>Send Date:</strong> @selected.NoticeSendDate.ToString("yyyy-MM-dd")
+                </div>
+            </div>
+        }
+
+        <!-- FORM CARD -->
+        <div class="form-card">
+            <div class="form-card-header">
+                <div class="grid-lines"></div>
+                <div class="form-card-icon">📤</div>
+                <div class="form-card-text">
+                    <div class="form-card-heading">Upload Valuer Extract</div>
+                    <div class="form-card-sub">Select a week window and attach your .xls / .xlsx file</div>
+                </div>
+            </div>
+
+            <div class="form-card-body">
+                <form id="upload-form" method="post" enctype="multipart/form-data">
+                    @Html.AntiForgeryToken()
+
+                    <!-- WEEK WINDOW -->
+                    <div class="form-group">
+                        <label class="form-label" for="WeekWindowId">Week Window</label>
+                        <select class="form-select" asp-for="WeekWindowId" id="WeekWindowId" onchange="updateBanner(this)">
+                            <option value="">— Select Week —</option>
+                            @foreach (var w in Model.WeekWindows)
+                            {
+                                <option value="@w.Id"
+                                        data-start="@w.WeekStart.ToString("yyyy-MM-dd")"
+                                        data-end="@w.WeekEnd.ToString("yyyy-MM-dd")"
+                                        data-send="@w.NoticeSendDate.ToString("yyyy-MM-dd")">
+                                    @w.WeekStart.ToString("yyyy-MM-dd") (Mon) → @w.WeekEnd.ToString("yyyy-MM-dd") (Sun) | Send: @w.NoticeSendDate.ToString("yyyy-MM-dd")
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="form-divider"></div>
+
+                    <!-- FILE -->
+                    <div class="form-group">
+                        <label class="form-label" for="File">Extract File (.xls / .xlsx)</label>
+                        <input class="form-control" type="file" asp-for="File" id="File" accept=".xls,.xlsx" onchange="updateFileName(this)" />
+                        <div class="form-hint">
+                            <span class="form-hint-dot"></span>
+                            <span>The file will be saved under <em>Property Verifications\Extracts</em> using the same name.</span>
+                        </div>
+                    </div>
+
+                    <!-- ACTIONS -->
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-gold" onclick="openModal()">
+                            <span>↑</span> Upload Extract
+                        </button>
+                        <a class="btn btn-ghost" href="/WeekWindows">Cancel</a>
+                    </div>
+
+                    <!-- VALIDATION ERRORS -->
+                    @if (!ViewData.ModelState.IsValid)
+                    {
+                        <div class="validation-errors">
+                            <div class="err-title">Please fix the following:</div>
+                            @foreach (var err in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                            {
+                                <div class="err-item">· @err.ErrorMessage</div>
+                            }
+                        </div>
+                    }
+                </form>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ══════════════════════════════════
+         CONFIRMATION MODAL
+    ══════════════════════════════════ -->
+    <div class="modal-backdrop" id="modal-backdrop" onclick="closeOnBackdrop(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-header-icon">📤</div>
+                <div class="modal-header-text">
+                    <div class="modal-title">Confirm Upload</div>
+                    <div class="modal-sub">Please review before submitting</div>
+                </div>
+            </div>
+
+            <div class="modal-body">
+                <div class="modal-detail-row">
+                    <span class="modal-detail-label">Week Window</span>
+                    <span class="modal-detail-value" id="modal-week">—</span>
+                </div>
+                <div class="modal-detail-row">
+                    <span class="modal-detail-label">Notice Send Date</span>
+                    <span class="modal-detail-value" id="modal-send">—</span>
+                </div>
+                <div class="modal-detail-row">
+                    <span class="modal-detail-label">File Selected</span>
+                    <span class="modal-detail-value" id="modal-file">—</span>
+                </div>
+
+                <div class="modal-warning">
+                    <span>⚠</span>
+                    <span>Uploading will process the extract and assign records to valuers. This action cannot be undone.</span>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+                <button type="button" class="btn btn-gold" onclick="submitForm()">
+                    <span>✓</span> Confirm & Upload
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openModal() {
+            const weekSel = document.getElementById('WeekWindowId');
+            const fileSel = document.getElementById('File');
+
+            // Basic client-side guard
+            if (!weekSel.value) { alert('Please select a week window.'); return; }
+            if (!fileSel.files || fileSel.files.length === 0) { alert('Please select a file to upload.'); return; }
+
+            const opt = weekSel.selectedOptions[0];
+            document.getElementById('modal-week').textContent =
+                (opt.dataset.start || '—') + ' (Mon) → ' + (opt.dataset.end || '—') + ' (Sun)';
+            document.getElementById('modal-send').textContent = opt.dataset.send || '—';
+            document.getElementById('modal-file').textContent = fileSel.files[0].name;
+
+            document.getElementById('modal-backdrop').classList.add('open');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-backdrop').classList.remove('open');
+        }
+
+        function closeOnBackdrop(e) {
+            if (e.target === document.getElementById('modal-backdrop')) closeModal();
+        }
+
+        function submitForm() {
+            document.getElementById('upload-form').submit();
+        }
+
+        function updateFileName(input) {
+            // Nothing needed — native file input shows name already
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') closeModal();
+        });
+    </script>
+</body>
+</html>

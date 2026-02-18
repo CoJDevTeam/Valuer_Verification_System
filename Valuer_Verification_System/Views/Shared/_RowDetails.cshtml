@@ -1,0 +1,130 @@
+﻿@model Valuer_Verification_System.Models.ViewModels.ValuerRowDetailsVm
+@using Valuer_Verification_System.Models.Data
+
+<div>
+    <div class="mb-2">
+        <div class="text-muted small">Batch</div>
+        <div><strong>@Model.BatchName</strong> | @Model.BatchDate.ToString("yyyy-MM-dd")</div>
+        <div class="small text-muted">
+            Week: @Model.WeekStart.ToString("yyyy-MM-dd") → @Model.WeekEnd.ToString("yyyy-MM-dd")
+            | Send: @Model.NoticeSendDate.ToString("yyyy-MM-dd")
+        </div>
+    </div>
+
+    <hr />
+
+    <div class="mb-2">
+        <div class="text-muted small">Valuation Key</div>
+        <div class="fs-5"><strong>@Model.ValuationKey</strong></div>
+    </div>
+
+    <div class="mb-2">
+        <div class="text-muted small">Sector</div>
+        <div>@Model.Sector</div>
+    </div>
+
+    <div class="mb-2">
+        <div class="text-muted small">Property Description</div>
+        <div>@Model.PropertyDescription</div>
+    </div>
+
+    <div class="row g-2 mb-2">
+        <div class="col-6">
+            <div class="text-muted small">Market Value</div>
+            <div>@(Model.MarketValue.HasValue? Model.MarketValue.Value.ToString("N2") : "")</div>
+        </div>
+        <div class="col-6">
+            <div class="text-muted small">Category</div>
+            <div>@Model.Category</div>
+        </div>
+    </div>
+
+    <div class="row g-2 mb-2">
+        <div class="col-6">
+            <div class="text-muted small">Property Type</div>
+            <div>@Model.PropertyType</div>
+        </div>
+        <div class="col-6">
+            <div class="text-muted small">Valuer (from extract)</div>
+            <div>@Model.ValuerFromExtract</div>
+        </div>
+    </div>
+
+    <hr />
+
+    <div class="mb-2">
+        <div class="text-muted small">Assigned To</div>
+        <div><strong>@Model.AssignedToValuer</strong></div>
+    </div>
+
+    <div class="mb-2">
+        <div class="text-muted small">Decision</div>
+        <div>
+            @if (Model.Decision == VerificationDecision.Pending)
+            {
+                <span class="badge bg-warning text-dark">Pending</span>
+            }
+            else if (Model.Decision == VerificationDecision.Yes)
+            {
+                <span class="badge bg-success">Yes</span>
+            }
+            else
+            {
+                <span class="badge bg-danger">No</span>
+            }
+
+            @if (Model.DecisionAtUtc != null)
+            {
+                <span class="small text-muted ms-2">(@Model.DecisionAtUtc.Value.ToString("yyyy-MM-dd HH:mm") UTC)</span>
+            }
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.DecisionComment))
+        {
+            <div class="mt-2">
+                <div class="text-muted small">Comment</div>
+                <div class="border rounded p-2">@Model.DecisionComment</div>
+            </div>
+        }
+    </div>
+
+    <hr />
+
+    <h6>Reassignment History</h6>
+
+    @if (Model.AssignmentHistory.Count == 0)
+    {
+        <div class="text-muted">No reassignment history.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Changed By</th>
+                        <th>When (UTC)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var h in Model.AssignmentHistory)
+                    {
+                        <tr>
+                            <td>@h.FromValuer</td>
+                            <td>@h.ToValuer</td>
+                            <td>@h.ChangedBy</td>
+                            <td>@h.ChangedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="small text-muted">
+                                <strong>Reason:</strong> @h.Reason
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

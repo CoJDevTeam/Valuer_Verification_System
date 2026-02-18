@@ -1,0 +1,73 @@
+﻿@model Valuer_Verification_System.Models.ViewModels.WeekWindowCreateVm
+@{
+    ViewData["Title"] = "Create Week Window";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create Week Window</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="~/css/weekwindow/createcss.css" rel="stylesheet" />
+   
+</head>
+<body>
+    <div class="dash-wrapper">
+
+        <!-- HEADER -->
+        <header class="page-header">
+            <div class="page-eyebrow">Valuer Verification System</div>
+            <h1 class="page-title">Create Week <span>Window</span></h1>
+        </header>
+
+        <!-- BREADCRUMB -->
+        <nav class="breadcrumb">
+            <a href="/Manager/Dashboard">Dashboard</a>
+            <span class="breadcrumb-sep">›</span>
+            <a href="/WeekWindows">Week Windows</a>
+            <span class="breadcrumb-sep">›</span>
+            <span>Create</span>
+        </nav>
+
+        <!-- FORM CARD -->
+        <div class="form-card">
+            <div class="form-card-header">
+                <div class="grid-lines"></div>
+                <div class="form-card-icon">🗓</div>
+                <div class="form-card-heading">New Week Window</div>
+                <div class="form-card-sub">Select any date — the system will snap it to the correct Monday–Sunday range</div>
+            </div>
+
+            <div class="form-card-body">
+                <div class="info-banner">
+                    <span class="info-banner-icon">💡</span>
+                    <span>The system automatically snaps your chosen date to the Monday of that week and calculates the Sunday end date plus the Notice Send Date.</span>
+                </div>
+
+                <form method="post">
+                    @Html.AntiForgeryToken()
+
+                    <div class="form-group">
+                        <label class="form-label" for="SelectedDate">Select any date in the week</label>
+                        <input class="form-control" type="date" asp-for="SelectedDate" id="SelectedDate" />
+                        <div class="form-hint">
+                            <span class="form-hint-icon">→</span>
+                            <span>The week will automatically be calculated from Monday to Sunday based on this date.</span>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-gold">
+                            <span>✦</span> Create / Get Week Window
+                        </button>
+                        <a class="btn btn-ghost" href="/WeekWindows">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>

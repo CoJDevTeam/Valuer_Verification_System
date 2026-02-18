@@ -1,0 +1,177 @@
+﻿@model Valuer_Verification_System.Models.ViewModels.ValuerDashboardVm
+@{
+    ViewData["Title"] = "Valuer Dashboard";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Valuer Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/css/jquery.dataTables.min.css" />
+   
+    <link href="~/css/valuer/dashboardcss.css" rel="stylesheet" />
+</head>
+<body>
+    <div class="dash-wrapper">
+
+        <!-- HEADER -->
+        <header class="page-header">
+            <div>
+                <div class="page-eyebrow">Valuer Verification System</div>
+                <h1 class="page-title">Valuer <span>Dashboard</span></h1>
+                <div class="page-valuer">Logged in as <strong>@Model.ValuerName</strong></div>
+            </div>
+            <a class="btn btn-gold" href="/Valuer/Inbox">
+                <span>📥</span> Go to Inbox
+            </a>
+        </header>
+
+        <!-- KPI CARDS -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-card-bg"></div>
+                <div class="kpi-icon">📋</div>
+                <div class="kpi-label">Total Assigned</div>
+                <div class="kpi-value">@Model.TotalAssigned</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-card-bg"></div>
+                <div class="kpi-icon">⏳</div>
+                <div class="kpi-label">Pending</div>
+                <div class="kpi-value kpi-pending">@Model.Pending</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-card-bg"></div>
+                <div class="kpi-icon">✅</div>
+                <div class="kpi-label">Verified Yes</div>
+                <div class="kpi-value kpi-yes">@Model.Yes</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-card-bg"></div>
+                <div class="kpi-icon">❌</div>
+                <div class="kpi-label">Verified No</div>
+                <div class="kpi-value kpi-no">@Model.No</div>
+            </div>
+        </div>
+
+        <!-- PROGRESS CARD -->
+        <div class="progress-card">
+            <div class="grid-lines"></div>
+            <div class="progress-inner">
+                <div>
+                    <div class="progress-label">Overall Progress</div>
+                    <div class="progress-pct">@Model.ProgressPercent<span>%</span></div>
+                </div>
+                <div class="progress-bar-wrap">
+                    <div class="progress-bar-track">
+                        <div class="progress-bar-fill" style="width:@Model.ProgressPercent%"></div>
+                    </div>
+                    <div class="progress-today">
+                        Today: <strong>@Model.VerifiedToday</strong> verified
+                        &nbsp;·&nbsp; Yes: <strong>@Model.YesToday</strong>
+                        &nbsp;·&nbsp; No: <strong>@Model.NoToday</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MY BATCHES DATATABLE -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title-wrap">
+                    <div class="panel-dot"></div>
+                    <div class="panel-title">My Batches</div>
+                </div>
+                <div class="panel-sub">Click a batch row to open your Inbox filtered to that batch</div>
+            </div>
+
+            <table id="batchTable" class="dataTable" style="width:100%">
+                <thead>
+                    <tr>
+                        <th>Batch</th>
+                        <th>Batch Date</th>
+                        <th>Week</th>
+                        <th>Send Date</th>
+                        <th>Total</th>
+                        <th>Pending</th>
+                        <th>Yes</th>
+                        <th>No</th>
+                        <th>Progress</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var b in Model.MyBatches)
+                    {
+                        <tr>
+                            <td>
+                                <div class="batch-name">@b.BatchName</div>
+                            </td>
+                            <td>
+                                <div class="batch-date">@b.BatchDate.ToString("yyyy-MM-dd")</div>
+                            </td>
+                            <td>
+                                <span class="week-range">
+                                    @b.WeekStart.ToString("yyyy-MM-dd")
+                                    <span class="week-arrow">→</span>
+                                    @b.WeekEnd.ToString("yyyy-MM-dd")
+                                </span>
+                            </td>
+                            <td>@b.NoticeSendDate.ToString("yyyy-MM-dd")</td>
+                            <td><span class="num-chip chip-total">@b.Total</span></td>
+                            <td><span class="num-chip chip-pending">@b.Pending</span></td>
+                            <td><span class="num-chip chip-yes">@b.Yes</span></td>
+                            <td><span class="num-chip chip-no">@b.No</span></td>
+                            <td>
+                                <div class="mini-bar-wrap">
+                                    <div class="mini-bar-fill" style="width:@b.ProgressPercent"></div>
+                                </div>
+                                <span class="pct-txt">@b.ProgressPercent</span>
+                            </td>
+                            <td>
+                                <a class="btn btn-sm btn-inbox"
+                                   href="/Valuer/Inbox?batchId=@b.BatchId&filter=Pending">
+                                    Open Inbox
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                    @if (Model.MyBatches.Count == 0)
+                    {
+                        <tr><td colspan="10" style="text-align:center; padding:32px; color:var(--grey-400);">No assigned batches found for this valuer yet.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- jQuery + DataTables -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/js/jquery.dataTables.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            $('#batchTable').DataTable({
+                pageLength: 10,
+                lengthMenu: [5, 10, 25, 50],
+                order: [[1, 'desc']],
+                language: {
+                    search: '',
+                    searchPlaceholder: 'Search batches…',
+                    lengthMenu: 'Show _MENU_ entries',
+                    info: 'Showing _START_–_END_ of _TOTAL_ batches',
+                    infoEmpty: 'No batches found',
+                    paginate: { previous: '‹', next: '›' }
+                },
+                columnDefs: [
+                    { orderable: false, targets: [9] }   // action column not sortable
+                ]
+            });
+        });
+    </script>
+</body>
+</html>

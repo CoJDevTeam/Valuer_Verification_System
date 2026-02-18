@@ -1,0 +1,103 @@
+﻿@model Valuer_Verification_System.Models.ViewModels.WeekWindowDetailsVm
+@{
+    ViewData["Title"] = "Week Window Details";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Week Window Details</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="~/css/weekwindow/detailscss.css" rel="stylesheet" />
+</head>
+<body>
+    <div class="dash-wrapper">
+
+        <!-- HEADER -->
+        <header class="page-header">
+            <div class="page-eyebrow">Valuer Verification System</div>
+            <h1 class="page-title">Week <span>Window</span></h1>
+        </header>
+
+        <!-- BREADCRUMB -->
+        <nav class="breadcrumb">
+            <a href="/Manager/Dashboard">Dashboard</a>
+            <span class="breadcrumb-sep">›</span>
+            <a href="/WeekWindows">Week Windows</a>
+            <span class="breadcrumb-sep">›</span>
+            <span>Details</span>
+        </nav>
+
+        <!-- DETAIL CARD -->
+        <div class="detail-card">
+            <div class="detail-card-header">
+                <div class="grid-lines"></div>
+                <div class="detail-icon">🗓</div>
+                <div class="detail-header-text">
+                    <div class="detail-header-label">Week Window Record</div>
+                    <div class="detail-header-title">
+                        @Model.WeekStart.ToString("yyyy-MM-dd") &rarr; @Model.WeekEnd.ToString("yyyy-MM-dd")
+                    </div>
+                </div>
+                @{
+                    var pillClass = Model.Status == "Open" ? "pill-open" : Model.Status == "Sent" ? "pill-sent" : "pill-default";
+                }
+                <span class="status-pill @pillClass">@Model.Status</span>
+            </div>
+
+            <div class="detail-body">
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <div class="detail-item-label">Week Range</div>
+                        <div class="detail-item-value">
+                            @Model.WeekStart.ToString("yyyy-MM-dd")
+                            <span class="arrow">→</span>
+                            @Model.WeekEnd.ToString("yyyy-MM-dd")
+                        </div>
+                        <div class="detail-item-sub">Monday → Sunday</div>
+                    </div>
+
+                    <div class="detail-item">
+                        <div class="detail-item-label">Notice Send Date</div>
+                        <div class="detail-item-value">@Model.NoticeSendDate.ToString("yyyy-MM-dd")</div>
+                        <div class="detail-item-sub">Scheduled send date</div>
+                    </div>
+
+                    <div class="detail-item detail-item-status">
+                        <div class="detail-item-label">Current Status</div>
+                        @{
+                            var statusClass = Model.Status == "Open" ? "status-open" : Model.Status == "Sent" ? "status-sent" : "status-default";
+                        }
+                        <span class="status-display @statusClass">@Model.Status</span>
+                    </div>
+                </div>
+
+                <div class="detail-divider"></div>
+
+                <div class="detail-actions">
+                    <a class="btn btn-gold" href="/Upload?weekWindowId=@Model.Id">
+                        <span>↑</span> Go to Upload Extract
+                    </a>
+                    <a class="btn btn-ghost" href="/WeekWindows">
+                        ← Back to Week Windows
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- SENT WARNING -->
+        @if (Model.Status == "Sent")
+        {
+            <div class="alert-warning">
+                <span class="alert-icon">⚠</span>
+                <div class="alert-text">
+                    This week window is already marked as <strong>Sent</strong>. You can still upload late extracts if needed.
+                </div>
+            </div>
+        }
+
+    </div>
+</body>
+</html>

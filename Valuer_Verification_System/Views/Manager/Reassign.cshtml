@@ -1,0 +1,430 @@
+﻿@model Valuer_Verification_System.Models.ViewModels.ReassignVm
+@{
+    ViewData["Title"] = "Manager Reassignment";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manager Reassignment</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+
+
+    <link href="~/css/manager/rearrangevaluercss.css" rel="stylesheet" />
+</head>
+<body>
+
+    <!-- ══════════ HEADER ══════════ -->
+    <header class="dash-header">
+        <div class="brand">
+            <div class="brand-icon"><i class="bi bi-bar-chart-fill"></i></div>
+            <span class="brand-name">Valuer <span>Verification</span></span>
+        </div>
+        <div class="header-right">
+            <a class="back-link" href="/Manager/Dashboard?batchId=@Model.BatchId">
+                <i class="bi bi-arrow-left-circle"></i> Dashboard
+            </a>
+            <span class="header-badge"><i class="bi bi-arrow-left-right me-1"></i>Reassignment</span>
+        </div>
+    </header>
+
+    <!-- ══════════ TOASTS ══════════ -->
+    @if (TempData["Success"] != null)
+    {
+        <div class="toast-alert" id="toastSuccess">
+            <div class="custom-toast success d-flex align-items-center justify-content-between">
+                <span><i class="bi bi-check-circle-fill me-2"></i>@TempData["Success"]</span>
+                <button class="btn-close btn-close-white btn-sm ms-3" onclick="document.getElementById('toastSuccess').remove()"></button>
+            </div>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="toast-alert" id="toastError">
+            <div class="custom-toast error d-flex align-items-center justify-content-between">
+                <span><i class="bi bi-exclamation-circle-fill me-2"></i>@TempData["Error"]</span>
+                <button class="btn-close btn-close-white btn-sm ms-3" onclick="document.getElementById('toastError').remove()"></button>
+            </div>
+        </div>
+    }
+
+    <!-- ══════════ MAIN ══════════ -->
+    <main class="dash-body">
+
+        <!-- Page Title -->
+        <div class="d-flex align-items-start justify-content-between mb-4 flex-wrap gap-2">
+            <div>
+                <h1 class="page-title">Manager <span>Reassignment</span></h1>
+                <p class="page-subtitle">Reassign pending-only records between valuers</p>
+            </div>
+            <button class="btn-gold"
+                    data-bs-toggle="modal"
+                    data-bs-target="#bulkModal">
+                <i class="bi bi-people-fill"></i> Bulk Reassign
+            </button>
+        </div>
+
+        <!-- ── FILTER CARD ──────────────────────────────── -->
+        <div class="filter-card fade-up">
+            <form method="get" action="/Manager/Reassign">
+                <div class="filter-row">
+
+                    <div class="filter-group">
+                        <span class="filter-label">Batch</span>
+                        <select class="form-select-gold" name="batchId" style="min-width:280px;">
+                            @foreach (var b in Model.Batches)
+                            {
+                                if (b.Id == Model.BatchId)
+                                {
+                                    <option value="@b.Id" selected>@b.BatchName | @b.BatchDate.ToString("yyyy-MM-dd")</option>
+                                }
+                                else
+                                {
+                                    <option value="@b.Id">@b.BatchName | @b.BatchDate.ToString("yyyy-MM-dd")</option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <span class="filter-label">Valuer</span>
+                        <select class="form-select-gold" name="currentValuer" style="min-width:200px;">
+                            <option value="">All valuers</option>
+                            @foreach (var v in Model.Valuers)
+                            {
+                                if (string.Equals(v, Model.CurrentValuer, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <option value="@v" selected>@v</option>
+                                }
+                                else
+                                {
+                                    <option value="@v">@v</option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <span class="filter-label">Sector</span>
+                        <select class="form-select-gold" name="sector" style="min-width:180px;">
+                            <option value="">All sectors</option>
+                            @foreach (var s in Model.Sectors)
+                            {
+                                if (string.Equals(s, Model.Sector, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <option value="@s" selected>@s</option>
+                                }
+                                else
+                                {
+                                    <option value="@s">@s</option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <span class="filter-label">Top Records</span>
+                        <input class="form-input-gold" type="number" name="top"
+                               value="@Model.Top" min="50" max="2000"
+                               style="width:100px;" />
+                    </div>
+
+                    <div class="filter-group" style="justify-content:flex-end;">
+                        <button class="btn-dark" type="submit">
+                            <i class="bi bi-funnel-fill"></i> Apply Filters
+                        </button>
+                    </div>
+
+                </div>
+            </form>
+        </div>
+
+        <!-- ── STATS STRIP ──────────────────────────────── -->
+        <div class="stats-strip fade-up">
+            <div class="stat-chip accent">
+                <span class="stat-chip-label">Showing</span>
+                <span class="stat-chip-value">@Model.Rows.Count()</span>
+            </div>
+            <div class="stat-chip">
+                <span class="stat-chip-label">Valuers</span>
+                <span class="stat-chip-value">@Model.Valuers.Count()</span>
+            </div>
+            <div class="stat-chip">
+                <span class="stat-chip-label">Sectors</span>
+                <span class="stat-chip-value">@Model.Sectors.Count()</span>
+            </div>
+            @if (!string.IsNullOrEmpty(Model.CurrentValuer))
+            {
+                <div class="stat-chip" style="border-color:var(--gold);background:var(--gold-pale);">
+                    <span class="stat-chip-label">Filtered Valuer</span>
+                    <span class="stat-chip-value" style="font-size:0.95rem;color:var(--gold-dark);">@Model.CurrentValuer</span>
+                </div>
+            }
+            @if (!string.IsNullOrEmpty(Model.Sector))
+            {
+                <div class="stat-chip" style="border-color:var(--gold);background:var(--gold-pale);">
+                    <span class="stat-chip-label">Filtered Sector</span>
+                    <span class="stat-chip-value" style="font-size:0.95rem;color:var(--gold-dark);">@Model.Sector</span>
+                </div>
+            }
+        </div>
+
+        <!-- ── PENDING TABLE ────────────────────────────── -->
+        <div class="table-section fade-up">
+            <div class="table-section-header">
+                <div class="table-section-title">
+                    <span class="title-accent"></span>
+                    Pending Records
+                </div>
+                <span style="font-size:0.72rem;color:var(--grey-3);">
+                    <i class="bi bi-info-circle me-1"></i>Only unverified (Pending) records are shown
+                </span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Sector</th>
+                            <th>Valuation Key</th>
+                            <th>Description</th>
+                            <th>Current Valuer</th>
+                            <th style="width:130px;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Model.Rows)
+                        {
+                            <tr>
+                                <td><span class="sector-badge">@r.Sector</span></td>
+                                <td><span class="vkey-badge">@r.ValuationKey</span></td>
+                                <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="@r.PropertyDescription">
+                                    @r.PropertyDescription
+                                </td>
+                                <td>
+                                    <div class="valuer-cell">
+                                        <div class="valuer-avatar">
+                                            @(r.CurrentValuer?.Length >= 2 ? r.CurrentValuer.Substring(0, 2).ToUpper() : "?")
+                                        </div>
+                                        <span>@r.CurrentValuer</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <button class="btn-icon-sm"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#reassignModal"
+                                            data-rowid="@r.ExtractRowId"
+                                            data-from="@r.CurrentValuer"
+                                            data-vkey="@r.ValuationKey"
+                                            data-sector="@r.Sector">
+                                        <i class="bi bi-arrow-left-right"></i> Reassign
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ══════════ SINGLE REASSIGN MODAL ══════════ -->
+    <div class="modal fade" id="reassignModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form method="post" action="/Manager/Reassign">
+                    @Html.AntiForgeryToken()
+
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-arrow-left-right me-2" style="color:var(--gold);"></i>
+                            Reassign <span class="gold-text">Pending Record</span>
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <input type="hidden" name="BatchId" value="@Model.BatchId" />
+                        <input type="hidden" id="mExtractRowId" name="ExtractRowId" />
+                        <input type="hidden" id="mFromValuer" name="FromValuer" />
+                        <input type="hidden" name="CurrentValuer" value="@Model.CurrentValuer" />
+                        <input type="hidden" name="Sector" value="@Model.Sector" />
+                        <input type="hidden" name="Top" value="@Model.Top" />
+
+                        <!-- Valuation Key Info -->
+                        <div class="info-row">
+                            <i class="bi bi-key-fill"></i>
+                            <div>
+                                <span style="font-size:0.72rem;color:var(--grey-3);text-transform:uppercase;letter-spacing:0.08em;">Valuation Key</span><br />
+                                <strong id="mVKey" style="font-size:0.95rem;color:var(--black);"></strong>
+                            </div>
+                            <div class="ms-auto">
+                                <span id="mSectorBadge" class="sector-badge"></span>
+                            </div>
+                        </div>
+
+                        <!-- Transfer arrow display -->
+                        <div class="transfer-display">
+                            <i class="bi bi-person-fill transfer-from"></i>
+                            <span class="transfer-from" id="mFromDisplay">—</span>
+                            <i class="bi bi-arrow-right transfer-arrow"></i>
+                            <i class="bi bi-person-fill" style="color:var(--success);"></i>
+                            <span class="transfer-to">Select below</span>
+                        </div>
+
+                        <!-- New Valuer -->
+                        <div class="mb-3">
+                            <div class="modal-label">New Valuer</div>
+                            <select class="modal-select" name="ToValuer" required>
+                                <option value="">— Select new valuer —</option>
+                                @foreach (var v in Model.Valuers)
+                                {
+                                    <option value="@v">@v</option>
+                                }
+                            </select>
+                        </div>
+
+                        <!-- Reason -->
+                        <div class="mb-1">
+                            <div class="modal-label">Reason for Reassignment</div>
+                            <textarea class="modal-textarea" name="Reason" required
+                                      placeholder="Provide a clear reason for this reassignment…"></textarea>
+                            <div class="audit-note"><i class="bi bi-shield-lock"></i> Required for audit trail</div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn-outline-gold" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn-gold">
+                            <i class="bi bi-check-circle-fill"></i> Confirm Reassign
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════ BULK REASSIGN MODAL ══════════ -->
+    <div class="modal fade" id="bulkModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form method="post" action="/Manager/Reassign/Bulk">
+                    @Html.AntiForgeryToken()
+
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-people-fill me-2" style="color:var(--gold);"></i>
+                            Bulk <span class="gold-text">Reassign</span>
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <input type="hidden" name="BatchId" value="@Model.BatchId" />
+                        <input type="hidden" name="CurrentValuer" value="@Model.CurrentValuer" />
+                        <input type="hidden" name="Sector" value="@Model.Sector" />
+                        <input type="hidden" name="Top" value="@Model.Top" />
+
+                        <div class="modal-icon-wrap bulk">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                        </div>
+
+                        <div class="bulk-warning">
+                            <i class="bi bi-info-circle-fill"></i>
+                            <div>
+                                This will move <strong>all Pending records</strong> in the current batch from one valuer to another.
+                                <br />Records already verified (Yes / No) will be <strong>skipped</strong>.
+                            </div>
+                        </div>
+
+                        <!-- From Valuer -->
+                        <div class="mb-3">
+                            <div class="modal-label">From Valuer</div>
+                            <select class="modal-select" name="FromValuer" required>
+                                <option value="">— Select source valuer —</option>
+                                @foreach (var v in Model.Valuers)
+                                {
+                                    <option value="@v">@v</option>
+                                }
+                            </select>
+                        </div>
+
+                        <!-- To Valuer -->
+                        <div class="mb-3">
+                            <div class="modal-label">To Valuer</div>
+                            <select class="modal-select" name="ToValuer" required>
+                                <option value="">— Select destination valuer —</option>
+                                @foreach (var v in Model.Valuers)
+                                {
+                                    <option value="@v">@v</option>
+                                }
+                            </select>
+                        </div>
+
+                        <!-- Reason -->
+                        <div class="mb-1">
+                            <div class="modal-label">Reason for Bulk Reassignment</div>
+                            <textarea class="modal-textarea" name="Reason" required
+                                      placeholder="Provide a clear reason for this bulk reassignment…"></textarea>
+                            <div class="audit-note"><i class="bi bi-shield-lock"></i> Required for audit trail</div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn-outline-gold" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn-gold">
+                            <i class="bi bi-people-fill"></i> Confirm Bulk Reassign
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+
+            // ── Single Reassign modal: populate fields on open
+            var reassignModal = document.getElementById('reassignModal');
+            if (reassignModal) {
+                reassignModal.addEventListener('show.bs.modal', function (event) {
+                    var btn     = event.relatedTarget;
+                    var rowId   = btn.getAttribute('data-rowid');
+                    var from    = btn.getAttribute('data-from');
+                    var vkey    = btn.getAttribute('data-vkey');
+                    var sector  = btn.getAttribute('data-sector');
+
+                    document.getElementById('mExtractRowId').value  = rowId;
+                    document.getElementById('mFromValuer').value    = from;
+                    document.getElementById('mVKey').textContent    = vkey;
+                    document.getElementById('mFromDisplay').textContent = from;
+
+                    var sectorBadge = document.getElementById('mSectorBadge');
+                    if (sectorBadge) sectorBadge.textContent = sector || '';
+                });
+            }
+
+            // ── Live "From → To" preview in bulk modal
+            var bulkFrom = document.querySelector('#bulkModal select[name="FromValuer"]');
+            var bulkTo   = document.querySelector('#bulkModal select[name="ToValuer"]');
+
+            // ── Auto-dismiss toasts
+            function autoDismiss(id, delay) {
+                setTimeout(function () {
+                    var el = document.getElementById(id);
+                    if (el) { el.style.transition = 'opacity 0.4s'; el.style.opacity = '0'; setTimeout(() => el && el.remove(), 400); }
+                }, delay);
+            }
+            autoDismiss('toastSuccess', 5000);
+            autoDismiss('toastError',   7000);
+        });
+    </script>
+
+</body>
+</html>

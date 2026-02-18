@@ -1,0 +1,180 @@
+﻿@model Valuer_Verification_System.Models.ViewModels.UploadReviewVm
+@{
+    ViewData["Title"] = "Upload Review";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Upload Review</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="~/css/upload/reviewcss.css" rel="stylesheet" />
+</head>
+<body>
+    <div class="dash-wrapper">
+
+        <!-- HEADER -->
+        <header class="page-header">
+            <div class="page-eyebrow">Valuer Verification System</div>
+            <h1 class="page-title">Upload <span>Review</span></h1>
+        </header>
+
+        <!-- SUCCESS -->
+        @if (TempData["Success"] != null)
+        {
+            <div class="alert-success">
+                <span class="alert-icon">✓</span>
+                <span>@TempData["Success"]</span>
+            </div>
+        }
+
+        <!-- HERO BANNER -->
+        <div class="review-hero">
+            <div class="grid-lines"></div>
+            <div class="hero-icon">📋</div>
+            <div class="hero-text">
+                <div class="hero-label">Batch Record</div>
+                <div class="hero-title">@Model.BatchName</div>
+                <div class="hero-sub">Uploaded @Model.BatchDate.ToString("yyyy-MM-dd")</div>
+            </div>
+            @if (Model.ManagersNotified)
+            {
+                <span class="hero-badge badge-notified">Managers Notified</span>
+            }
+            else
+            {
+                <span class="hero-badge badge-unnotified">Pending Notification</span>
+            }
+        </div>
+
+        <!-- MAIN INFO GRID -->
+        <div class="main-grid">
+
+            <!-- WEEK WINDOW PANEL -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-dot"></div>
+                    <div class="panel-title">Week Window</div>
+                </div>
+                <div class="panel-body">
+                    <div class="detail-row">
+                        <span class="detail-key">Week</span>
+                        <span class="detail-val">
+                            @Model.WeekStart.ToString("yyyy-MM-dd")
+                            <span style="color:var(--gold)">→</span>
+                            @Model.WeekEnd.ToString("yyyy-MM-dd")
+                            <span class="muted">Monday → Sunday</span>
+                        </span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-key">Notice Send Date</span>
+                        <span class="detail-val">@Model.NoticeSendDate.ToString("yyyy-MM-dd")</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- UPLOAD SUMMARY PANEL -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-dot"></div>
+                    <div class="panel-title">Upload Summary</div>
+                </div>
+                <div class="panel-body">
+                    <div class="stat-strip">
+                        <div class="stat-card">
+                            <div class="stat-card-label">Total Records</div>
+                            <div class="stat-card-value">@Model.TotalRecords</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-label">Assigned to Valuers</div>
+                            <div class="stat-card-value">@Model.AssignedRecords</div>
+                        </div>
+                    </div>
+
+                    <div class="detail-row" style="margin-top:14px; padding-top:14px; border-top: 1px solid var(--grey-100);">
+                        <span class="detail-key">Managers Notified</span>
+                        <span class="detail-val">
+                            @if (Model.ManagersNotified)
+                            {
+                                <span class="notified-yes">Yes</span>
+                                if (Model.ManagersNotifiedAtUtc != null)
+                                {
+                                    <span class="muted">@Model.ManagersNotifiedAtUtc.Value.ToString("yyyy-MM-dd HH:mm") UTC</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="notified-no">Not Yet</span>
+                            }
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- BREAKDOWN GRID -->
+        <div class="breakdown-grid">
+
+            <!-- SECTOR BREAKDOWN -->
+            <div class="panel" style="animation: fadeUp .45s .18s ease both;">
+                <div class="panel-header">
+                    <div class="panel-dot"></div>
+                    <div class="panel-title">Sector Breakdown</div>
+                </div>
+                <div class="panel-body">
+                    @foreach (var s in Model.SectorCounts)
+                    {
+                        <div class="breakdown-item">
+                            <span class="breakdown-item-key">@s.Key</span>
+                            <span class="breakdown-item-val">@s.Value</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- VALUER BREAKDOWN -->
+            <div class="panel" style="animation: fadeUp .45s .22s ease both;">
+                <div class="panel-header">
+                    <div class="panel-dot"></div>
+                    <div class="panel-title">Valuer Breakdown <span style="font-size:11px; color:var(--grey-400); font-weight:400">(top 20)</span></div>
+                </div>
+                <div class="panel-body">
+                    @foreach (var v in Model.ValuerCounts.Take(20))
+                    {
+                        <div class="breakdown-item">
+                            <span class="breakdown-item-key">@v.Key</span>
+                            <span class="breakdown-item-val">@v.Value</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ACTION BAR -->
+        <div class="action-bar">
+            <a class="btn btn-ghost" href="/Upload">← Back to Upload</a>
+
+            @if (!Model.ManagersNotified)
+            {
+                <form method="post" action="/Upload/Review/@Model.BatchId/Notify" style="margin:0;">
+                    @Html.AntiForgeryToken()
+                    <button class="btn btn-gold" type="submit">
+                        <span>✉</span> Confirm &amp; Send Manager Emails
+                    </button>
+                </form>
+            }
+            else
+            {
+                <button class="btn btn-disabled" disabled>
+                    <span>✓</span> Managers Already Notified
+                </button>
+            }
+        </div>
+
+    </div>
+</body>
+</html>

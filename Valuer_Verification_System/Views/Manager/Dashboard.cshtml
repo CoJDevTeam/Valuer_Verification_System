@@ -1,0 +1,391 @@
+﻿@model Valuer_Verification_System.Models.ViewModels.ManagerDashboardVm
+@using Valuer_Verification_System.Models.SLA
+@{
+    ViewData["Title"] = "Manager Dashboard";
+}
+
+@functions {
+    string BadgeClass(SlaStatus s) => s switch
+    {
+        SlaStatus.Completed => "sla-completed",
+        SlaStatus.OnTrack => "sla-ontrack",
+        SlaStatus.AtRisk => "sla-atrisk",
+        SlaStatus.Overdue => "sla-overdue",
+        _ => "sla-default"
+    };
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manager Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+
+    <link href="~/css/manager/managerdashboardcss.css" rel="stylesheet" />
+  
+</head>
+<body>
+
+    <!-- ══════════════════ HEADER ══════════════════ -->
+    <header class="dash-header">
+        <div class="brand">
+            <div class="brand-icon"><i class="bi bi-bar-chart-fill"></i></div>
+            <span class="brand-name">Valuer <span>Verification</span></span>
+        </div>
+        <div class="header-right">
+            <span class="header-badge"><i class="bi bi-shield-check me-1"></i>Manager Portal</span>
+        </div>
+    </header>
+
+    <!-- ══════════════════ TOAST ALERTS ══════════════════ -->
+    @if (TempData["Success"] != null)
+    {
+        <div class="toast-alert" id="toastSuccess">
+            <div class="custom-toast success d-flex align-items-center justify-content-between">
+                <span><i class="bi bi-check-circle-fill me-2"></i>@TempData["Success"]</span>
+                <button class="btn-close btn-close-white btn-sm ms-3" onclick="document.getElementById('toastSuccess').remove()"></button>
+            </div>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="toast-alert" id="toastError">
+            <div class="custom-toast error d-flex align-items-center justify-content-between">
+                <span><i class="bi bi-exclamation-circle-fill me-2"></i>@TempData["Error"]</span>
+                <button class="btn-close btn-close-white btn-sm ms-3" onclick="document.getElementById('toastError').remove()"></button>
+            </div>
+        </div>
+    }
+
+    <!-- ══════════════════ MAIN CONTENT ══════════════════ -->
+    <main class="dash-body">
+
+        <!-- Page Title -->
+        <div class="d-flex align-items-center justify-content-between mb-4">
+            <div>
+                <h1 class="page-title">Manager <span>Dashboard</span></h1>
+                <p class="page-subtitle">Batch overview, SLA tracking, and notice management</p>
+            </div>
+        </div>
+
+        <!-- ── BATCH SELECTOR ──────────────────────────── -->
+        <div class="selector-card fade-up">
+            <form method="get" action="/Manager/Dashboard" class="d-flex flex-wrap gap-3 align-items-end">
+                <div>
+                    <div class="selector-label">Select Batch</div>
+                    <select class="form-select-gold" name="batchId">
+                        @foreach (var b in Model.Batches)
+                        {
+                            if (b.Id == Model.BatchId)
+                            {
+                                <option value="@b.Id" selected>@b.BatchName &nbsp;|&nbsp; @b.BatchDate.ToString("yyyy-MM-dd")</option>
+                            }
+                            else
+                            {
+                                <option value="@b.Id">@b.BatchName &nbsp;|&nbsp; @b.BatchDate.ToString("yyyy-MM-dd")</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <button class="btn-gold" type="submit">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Load Batch
+                </button>
+                @if (Model.BatchId > 0)
+                {
+                    <a class="btn-outline-gold" href="/Manager/Reassign?batchId=@Model.BatchId">
+                        <i class="bi bi-arrow-left-right me-1"></i> Reassign Pending
+                    </a>
+                }
+            </form>
+        </div>
+
+        @if (Model.BatchId == 0)
+        {
+            <!-- EMPTY STATE -->
+            <div class="table-section fade-up">
+                <div class="empty-state">
+                    <div class="empty-icon"><i class="bi bi-inbox"></i></div>
+                    <div class="empty-title">No Batches Found</div>
+                    <div class="empty-text">Upload an extract to get started with batch verification.</div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <!-- ── BATCH INFO STRIP ──────────────────────────── -->
+            <div class="batch-info-strip fade-up">
+                <div class="info-item"><strong>Batch:</strong> @Model.BatchName</div>
+                <div class="info-item"><strong>Batch Date:</strong> @Model.BatchDate.ToString("yyyy-MM-dd")</div>
+                <div class="info-item"><strong>Week:</strong> @Model.WeekStart.ToString("yyyy-MM-dd") → @Model.WeekEnd.ToString("yyyy-MM-dd")</div>
+                <div class="info-item"><strong>Notice Send Date:</strong> @Model.NoticeSendDate.ToString("yyyy-MM-dd")</div>
+            </div>
+
+            <!-- ── KPI CARDS ──────────────────────────────────── -->
+            <div class="kpi-grid">
+                <div class="kpi-card kpi-accent fade-up">
+                    <div class="kpi-label">Total Records</div>
+                    <div class="kpi-value">@Model.Total</div>
+                    <i class="bi bi-database kpi-icon"></i>
+                </div>
+                <div class="kpi-card fade-up">
+                    <div class="kpi-label">Pending</div>
+                    <div class="kpi-value" style="color:@(Model.Pending > 0 ? "var(--danger)" : "var(--success)");">@Model.Pending</div>
+                    <i class="bi bi-hourglass-split kpi-icon"></i>
+                </div>
+                <div class="kpi-card fade-up">
+                    <div class="kpi-label">Verified — Yes</div>
+                    <div class="kpi-value" style="color:var(--success);">@Model.Yes</div>
+                    <i class="bi bi-check-circle kpi-icon"></i>
+                </div>
+                <div class="kpi-card fade-up">
+                    <div class="kpi-label">Verified — No</div>
+                    <div class="kpi-value">@Model.No</div>
+                    <i class="bi bi-x-circle kpi-icon"></i>
+                </div>
+            </div>
+
+            <!-- ── PROGRESS & SLA CARD ─────────────────────────── -->
+            <div class="progress-section fade-up">
+                <div class="progress-header">
+                    <div class="progress-title"><i class="bi bi-speedometer2 me-2" style="color:var(--gold);"></i>Progress & SLA Status</div>
+                    <div class="progress-meta">
+                        <div class="percent-badge">@Model.ProgressPercent<span>%</span></div>
+                        <span class="sla-pill @BadgeClass(Model.SlaStatus)">
+                            @if (Model.SlaStatus == SlaStatus.Completed || Model.SlaStatus == SlaStatus.OnTrack)
+                            {
+                                <i class="bi bi-check-circle-fill"></i>
+                            }
+                            else if (Model.SlaStatus == SlaStatus.AtRisk)
+                            {
+
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                            }
+                            else if (Model.SlaStatus == SlaStatus.Overdue)
+                            {
+
+                                <i class="bi bi-clock-fill"></i>
+                            }
+                            @Model.SlaStatus
+                        </span>
+                        <span style="font-size:0.78rem;color:var(--grey-3);">@Model.SlaLabel</span>
+                    </div>
+                </div>
+
+                <div class="prog-bar-track">
+                    <div class="prog-bar-fill" style="width: @Model.ProgressPercent%;"></div>
+                </div>
+
+                <div class="notification-row mt-2">
+                    <div class="notif-dot @(Model.ManagersNotified ? "sent" : "")"></div>
+                    <span>
+                        Managers Notified: <strong>@(Model.ManagersNotified ? "Yes" : "No")</strong>
+                        @if (Model.ManagersNotifiedAtUtc != null)
+                        {
+                            <span class="ms-1" style="color:var(--grey-3);">(@Model.ManagersNotifiedAtUtc.Value.ToString("yyyy-MM-dd HH:mm") UTC)</span>
+                        }
+                    </span>
+                </div>
+
+                <!-- Stats Buttons -->
+                <div class="stats-row">
+                    <a class="btn-outline-gold" href="/Manager/Stats/Generate?batchId=@Model.BatchId">
+                        <i class="bi bi-bar-chart-line me-1"></i> Generate Stats
+                    </a>
+                    <a class="btn-gold" href="/Manager/Stats/Download?batchId=@Model.BatchId">
+                        <i class="bi bi-download me-1"></i> Download Stats
+                    </a>
+                </div>
+
+                <!-- ── LOCK/UNLOCK PANEL ─────────────────────── -->
+                @if (Model.Pending > 0)
+                {
+                    <div class="action-panel locked">
+                        <div class="action-panel-text">
+                            <i class="bi bi-lock-fill lock-icon"></i>
+                            Pending records must be <strong>0</strong> before notices can be generated or sent.
+                            <strong>(@Model.Pending pending remaining)</strong>
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button class="btn-disabled-gold" disabled>
+                                <i class="bi bi-file-earmark-text me-1"></i>Generate Notices
+                            </button>
+                            <button class="btn-disabled-gold" disabled>
+                                <i class="bi bi-send me-1"></i>Send Notices
+                            </button>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="action-panel unlocked">
+                        <div class="action-panel-text">
+                            <i class="bi bi-check-circle-fill check-icon"></i>
+                            All records verified. This batch is <strong>ready</strong> for the Notice step.
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <a class="btn-dark-sm" href="/Notices/Generate?batchId=@Model.BatchId">
+                                <i class="bi bi-file-earmark-text"></i>Generate Notices
+                            </a>
+                            <a class="btn-gold" href="#" onclick="openSendModal(event, @Model.BatchId)">
+                                <i class="bi bi-send me-1"></i>Send Notices
+                            </a>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- ── BREAKDOWN TABLES ────────────────────────────── -->
+            <div class="row g-3 mt-1">
+
+                <!-- BY VALUER -->
+                <div class="col-lg-6 fade-up">
+                    <div class="table-section">
+                        <div class="table-section-header">
+                            <div class="table-section-title">
+                                <span class="title-accent"></span>
+                                By Valuer
+                            </div>
+                            <span style="font-size:0.72rem;color:var(--grey-3);">Ordered by Pending</span>
+                        </div>
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>Valuer</th>
+                                    <th>Total</th>
+                                    <th>Pending</th>
+                                    <th>Yes</th>
+                                    <th>No</th>
+                                    <th>Progress</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var v in Model.ByValuer)
+                                {
+                                    <tr>
+                                        <td><strong>@v.Valuer</strong></td>
+                                        <td>@v.Total</td>
+                                        <td class="pending-cell @(v.Pending > 0 ? "has-pending" : "")">@v.Pending</td>
+                                        <td style="color:var(--success);font-weight:600;">@v.Yes</td>
+                                        <td>@v.No</td>
+                                        <td>
+                                            <span class="prog-mini">
+                                                <span class="prog-mini-fill" style="width:@v.ProgressPercent%;"></span>
+                                            </span>
+                                            @v.ProgressPercent%
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- BY SECTOR -->
+                <div class="col-lg-6 fade-up">
+                    <div class="table-section">
+                        <div class="table-section-header">
+                            <div class="table-section-title">
+                                <span class="title-accent"></span>
+                                By Sector
+                            </div>
+                            <span style="font-size:0.72rem;color:var(--grey-3);">Ordered by Pending</span>
+                        </div>
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>Sector</th>
+                                    <th>Total</th>
+                                    <th>Pending</th>
+                                    <th>Yes</th>
+                                    <th>No</th>
+                                    <th>Progress</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var s in Model.BySector)
+                                {
+                                    <tr>
+                                        <td><strong>@s.Sector</strong></td>
+                                        <td>@s.Total</td>
+                                        <td class="pending-cell @(s.Pending > 0 ? "has-pending" : "")">@s.Pending</td>
+                                        <td style="color:var(--success);font-weight:600;">@s.Yes</td>
+                                        <td>@s.No</td>
+                                        <td>
+                                            <span class="prog-mini">
+                                                <span class="prog-mini-fill" style="width:@s.ProgressPercent%;"></span>
+                                            </span>
+                                            @s.ProgressPercent%
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        }
+    </main>
+
+    <!-- ══════════════════ SEND NOTICES MODAL ══════════════════ -->
+    <div class="modal fade" id="sendNoticesModal" tabindex="-1" aria-labelledby="sendNoticesModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="sendNoticesModalLabel">
+                        <i class="bi bi-send-fill me-2" style="color:var(--gold);"></i>
+                        Confirm <span class="gold-text">Send Notices</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <div class="modal-icon-wrap">
+                        <i class="bi bi-envelope-check-fill"></i>
+                    </div>
+                    <p class="modal-desc">
+                        You are about to <strong>send notices</strong> to all verified valuers in this batch.<br />
+                        This action cannot be undone. Please confirm to proceed.
+                    </p>
+                </div>
+                <div class="modal-footer justify-content-center gap-2">
+                    <button type="button" class="btn-outline-gold" data-bs-dismiss="modal">Cancel</button>
+                    <a id="sendNoticesLink" href="#" class="btn-gold">
+                        <i class="bi bi-send me-1"></i>Yes, Send Notices
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════ SCRIPTS ══════════════════ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // ── Open send-notices confirmation modal
+        function openSendModal(e, batchId) {
+            e.preventDefault();
+            document.getElementById('sendNoticesLink').href = '/Notices/Send?batchId=' + batchId;
+            var modal = new bootstrap.Modal(document.getElementById('sendNoticesModal'));
+            modal.show();
+        }
+
+        // ── Auto-dismiss toasts after 5 seconds
+        setTimeout(function () {
+            var t = document.getElementById('toastSuccess');
+            if (t) t.style.transition = 'opacity 0.4s'; t && (t.style.opacity = '0');
+            setTimeout(function () { t && t.remove(); }, 400);
+        }, 5000);
+
+        setTimeout(function () {
+            var t = document.getElementById('toastError');
+            if (t) t.style.transition = 'opacity 0.4s'; t && (t.style.opacity = '0');
+            setTimeout(function () { t && t.remove(); }, 400);
+        }, 6000);
+    </script>
+
+</body>
+</html>

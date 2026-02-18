@@ -1,0 +1,359 @@
+﻿@model Valuer_Verification_System.Models.ViewModels.ValuerInboxVm
+@using Valuer_Verification_System.Models.Data
+@{
+    ViewData["Title"] = "Valuer Inbox";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Valuer Inbox</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/css/jquery.dataTables.min.css" />
+    <link href="~/css/valuer/inboxcss.css" rel="stylesheet" />
+</head>
+<body>
+    <div class="dash-wrapper">
+
+        <!-- HEADER -->
+        <header class="page-header">
+            <div>
+                <div class="page-eyebrow">Valuer Verification System</div>
+                <h1 class="page-title">Valuer <span>Inbox</span></h1>
+                <div class="page-valuer">Logged in as <strong>@Model.ValuerName</strong></div>
+            </div>
+            <a class="btn btn-gold" href="/Valuer/Dashboard">← Dashboard</a>
+        </header>
+
+        <!-- FLASH ALERTS -->
+        @if (TempData["Success"] != null)
+        {
+            <div class="alert alert-success"><span class="alert-icon">✓</span><div class="alert-body">@TempData["Success"]</div></div>
+        }
+        @if (TempData["Error"] != null)
+        {
+            <div class="alert alert-danger"><span class="alert-icon">✕</span><div class="alert-body">@TempData["Error"]</div></div>
+        }
+
+        <!-- UNREAD NOTIFICATIONS BANNER -->
+        @if (Model.UnreadNotifications > 0)
+        {
+            <div class="alert alert-warning">
+                <span class="alert-icon">🔔</span>
+                <div class="alert-body">
+                    <strong>Notifications:</strong> You have <strong>@Model.UnreadNotifications</strong> unread notification(s).
+                </div>
+                <form method="post" action="/Valuer/Notifications/MarkAllRead" style="margin:0; flex-shrink:0;">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="batchId" value="@Model.BatchId" />
+                    <input type="hidden" name="filter" value="@Model.Filter" />
+                    <button class="btn btn-sm btn-mark-read" type="submit">Mark all read</button>
+                </form>
+            </div>
+        }
+
+        <!-- NOTIFICATIONS LIST -->
+        @if (Model.Notifications != null && Model.Notifications.Count > 0)
+        {
+            <div class="notif-card">
+                <div class="notif-header">
+                    <div class="notif-title-wrap">
+                        <div class="notif-dot"></div>
+                        <div class="notif-title">Latest Notifications</div>
+                    </div>
+                    <form method="post" action="/Valuer/Notifications/MarkAllRead" style="margin:0;">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="batchId" value="@Model.BatchId" />
+                        <input type="hidden" name="filter" value="@Model.Filter" />
+                        <button class="btn btn-sm btn-mark-read" type="submit">Mark all read</button>
+                    </form>
+                </div>
+
+                @foreach (var n in Model.Notifications)
+                {
+                    <div class="notif-item">
+                        <div class="notif-item-left">
+                            <div class="notif-item-top">
+                                <span class="notif-item-name">@n.Title</span>
+                                @if (!n.IsRead)
+                                {
+                                    <span class="notif-badge-new">New</span>
+                                }
+                                <span class="notif-time">@n.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</span>
+                            </div>
+                            <div class="notif-msg">@n.Message</div>
+                            @if (!string.IsNullOrWhiteSpace(n.ActionUrl))
+                            {
+                                <a href="@n.ActionUrl" class="notif-action-link">Open →</a>
+                            }
+                        </div>
+                        <div>
+                            <form method="post" action="/Valuer/Notifications/MarkRead" style="margin:0;">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@n.Id" />
+                                <input type="hidden" name="batchId" value="@Model.BatchId" />
+                                <input type="hidden" name="filter" value="@Model.Filter" />
+                                @if (!n.IsRead)
+                                {
+                                    <button class="btn btn-sm btn-mark-read" type="submit">Mark read</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-ghost" type="button" disabled style="opacity:.45; cursor:default;">Read</button>
+                                }
+                            </form>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- FILTER + STATS CARD -->
+        <div class="filter-card">
+            <div class="stat-chips">
+                <span class="stat-chip stat-chip-total">Total: @Model.Total</span>
+                <span class="stat-chip stat-chip-pending">Pending: @Model.Pending</span>
+                <span class="stat-chip stat-chip-yes">Yes: @Model.Yes</span>
+                <span class="stat-chip stat-chip-no">No: @Model.No</span>
+            </div>
+            <form method="get" action="/Valuer/Inbox" class="filter-row">
+                <select class="form-select select-batch" name="batchId">
+                    <option value="">All batches</option>
+                    @foreach (var b in Model.Batches)
+                    {
+                        var sel = (Model.BatchId.HasValue && Model.BatchId.Value == b.Id) ? "selected" : "";
+                        <option value="@b.Id" selected="@sel">
+                            @b.BatchName | @b.BatchDate.ToString("yyyy-MM-dd") | @b.WeekStart.ToString("yyyy-MM-dd") → @b.WeekEnd.ToString("yyyy-MM-dd") | Send: @b.NoticeSendDate.ToString("yyyy-MM-dd")
+                        </option>
+                    }
+                </select>
+                <select class="form-select select-filter" name="filter">
+                    <option value="Pending" selected="@(Model.Filter == "Pending")">Pending</option>
+                    <option value="Yes" selected="@(Model.Filter == "Yes")">Yes</option>
+                    <option value="No" selected="@(Model.Filter == "No")">No</option>
+                    <option value="All" selected="@(Model.Filter == "All")">All</option>
+                </select>
+                <button class="btn btn-gold" type="submit">Apply</button>
+            </form>
+        </div>
+
+        <!-- INBOX DATATABLE -->
+        <div class="panel">
+            <table id="inboxTable" class="dataTable" style="width:100%">
+                <thead>
+                    <tr>
+                        <th>Sector</th>
+                        <th>Valuation Key</th>
+                        <th>Description</th>
+                        <th>Market Value</th>
+                        <th>Category</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th style="width:210px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in Model.Rows)
+                    {
+                        <tr>
+                            <td>@r.Sector</td>
+                            <td><span class="vkey">@r.ValuationKey</span></td>
+                            <td><span class="prop-desc">@r.PropertyDescription</span></td>
+                            <td>@(r.MarketValue.HasValue? r.MarketValue.Value.ToString("N2") : "—")</td>
+                            <td>@r.Category</td>
+                            <td>@r.PropertyType</td>
+                            <td>
+                                @if (r.Decision == VerificationDecision.Pending)
+                                {
+                                    <span class="decision-badge d-pending">Pending</span>
+                                }
+                                else if (r.Decision == VerificationDecision.Yes)
+                                {
+                                    <span class="decision-badge d-yes">Yes</span>
+                                }
+                                else
+                                {
+                                    <span class="decision-badge d-no">No</span>
+                                    @if (!string.IsNullOrWhiteSpace(r.DecisionComment))
+                                    {
+                                        <div class="d-no-comment">@r.DecisionComment</div>
+                                    }
+                                }
+                            </td>
+                            <td>
+                                <div class="action-btns">
+                                    <!-- VIEW -->
+                                    <button type="button"
+                                            class="btn btn-sm btn-view open-canvas"
+                                            data-rowid="@r.ExtractRowId">
+                                        View
+                                    </button>
+
+                                    <!-- YES -->
+                                    <form method="post" action="/Valuer/Verify" style="margin:0; display:inline;">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="ExtractRowId" value="@r.ExtractRowId" />
+                                        <input type="hidden" name="Decision" value="Yes" />
+                                        <input type="hidden" name="BatchId" value="@Model.BatchId" />
+                                        <input type="hidden" name="Filter" value="@Model.Filter" />
+                                        <button class="btn btn-sm btn-yes" type="submit">✓ Yes</button>
+                                    </form>
+
+                                    <!-- NO -->
+                                    <button type="button"
+                                            class="btn btn-sm btn-no open-no-modal"
+                                            data-rowid="@r.ExtractRowId"
+                                            data-vkey="@r.ValuationKey"
+                                            data-comment="@r.DecisionComment">
+                                        ✕ No
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (Model.Rows == null || Model.Rows.Count == 0)
+                    {
+                        <tr><td colspan="8" style="text-align:center; padding:32px; color:var(--grey-400);">No records found for the selected filters.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- ══════════════ DETAILS OFFCANVAS ══════════════ -->
+    <div class="offcanvas-backdrop" id="canvasBackdrop" onclick="closeCanvas()"></div>
+    <div class="offcanvas" id="detailsCanvas">
+        <div class="offcanvas-header">
+            <div class="offcanvas-title-wrap">
+                <div class="offcanvas-icon">🏠</div>
+                <div class="offcanvas-title">Record Details</div>
+            </div>
+            <button class="offcanvas-close" onclick="closeCanvas()">✕</button>
+        </div>
+        <div class="offcanvas-body" id="detailsBody">
+            <div style="color:var(--grey-400); font-size:13px;">Select a record to view details…</div>
+        </div>
+    </div>
+
+    <!-- ══════════════ NO MODAL ══════════════ -->
+    <div class="modal-backdrop-el" id="noModalBackdrop" onclick="closeNoModal(event)">
+        <div class="modal-box">
+            <form method="post" action="/Valuer/Verify">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="noExtractRowId" name="ExtractRowId" />
+                <input type="hidden" name="Decision" value="No" />
+                <input type="hidden" name="BatchId" value="@Model.BatchId" />
+                <input type="hidden" name="Filter" value="@Model.Filter" />
+
+                <div class="modal-header-no">
+                    <div class="modal-header-icon-no">✕</div>
+                    <div class="modal-header-text-no">
+                        <div class="modal-title-no">Mark as No</div>
+                        <div class="modal-sub-no">A comment is required</div>
+                    </div>
+                    <span class="modal-vkey-display" id="noVkeyDisplay">—</span>
+                </div>
+
+                <div class="modal-body-no">
+                    <div class="modal-info-box">
+                        <div class="modal-info-label">Valuation Key</div>
+                        <div class="modal-info-val" id="noValuationKey">—</div>
+                    </div>
+
+                    <div>
+                        <label class="form-label">Comment <span style="color:var(--danger)">*</span></label>
+                        <textarea class="form-textarea" id="noComment" name="Comment" rows="4" required></textarea>
+                        <div class="form-hint">Explain why this record is incorrect (required).</div>
+                    </div>
+                </div>
+
+                <div class="modal-footer-no">
+                    <button type="button" class="btn btn-ghost" onclick="closeNoModal()">Cancel</button>
+                    <button class="btn btn-submit-no" type="submit">Save No Decision</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- jQuery + DataTables -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/js/jquery.dataTables.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            $('#inboxTable').DataTable({
+                pageLength: 25,
+                lengthMenu: [10, 25, 50, 100],
+                order: [[1, 'asc']],
+                language: {
+                    search: '',
+                    searchPlaceholder: 'Search records…',
+                    lengthMenu: 'Show _MENU_',
+                    info: '_START_–_END_ of _TOTAL_ records',
+                    infoEmpty: 'No records',
+                    paginate: { previous: '‹', next: '›' }
+                },
+                columnDefs: [{ orderable: false, targets: [7] }]
+            });
+        });
+
+        // ── OFFCANVAS ──
+        function openCanvas() {
+            document.getElementById('detailsCanvas').classList.add('open');
+            document.getElementById('canvasBackdrop').classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeCanvas() {
+            document.getElementById('detailsCanvas').classList.remove('open');
+            document.getElementById('canvasBackdrop').classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        document.querySelectorAll('.open-canvas').forEach(btn => {
+            btn.addEventListener('click', async function () {
+                const rowId = this.getAttribute('data-rowid');
+                const body = document.getElementById('detailsBody');
+                body.innerHTML = '<div style="color:var(--grey-400); font-size:13px;">Loading…</div>';
+                openCanvas();
+                try {
+                    const resp = await fetch(`/Valuer/RowDetails?extractRowId=${encodeURIComponent(rowId)}`, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    body.innerHTML = resp.ok ? await resp.text()
+                        : '<div style="color:var(--danger);">Failed to load details.</div>';
+                } catch {
+                    body.innerHTML = '<div style="color:var(--danger);">Failed to load details.</div>';
+                }
+            });
+        });
+
+        // ── NO MODAL ──
+        function openNoModal() {
+            document.getElementById('noModalBackdrop').classList.add('open');
+            document.body.style.overflow = 'hidden';
+            setTimeout(() => document.getElementById('noComment').focus(), 200);
+        }
+        function closeNoModal(e) {
+            if (!e || e.target === document.getElementById('noModalBackdrop')) {
+                document.getElementById('noModalBackdrop').classList.remove('open');
+                document.body.style.overflow = '';
+            }
+        }
+
+        document.querySelectorAll('.open-no-modal').forEach(btn => {
+            btn.addEventListener('click', function () {
+                document.getElementById('noExtractRowId').value = this.getAttribute('data-rowid');
+                const vkey = this.getAttribute('data-vkey');
+                document.getElementById('noValuationKey').textContent = vkey;
+                document.getElementById('noVkeyDisplay').textContent = vkey;
+                document.getElementById('noComment').value = this.getAttribute('data-comment') || '';
+                openNoModal();
+            });
+        });
+
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeCanvas(); closeNoModal(); } });
+    </script>
+</body>
+</html>

@@ -1,0 +1,221 @@
+﻿@model Valuer_Verification_System.Models.ViewModels.DataTeamDashboardVm
+@using Valuer_Verification_System.Models.SLA
+@{
+    ViewData["Title"] = "Data Team Dashboard";
+}
+@functions {
+    string BadgeClass(SlaStatus s) => s switch
+    {
+        SlaStatus.Completed => "sla-completed",
+        SlaStatus.OnTrack => "sla-ontrack",
+        SlaStatus.AtRisk => "sla-atrisk",
+        SlaStatus.Overdue => "sla-overdue",
+        _ => "sla-default"
+    };
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Team Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    
+    <link href="~/css/home/indexcss.css" rel="stylesheet" />
+</head>
+<body>
+
+    <div class="dash-wrapper">
+
+        <!-- ─── PAGE HEADER ─────────────────────────────── -->
+        <header class="page-header">
+            <div class="page-header-left">
+                <div class="page-eyebrow">Valuer Verification System</div>
+                <h1 class="page-title">Data Team <span>Dashboard</span></h1>
+                <div class="page-timestamp" id="live-time"></div>
+            </div>
+        </header>
+
+        <!-- ─── NEXT ACTION HERO ─────────────────────────── -->
+        <div class="action-hero">
+            <div class="action-icon">⚡</div>
+            <div class="action-text">
+                <div class="action-label">Next Action Required</div>
+                <div class="action-title">@Model.NextActionTitle</div>
+                <div class="action-hint">@Model.NextActionHint</div>
+            </div>
+            <div class="action-buttons">
+                <a class="btn btn-gold" href="@Model.NextActionUrl">
+                    <span>▶</span> @Model.NextActionButton
+                </a>
+                <a class="btn btn-outline-white" href="/WeekWindows/Create" title="Start a new week window for a new extract">
+                    <span>＋</span> Start New Weekly Process
+                </a>
+                <a class="btn btn-outline-white" href="/WeekWindows">
+                    Week Windows
+                </a>
+            </div>
+        </div>
+
+        <!-- ─── KPI STAT CARDS ───────────────────────────── -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">🗓</div>
+                <div class="stat-label">Active Week Windows (Latest)</div>
+                <div class="stat-value">@Model.ActiveWeekWindows</div>
+                <div class="stat-sub">Currently active windows</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📦</div>
+                <div class="stat-label">Batches Created — Last 30 Days</div>
+                <div class="stat-value">@Model.TotalBatchesLast30</div>
+                <div class="stat-sub">Recent batch activity</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🔍</div>
+                <div class="stat-label">Batches In Verification</div>
+                <div class="stat-value">@Model.BatchesInVerification</div>
+                <div class="stat-sub">Currently under review</div>
+            </div>
+        </div>
+
+        <!-- ─── MAIN CONTENT PANELS ──────────────────────── -->
+        <div class="content-grid">
+
+            <!-- WEEK WINDOWS PANEL -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title-wrap">
+                        <div class="panel-dot"></div>
+                        <div class="panel-title">Latest Week Windows</div>
+                    </div>
+                    <span class="panel-count">@Model.WeekWindows.Count entries</span>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Week Period</th>
+                                <th>Send Date</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var w in Model.WeekWindows)
+                            {
+                                <tr>
+                                    <td>
+                                        <span class="week-range">
+                                            @w.WeekStart.ToString("yyyy-MM-dd")
+                                            <span class="week-arrow">→</span>
+                                            @w.WeekEnd.ToString("yyyy-MM-dd")
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="date-chip">@w.NoticeSendDate.ToString("yyyy-MM-dd")</span>
+                                    </td>
+                                    <td>
+                                        <span class="status-badge badge-week">@w.Status</span>
+                                    </td>
+                                    <td>
+                                        <div class="action-cell">
+                                            <a class="btn btn-sm btn-primary-sm" href="/WeekWindows/Details/@w.Id">Details</a>
+                                            <a class="btn btn-sm btn-secondary-sm" href="/ExtractUpload?weekWindowId=@w.Id">Upload</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                            @if (Model.WeekWindows.Count == 0)
+                            {
+                                <tr class="empty-row"><td colspan="4">No week windows yet.</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- RECENT BATCHES PANEL -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title-wrap">
+                        <div class="panel-dot"></div>
+                        <div class="panel-title">Recent Batches</div>
+                    </div>
+                    <span class="panel-count">@Model.RecentBatches.Count entries</span>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Batch</th>
+                                <th>Week</th>
+                                <th>Total</th>
+                                <th>Pending</th>
+                                <th>SLA</th>
+                                <th>Progress</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var b in Model.RecentBatches)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="batch-name">@b.BatchName</div>
+                                        <div class="batch-date">@b.BatchDate.ToString("yyyy-MM-dd")</div>
+                                    </td>
+                                    <td style="font-size:11.5px; white-space:nowrap;">
+                                        @b.WeekStart.ToString("MM-dd") <span class="week-arrow">→</span> @b.WeekEnd.ToString("MM-dd")
+                                    </td>
+                                    <td><span class="total-txt">@b.Total</span></td>
+                                    <td><span class="pending-pill">@b.Pending</span></td>
+                                    <td>
+                                        <span class="sla-badge @BadgeClass(b.SlaStatus)" title="@b.SlaLabel">@b.SlaStatus</span>
+                                        <div class="sla-label">@b.SlaLabel</div>
+                                    </td>
+                                    <td>
+                                        <div class="progress-bar-wrap">
+                                            <div class="progress-bar-fill" style="width:@b.ProgressPercent"></div>
+                                        </div>
+                                        <span class="pct-text">@b.ProgressPercent</span>
+                                    </td>
+                                    <td>
+                                        <div class="action-cell">
+                                            <a class="btn btn-sm btn-manager" href="/Manager/Dashboard?batchId=@b.Id">Manager</a>
+                                            <a class="btn btn-sm btn-stats" href="/Manager/Stats/Download?batchId=@b.Id">Stats</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                            @if (Model.RecentBatches.Count == 0)
+                            {
+                                <tr class="empty-row"><td colspan="7">No batches yet.</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div><!-- /content-grid -->
+    </div><!-- /dash-wrapper -->
+
+    <script>
+        /* Live clock */
+        (function () {
+            const el = document.getElementById('live-time');
+            if (!el) return;
+            const fmt = () => {
+                const d = new Date();
+                el.textContent = d.toLocaleDateString('en-ZA', {
+                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+                }) + ' · ' + d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+            };
+            fmt(); setInterval(fmt, 30000);
+        })();
+    </script>
+
+</body>
+</html>
