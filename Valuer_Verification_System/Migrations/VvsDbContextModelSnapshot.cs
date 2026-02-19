@@ -201,6 +201,9 @@ namespace Valuer_Verification_System.Migrations
                         .HasMaxLength(1024)
                         .HasColumnType("nvarchar(1024)");
 
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("FromAddress")
                         .IsRequired()
                         .HasMaxLength(320)
@@ -305,6 +308,12 @@ namespace Valuer_Verification_System.Migrations
                     b.Property<int>("BatchId")
                         .HasColumnType("int");
 
+                    b.Property<string>("CatCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CatDesc")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Category")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -314,8 +323,7 @@ namespace Valuer_Verification_System.Migrations
 
                     b.Property<string>("CreatedBy")
                         .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("Decision")
                         .HasColumnType("int");
@@ -330,6 +338,9 @@ namespace Valuer_Verification_System.Migrations
                     b.Property<DateOnly?>("ExtractionDate")
                         .HasColumnType("date");
 
+                    b.Property<string>("LegalArea")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<decimal?>("MarketValue")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -338,29 +349,94 @@ namespace Valuer_Verification_System.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
+                    b.Property<string>("PropertyId")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("PropertyType")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<decimal?>("RateableArea")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("RightDescription")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RightsPremise")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("RightsPremiseSize")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("RightsStatus")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Sector")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("SendNotice")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SgId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("StandNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("StatusCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("StatusSubtype")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TownNameDesc")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UnitKey")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UnitNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UnitRightsKey")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UnitType")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("UpdatedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateOnly?>("ValuationDate")
+                        .HasColumnType("date");
 
                     b.Property<string>("ValuationKey")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<string>("ValuationRollKey")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ValuationSplitInd")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ValuationSplitNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ValuationType")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Valuer")
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateOnly?>("WefDate")
+                        .HasColumnType("date");
 
                     b.HasKey("Id");
 
@@ -429,6 +505,50 @@ namespace Valuer_Verification_System.Migrations
                     b.HasIndex("Audience", "TargetKey", "IsRead", "CreatedAtUtc");
 
                     b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("Valuer_Verification_System.Models.Data.SectorManager", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("nvarchar(320)");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Sector")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SectorManagers");
                 });
 
             modelBuilder.Entity("Valuer_Verification_System.Models.Data.StatsFile", b =>

@@ -35,6 +35,8 @@ namespace Valuer_Verification_System.Models.ViewModels
         // History
         public List<AssignmentHistoryVm> AssignmentHistory { get; set; } = new();
 
+
+
         public sealed class AssignmentHistoryVm
         {
             public string FromValuer { get; set; } = "";

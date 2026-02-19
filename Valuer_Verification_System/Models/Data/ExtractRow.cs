@@ -43,6 +43,62 @@ namespace Valuer_Verification_System.Models.Data
         public string? DecisionComment { get; set; }
 
         public Assignment? Assignment { get; set; } // 1:1
+
+        public int Id { get; set; }
+
+ 
+
+        // =========================
+        // ✅ Excel columns (match file)
+        // =========================
+                      // EXTRACTION_DATE
+        public string? TownNameDesc { get; set; }                      // TOWN_NAME_DESC
+        public string? PropertyId { get; set; }                        // PROPERTY_ID
+        public string? SgId { get; set; }                              // SG_ID
+        public string? StandNo { get; set; }                           // STAND_NO
+        public string? StatusSubtype { get; set; }                     // STATUS_SUBTYPE
+
+        public string? UnitKey { get; set; }                           // UNIT_KEY
+        public string? UnitType { get; set; }                          // UNIT_TYPE
+        public string? UnitNo { get; set; }                            // UNIT_NO
+        public string? LegalArea { get; set; }                         // LEGAL_AREA
+
+        public string? UnitRightsKey { get; set; }                     // UNIT_RIGHTS_KEY
+        public string? RightsPremise { get; set; }                     // RIGHTS_PREMISE
+        public string? RightDescription { get; set; }                  // RIGHT_DESCRIPTION
+        public decimal? RightsPremiseSize { get; set; }                // RIGHTS_PREMISE_SIZE
+        public string? RightsStatus { get; set; }                      // RIGHTS_STATUS
+
+                  // VALUATION_KEY
+
+        public string? ValuationRollKey { get; set; }                  // VALUATION_ROLL_KEY
+        public string? ValuationType { get; set; }                     // VALUATION_TYPE
+        public DateOnly? ValuationDate { get; set; }                   // VALUATION_DATE
+        public DateOnly? WefDate { get; set; }                         // WEF_DATE
+        public string? StatusCode { get; set; }                        // STATUS_CODE
+
+        public decimal? RateableArea { get; set; }                     // RATEABLE_AREA
+                     // MARKET_VALUE
+
+        public string? ValuationSplitNo { get; set; }                  // VALUATION_SPLIT_NO
+        public string? ValuationSplitInd { get; set; }                 // VALUATION_SPLIT_IND
+
+        public string? CatCode { get; set; }                           // CAT_CODE
+        public string? CatDesc { get; set; }                           // CAT_DESC
+
+                           // SECTOR
+        public string? SendNotice { get; set; }                        // SEND NOTICE?
+     
+        // =========================
+        // ✅ Workflow fields
+        // =========================
+ 
+
+        // Auditing
+        public string CreatedBy { get; set; } = "";
+        public DateTime CreatedAt { get; set; }
+        public string? UpdatedBy { get; set; }
+        public DateTime? UpdatedAt { get; set; }
     }
 
     public sealed class Assignment : EntityBase

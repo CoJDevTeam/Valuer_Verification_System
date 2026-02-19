@@ -18,6 +18,7 @@ namespace Valuer_Verification_System.Data
         public DbSet<EmailArchive> EmailArchives => Set<EmailArchive>();
         public DbSet<StatsFile> StatsFiles => Set<StatsFile>();
         public DbSet<Notification> Notifications => Set<Notification>();
+        public DbSet<SectorManager> SectorManagers => Set<SectorManager>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

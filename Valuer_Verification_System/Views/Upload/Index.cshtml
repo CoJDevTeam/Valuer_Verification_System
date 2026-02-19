@@ -3,198 +3,309 @@
     ViewData["Title"] = "Upload Extract";
 }
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Upload Extract</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link href="~/css/upload/indexcss.css" rel="stylesheet" />
-</head>
-<body>
-    <div class="dash-wrapper">
+<link href="~/css/upload/indexcss1.css" rel="stylesheet" />
 
-        <!-- HEADER -->
-        <header class="page-header">
-            <div class="page-eyebrow">Valuer Verification System</div>
-            <h1 class="page-title">Upload <span>Extract</span></h1>
-        </header>
 
-        <!-- SUCCESS ALERT -->
-        @if (TempData["Success"] != null)
-        {
-            <div class="alert alert-success">
-                <span class="alert-icon">✓</span>
-                <div class="alert-body">@TempData["Success"]</div>
+<!-- PAGE LOADER -->
+<div id="pageLoader">
+    <div class="ld-logo">Val<span>Comp</span></div>
+    <div class="ld-spinner"></div>
+    <div class="ld-bar"><div class="ld-bar-fill"></div></div>
+</div>
+
+<!-- SUBMIT OVERLAY -->
+<div id="submitOverlay">
+    <div class="so-card">
+        <div class="so-icon">📤</div>
+        <div class="so-ring"></div>
+        <div class="so-title">Uploading Extract…</div>
+        <div class="so-sub">Please wait, this may take a moment</div>
+        <div class="so-steps">
+            <div class="so-step active" id="s1"><div class="so-dot">1</div>Uploading file to server</div>
+            <div class="so-step" id="s2"><div class="so-dot">2</div>Parsing Excel rows</div>
+            <div class="so-step" id="s3"><div class="so-dot">3</div>Creating batch &amp; assignments</div>
+            <div class="so-step" id="s4"><div class="so-dot">4</div>Finalising record</div>
+        </div>
+    </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="dash-wrapper">
+
+    <header class="page-header">
+        <div class="page-eyebrow">Valuer Verification System</div>
+        <h1 class="page-title">Upload <span>Extract</span></h1>
+    </header>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">
+            <span class="alert-icon">✓</span>
+            <div class="alert-body">@TempData["Success"]</div>
+        </div>
+    }
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="alert" style="background:#fdeaea;border:1px solid #f5b4b6;border-left:4px solid #c0272d;color:#c0272d;display:flex;align-items:flex-start;gap:12px;padding:13px 18px;border-radius:14px;margin-bottom:20px;">
+            <span style="font-size:16px;flex-shrink:0;">✕</span>
+            <div>
+                @foreach (var err in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <div>@err.ErrorMessage</div>
+                }
             </div>
-        }
+        </div>
+    }
 
-        <!-- SELECTED WEEK INFO BANNER -->
-        @{
-            var selected = Model.WeekWindows.FirstOrDefault(x => x.Id == Model.WeekWindowId);
-        }
-        @if (selected != null)
-        {
-            <div class="alert alert-info">
-                <span class="alert-icon">📅</span>
-                <div class="alert-body">
-                    <strong>Selected Week:</strong>
-                    @selected.WeekStart.ToString("yyyy-MM-dd") (Mon) → @selected.WeekEnd.ToString("yyyy-MM-dd") (Sun)
-                    &nbsp;|&nbsp;
-                    <strong>Send Date:</strong> @selected.NoticeSendDate.ToString("yyyy-MM-dd")
-                </div>
-            </div>
-        }
-
-        <!-- FORM CARD -->
-        <div class="form-card">
-            <div class="form-card-header">
-                <div class="grid-lines"></div>
-                <div class="form-card-icon">📤</div>
-                <div class="form-card-text">
-                    <div class="form-card-heading">Upload Valuer Extract</div>
-                    <div class="form-card-sub">Select a week window and attach your .xls / .xlsx file</div>
-                </div>
-            </div>
-
-            <div class="form-card-body">
-                <form id="upload-form" method="post" enctype="multipart/form-data">
-                    @Html.AntiForgeryToken()
-
-                    <!-- WEEK WINDOW -->
-                    <div class="form-group">
-                        <label class="form-label" for="WeekWindowId">Week Window</label>
-                        <select class="form-select" asp-for="WeekWindowId" id="WeekWindowId" onchange="updateBanner(this)">
-                            <option value="">— Select Week —</option>
-                            @foreach (var w in Model.WeekWindows)
-                            {
-                                <option value="@w.Id"
-                                        data-start="@w.WeekStart.ToString("yyyy-MM-dd")"
-                                        data-end="@w.WeekEnd.ToString("yyyy-MM-dd")"
-                                        data-send="@w.NoticeSendDate.ToString("yyyy-MM-dd")">
-                                    @w.WeekStart.ToString("yyyy-MM-dd") (Mon) → @w.WeekEnd.ToString("yyyy-MM-dd") (Sun) | Send: @w.NoticeSendDate.ToString("yyyy-MM-dd")
-                                </option>
-                            }
-                        </select>
-                    </div>
-
-                    <div class="form-divider"></div>
-
-                    <!-- FILE -->
-                    <div class="form-group">
-                        <label class="form-label" for="File">Extract File (.xls / .xlsx)</label>
-                        <input class="form-control" type="file" asp-for="File" id="File" accept=".xls,.xlsx" onchange="updateFileName(this)" />
-                        <div class="form-hint">
-                            <span class="form-hint-dot"></span>
-                            <span>The file will be saved under <em>Property Verifications\Extracts</em> using the same name.</span>
-                        </div>
-                    </div>
-
-                    <!-- ACTIONS -->
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-gold" onclick="openModal()">
-                            <span>↑</span> Upload Extract
-                        </button>
-                        <a class="btn btn-ghost" href="/WeekWindows">Cancel</a>
-                    </div>
-
-                    <!-- VALIDATION ERRORS -->
-                    @if (!ViewData.ModelState.IsValid)
-                    {
-                        <div class="validation-errors">
-                            <div class="err-title">Please fix the following:</div>
-                            @foreach (var err in ViewData.ModelState.Values.SelectMany(v => v.Errors))
-                            {
-                                <div class="err-item">· @err.ErrorMessage</div>
-                            }
-                        </div>
-                    }
-                </form>
+    <div class="form-card">
+        <div class="form-card-header">
+            <div class="grid-lines"></div>
+            <div class="form-card-icon">📤</div>
+            <div class="form-card-text">
+                <div class="form-card-heading">Upload Valuer Extract</div>
+                <div class="form-card-sub">Select a week window and attach your .xls / .xlsx file</div>
             </div>
         </div>
 
-    </div>
+        <div class="form-card-body">
 
-    <!-- ══════════════════════════════════
-         CONFIRMATION MODAL
-    ══════════════════════════════════ -->
-    <div class="modal-backdrop" id="modal-backdrop" onclick="closeOnBackdrop(event)">
-        <div class="modal">
-            <div class="modal-header">
-                <div class="modal-header-icon">📤</div>
-                <div class="modal-header-text">
-                    <div class="modal-title">Confirm Upload</div>
-                    <div class="modal-sub">Please review before submitting</div>
-                </div>
-            </div>
+            <form id="upload-form"
+                  asp-controller="Upload"
+                  asp-action="Index"
+                  method="post"
+                  enctype="multipart/form-data">
 
-            <div class="modal-body">
-                <div class="modal-detail-row">
-                    <span class="modal-detail-label">Week Window</span>
-                    <span class="modal-detail-value" id="modal-week">—</span>
-                </div>
-                <div class="modal-detail-row">
-                    <span class="modal-detail-label">Notice Send Date</span>
-                    <span class="modal-detail-value" id="modal-send">—</span>
-                </div>
-                <div class="modal-detail-row">
-                    <span class="modal-detail-label">File Selected</span>
-                    <span class="modal-detail-value" id="modal-file">—</span>
+                @Html.AntiForgeryToken()
+
+                <!-- WEEK WINDOW -->
+                <div class="form-group">
+                    <label class="form-label" for="WeekWindowId">Week Window</label>
+                    <select class="form-select" name="WeekWindowId" id="WeekWindowId">
+                        <option value="">— Select Week —</option>
+                        @foreach (var w in Model.WeekWindows)
+                        {
+                            <option value="@w.Id"
+                                    data-start="@w.WeekStart.ToString("yyyy-MM-dd")"
+                                    data-end="@w.WeekEnd.ToString("yyyy-MM-dd")"
+                                    data-send="@w.NoticeSendDate.ToString("yyyy-MM-dd")"
+                                    selected="@(Model.WeekWindowId == w.Id ? "selected" : null)">
+                                @w.WeekStart.ToString("yyyy-MM-dd") (Mon) → @w.WeekEnd.ToString("yyyy-MM-dd") (Sun)
+                                | Send: @w.NoticeSendDate.ToString("yyyy-MM-dd")
+                            </option>
+                        }
+                    </select>
+                    <div id="errWeek" class="field-err" style="display:none;"></div>
                 </div>
 
-                <div class="modal-warning">
-                    <span>⚠</span>
-                    <span>Uploading will process the extract and assign records to valuers. This action cannot be undone.</span>
-                </div>
-            </div>
+                <div class="form-divider"></div>
 
-            <div class="modal-footer">
-                <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-                <button type="button" class="btn btn-gold" onclick="submitForm()">
-                    <span>✓</span> Confirm & Upload
-                </button>
-            </div>
+                <!-- FILE INPUT -->
+                <div class="form-group">
+                    <label class="form-label" for="File">Extract File (.xls / .xlsx)</label>
+                    <input class="form-control" type="file" name="File" id="File" accept=".xls,.xlsx" />
+                    <div class="form-hint">
+                        <span class="form-hint-dot"></span>
+                        <span>The file will be saved under <em>Property Verifications\Extracts</em> using the same name.</span>
+                    </div>
+                    <div id="errFile" class="field-err" style="display:none;"></div>
+                </div>
+
+                <!-- FILE PREVIEW -->
+                <div id="filePreview">
+                    <div class="fp-strip">
+                        <span style="font-size:1.3rem;">📄</span>
+                        <div>
+                            <div class="fp-name" id="fpName"></div>
+                            <div class="fp-size" id="fpSize"></div>
+                        </div>
+                        <button type="button" class="fp-clear" id="btnClearFile" title="Remove file">✕</button>
+                    </div>
+                </div>
+
+                <!-- ACTIONS -->
+                <div class="form-actions">
+                    <button type="button" class="btn btn-gold" id="btnUpload">
+                        <span>↑</span> Upload Extract
+                    </button>
+                    <a class="btn btn-ghost" asp-controller="WeekWindows" asp-action="Index">Cancel</a>
+                </div>
+
+            </form>
         </div>
     </div>
+</div>
 
+<div class="modal-header-text">
+    <div class="modal-title">Confirm Upload</div>
+    <div class="modal-sub">Please review before submitting</div>
+</div>
+</div>
+<div class="modal-body">
+    <div class="modal-detail-row">
+        <span class="modal-detail-label">Week Window</span>
+        <span class="modal-detail-value" id="modal-week">—</span>
+    </div>
+    <div class="modal-detail-row">
+        <span class="modal-detail-label">Notice Send Date</span>
+        <span class="modal-detail-value" id="modal-send">—</span>
+    </div>
+    <div class="modal-detail-row">
+        <span class="modal-detail-label">File Selected</span>
+        <span class="modal-detail-value" id="modal-file">—</span>
+    </div>
+    <div class="modal-warning">
+        <span>⚠</span>
+        <span>Uploading will process the extract and assign records to valuers. This action cannot be undone.</span>
+    </div>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-ghost" id="btnCancelModal">Cancel</button>
+    <button type="button" class="btn btn-gold" id="btnConfirmUpload">
+        <span>✓</span> Confirm &amp; Upload
+    </button>
+</div>
+</div>
+</div>
+
+@section Scripts {
     <script>
-        function openModal() {
-            const weekSel = document.getElementById('WeekWindowId');
-            const fileSel = document.getElementById('File');
+        (function () {
+            /* ----------------------------------------------------------
+               1.  DISMISS PAGE LOADER
+               Use DOMContentLoaded so it fires even if other scripts
+               are still loading.  Also set a hard 1.4 s max fallback.
+            ---------------------------------------------------------- */
+            function dismissLoader() {
+                var el = document.getElementById('pageLoader');
+                if (el) el.classList.add('hidden');
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function () {
+                    setTimeout(dismissLoader, 400);
+                });
+            } else {
+                // DOM already parsed (script ran after it)
+                setTimeout(dismissLoader, 400);
+            }
+            // Hard fallback - never stay stuck
+            setTimeout(dismissLoader, 2000);
 
-            // Basic client-side guard
-            if (!weekSel.value) { alert('Please select a week window.'); return; }
-            if (!fileSel.files || fileSel.files.length === 0) { alert('Please select a file to upload.'); return; }
+            /* ----------------------------------------------------------
+               2.  ELEMENT REFERENCES
+            ---------------------------------------------------------- */
+            var form          = document.getElementById('upload-form');
+            var weekSel       = document.getElementById('WeekWindowId');
+            var fileInput     = document.getElementById('File');
+            var filePreview   = document.getElementById('filePreview');
+            var fpName        = document.getElementById('fpName');
+            var fpSize        = document.getElementById('fpSize');
+            var btnUpload     = document.getElementById('btnUpload');
+            var submitOverlay = document.getElementById('submitOverlay');
+            var errWeek       = document.getElementById('errWeek');
+            var errFile       = document.getElementById('errFile');
 
-            const opt = weekSel.selectedOptions[0];
-            document.getElementById('modal-week').textContent =
-                (opt.dataset.start || '—') + ' (Mon) → ' + (opt.dataset.end || '—') + ' (Sun)';
-            document.getElementById('modal-send').textContent = opt.dataset.send || '—';
-            document.getElementById('modal-file').textContent = fileSel.files[0].name;
+            /* ----------------------------------------------------------
+               3.  FILE PREVIEW
+            ---------------------------------------------------------- */
+            fileInput.addEventListener('change', function () {
+                clearErrors();
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    filePreview.style.display = 'none';
+                    return;
+                }
+                var f = fileInput.files[0];
+                fpName.textContent = f.name;
+                fpSize.textContent = fmtBytes(f.size);
+                filePreview.style.display = 'block';
+            });
 
-            document.getElementById('modal-backdrop').classList.add('open');
-        }
+            document.getElementById('btnClearFile').addEventListener('click', function () {
+                fileInput.value = '';
+                filePreview.style.display = 'none';
+            });
 
-        function closeModal() {
-            document.getElementById('modal-backdrop').classList.remove('open');
-        }
+            function fmtBytes(b) {
+                if (b < 1024) return b + ' B';
+                if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+                return (b / 1048576).toFixed(2) + ' MB';
+            }
 
-        function closeOnBackdrop(e) {
-            if (e.target === document.getElementById('modal-backdrop')) closeModal();
-        }
+            /* ----------------------------------------------------------
+               4.  VALIDATION
+            ---------------------------------------------------------- */
+            function validate() {
+                clearErrors();
+                var ok = true;
 
-        function submitForm() {
-            document.getElementById('upload-form').submit();
-        }
+                if (!weekSel.value) {
+                    showErr(weekSel, errWeek, 'Please select a week window.');
+                    ok = false;
+                }
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    showErr(fileInput, errFile, 'Please select a file to upload.');
+                    ok = false;
+                } else {
+                    var ext = fileInput.files[0].name.split('.').pop().toLowerCase();
+                    if (ext !== 'xls' && ext !== 'xlsx') {
+                        showErr(fileInput, errFile, 'Only .xls or .xlsx files are accepted.');
+                        ok = false;
+                    }
+                }
+                return ok;
+            }
 
-        function updateFileName(input) {
-            // Nothing needed — native file input shows name already
-        }
+            function showErr(inputEl, errEl, msg) {
+                inputEl.style.borderColor = '#c0272d';
+                inputEl.style.boxShadow   = '0 0 0 3px rgba(192,39,45,0.12)';
+                errEl.textContent = '⚠ ' + msg;
+                errEl.style.display = 'block';
+            }
 
-        document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') closeModal();
-        });
+            function clearErrors() {
+                [weekSel, fileInput].forEach(function (el) {
+                    el.style.borderColor = '';
+                    el.style.boxShadow   = '';
+                });
+                errWeek.style.display = 'none';
+                errFile.style.display = 'none';
+            }
+
+            weekSel.addEventListener('change', clearErrors);
+            fileInput.addEventListener('change', clearErrors);
+
+            /* ----------------------------------------------------------
+               5.  UPLOAD BUTTON — validate then submit directly
+            ---------------------------------------------------------- */
+            btnUpload.addEventListener('click', function () {
+                if (!validate()) return;
+
+                // Show upload progress overlay
+                submitOverlay.classList.add('active');
+
+                // Animate the step indicators
+                var stepIds = ['s1', 's2', 's3', 's4'];
+                var delays  = [0, 900, 2200, 3800];
+                stepIds.forEach(function (id, i) {
+                    setTimeout(function () {
+                        if (i > 0) {
+                            var prev = document.getElementById(stepIds[i - 1]);
+                            prev.classList.remove('active');
+                            prev.classList.add('done');
+                            prev.querySelector('.so-dot').textContent = '✓';
+                        }
+                        document.getElementById(id).classList.add('active');
+                    }, delays[i]);
+                });
+
+                // Submit — overlay stays until browser navigates to Review page
+                try {
+                    form.requestSubmit();
+                } catch (e) {
+                    form.submit();
+                }
+            });
+
+        })();
     </script>
-</body>
-</html>
+}

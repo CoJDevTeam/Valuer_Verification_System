@@ -23,6 +23,8 @@ namespace Valuer_Verification_System.Models.Data
 
         public DateTime SentAtUtc { get; set; } = DateTime.UtcNow;
 
+        public string? ErrorMessage { get; set; }
+
         [MaxLength(50)]
         public string? Sector { get; set; } // useful for upload-ready emails per sector
     }

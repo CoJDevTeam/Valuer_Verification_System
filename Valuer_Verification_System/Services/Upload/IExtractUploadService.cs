@@ -2,6 +2,7 @@
 using Valuer_Verification_System.Data;
 using Valuer_Verification_System.Infrastructure.Configuration;
 using Valuer_Verification_System.Infrastructure.Configuration.Email;
+using Valuer_Verification_System.Infrastructure.Configuration.Email.Valuer_Verification_System.Infrastructure.Configuration.Email;
 using Valuer_Verification_System.Infrastructure.Storage;
 using Valuer_Verification_System.Models.Data;
 
@@ -11,7 +12,6 @@ namespace Valuer_Verification_System.Services.Upload
     {
         Task<int> UploadAsync(int weekWindowId, IFormFile file, string uploadedBy, CancellationToken ct);
         Task NotifyManagersAsync(int batchId, string notifiedBy, CancellationToken ct);
-
     }
 
     public sealed class ExtractUploadService : IExtractUploadService
@@ -29,7 +29,7 @@ namespace Valuer_Verification_System.Services.Upload
 
         public async Task<int> UploadAsync(int weekWindowId, IFormFile file, string uploadedBy, CancellationToken ct)
         {
-            if (file == null || file.Length <= 0)
+            if (file is null || file.Length <= 0)
                 throw new ArgumentException("Please select a valid Excel file.");
 
             var week = await _db.WeekWindows.FirstOrDefaultAsync(x => x.Id == weekWindowId, ct);
@@ -41,7 +41,7 @@ namespace Valuer_Verification_System.Services.Upload
             // 1) Save file (Extracts folder) - keep original name
             var savedExtractPath = await _storage.SaveExtractAsync(file, ct);
 
-            // 2) Create Batch (name derived from Batch Id for concurrency safety)
+            // 2) Create Batch
             var batch = new Batch
             {
                 WeekWindowId = week.Id,
@@ -81,10 +81,14 @@ namespace Valuer_Verification_System.Services.Upload
             if (rows.Count == 0)
                 throw new InvalidOperationException("No valid rows found in the extract.");
 
-            // Attach BatchId and insert
+            // Attach BatchId + audit
             foreach (var r in rows)
             {
                 r.BatchId = batch.Id;
+                r.Decision = VerificationDecision.Pending;
+                r.DecisionAtUtc = null;
+                r.DecisionComment = null;
+
                 r.CreatedBy = uploadedBy;
                 r.CreatedAt = DateTime.UtcNow;
             }
@@ -93,7 +97,7 @@ namespace Valuer_Verification_System.Services.Upload
             _db.ExtractRows.AddRange(rows);
             await _db.SaveChangesAsync(ct);
 
-            // 6) Create assignments from VALUER (valuer inbox)
+            // 6) Create assignments from VALUER column
             var assignments = rows
                 .Where(r => !string.IsNullOrWhiteSpace(r.Valuer))
                 .Select(r => new Assignment
@@ -110,7 +114,7 @@ namespace Valuer_Verification_System.Services.Upload
             _db.Assignments.AddRange(assignments);
             await _db.SaveChangesAsync(ct);
 
-            // Update statuses (uploaded but NOT notified yet)
+            // 7) Update statuses
             week.Status = WeekWindowStatus.Uploaded;
             batch.Status = BatchStatus.Uploaded;
 
@@ -119,88 +123,173 @@ namespace Valuer_Verification_System.Services.Upload
             return batch.Id;
         }
 
-        public async Task NotifyManagersAsync(int batchId, string user, CancellationToken ct)
+        public async Task NotifyManagersAsync(int batchId, string notifiedBy, CancellationToken ct)
         {
             var batch = await _db.Batches
                 .Include(b => b.WeekWindow)
                 .FirstOrDefaultAsync(b => b.Id == batchId, ct);
 
-            if (batch is null) throw new InvalidOperationException("Batch not found.");
+            if (batch is null)
+                throw new InvalidOperationException("Batch not found.");
 
             if (batch.ManagersNotifiedAtUtc != null)
                 throw new InvalidOperationException("Managers have already been notified for this batch.");
 
-            var rows = await _db.ExtractRows
-                .Where(r => r.BatchId == batchId)
-                .ToListAsync(ct);
+            // extract file (for filename + audit)
+            var extract = await _db.ExtractFiles
+                .AsNoTracking()
+                .FirstAsync(x => x.BatchId == batchId, ct);
 
-            var sectors = rows
-                .Select(x => x.Sector?.Trim())
-                .Where(x => !string.IsNullOrWhiteSpace(x))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            if (sectors.Count == 0) sectors.Add("Unknown");
-
-            // Base name for .eml
-            var extract = await _db.ExtractFiles.FirstAsync(x => x.BatchId == batchId, ct);
             var baseEmlName = Path.GetFileNameWithoutExtension(extract.OriginalFileName);
 
-            foreach (var sector in sectors)
+            // counts (template expects totals)
+            var totalRecords = await _db.ExtractRows.CountAsync(r => r.BatchId == batchId, ct);
+            var assignedRecords = await _db.Assignments.CountAsync(a => a.ExtractRow.BatchId == batchId, ct);
+
+            // ✅ ALL managers from DB
+            var managerEmails = await _db.SectorManagers
+                .AsNoTracking()
+                .Where(u => u.IsActive) 
+                .Select(u => u.Email)
+                .Where(e => !string.IsNullOrWhiteSpace(e))
+                .Select(e => e!.Trim())
+                .Distinct()
+                .ToListAsync(ct);
+
+            if (managerEmails.Count == 0)
+                throw new InvalidOperationException("No active manager email addresses found.");
+
+            // dashboard url
+            var managerDashboardUrl = $"/Manager/Dashboard?batchId={batch.Id}";
+
+            // ✅ use professional EmailTemplates class (from EmailTemplates folder)
+            var (subject, html, text) = EmailTemplates.ManagersUploadReady(
+                batchName: batch.BatchName,
+                batchDate: batch.BatchDate,
+                weekStart: batch.WeekWindow.WeekStart,
+                weekEnd: batch.WeekWindow.WeekEnd,
+                noticeSendDate: batch.WeekWindow.NoticeSendDate,
+                totalRecords: totalRecords,
+                assignedRecords: assignedRecords,
+                managerDashboardUrl: managerDashboardUrl
+            );
+
+            var req = new EmailRequest
             {
-                var req = new EmailRequest
-                {
-                    To = "JabulaniSib@joburg.org.za",
-                    Subject = $"VVS Extract Ready – {sector} – {batch.BatchName}",
-                    BodyText =
-        $"""
-Good day,
+                To = managerEmails,   // ✅ List<string>
+                Subject = subject,
+                BodyHtml = html,
+                BodyText = text
+            };
 
-The valuation verification extract is uploaded and ready for verification.
+            // archive eml next to the extract
+            var emlPath = Path.Combine(
+                Path.GetDirectoryName(_storage.GetExtractFilePath(extract.OriginalFileName))!,
+                $"{baseEmlName}.eml");
 
-Sector: {sector}
-Batch: {batch.BatchName}
-Week: {batch.WeekWindow.WeekStart:yyyy-MM-dd} (Mon) to {batch.WeekWindow.WeekEnd:yyyy-MM-dd} (Sun)
-Notice Send Date: {batch.WeekWindow.NoticeSendDate:yyyy-MM-dd}
-File: {extract.OriginalFileName}
-
-Regards,
-City of Johannesburg
-Valuation Services
-"""
-                };
-
-                var safeSector = sector.Replace(" ", "_").Replace("/", "_");
-                var emlName = sectors.Count == 1 ? $"{baseEmlName}.eml" : $"{baseEmlName}_{safeSector}.eml";
-
-                // Save in Extracts folder
-                var emlPath = Path.Combine(
-                    Path.GetDirectoryName(_storage.GetExtractFilePath(extract.OriginalFileName))!,
-                    emlName);
-
+            // ✅ Safe send + archive
+            try
+            {
                 await _email.SendAndArchiveAsync(req, emlPath, ct);
 
                 _db.EmailArchives.Add(new EmailArchive
                 {
                     BatchId = batch.Id,
                     Kind = EmailKind.UploadReadyToManager,
-                    ToAddress = req.To,
-                    FromAddress = "", // optional
-                    Subject = req.Subject,
+                    ToAddress = string.Join(";", managerEmails),
+                    Subject = subject,
                     EmlPath = emlPath,
-                    Sector = sector,
                     SentAtUtc = DateTime.UtcNow,
-                    CreatedBy = user,
+                    CreatedBy = notifiedBy,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                // ⚠️ DO NOT fail the workflow
+                _db.EmailArchives.Add(new EmailArchive
+                {
+                    BatchId = batch.Id,
+                    Kind = EmailKind.UploadReadyToManager,
+                    ToAddress = string.Join(";", managerEmails),
+                    Subject = subject,
+                    EmlPath = emlPath,
+                    ErrorMessage = ex.Message, // if your table doesn't have this column, remove it
+                    CreatedBy = notifiedBy,
                     CreatedAt = DateTime.UtcNow
                 });
             }
 
             batch.ManagersNotifiedAtUtc = DateTime.UtcNow;
-            batch.ManagersNotifiedBy = user;
+            batch.ManagersNotifiedBy = notifiedBy;
             batch.Status = BatchStatus.InVerification;
 
             await _db.SaveChangesAsync(ct);
         }
+        public static class EmailTemplates
+{
+    public static (string subject, string html, string text) ManagersUploadReady(
+        string batchName,
+        DateOnly batchDate,
+        DateOnly weekStart,
+        DateOnly weekEnd,
+        DateOnly noticeSendDate,
+        int totalRecords,
+        int assignedRecords,
+        string managerDashboardUrl)
+    {
+        var subject = $"Valuer Verification Extract Uploaded – {batchName}";
+
+        var html = $@"
+<div style='font-family:Segoe UI, Arial, sans-serif; font-size:14px; color:#111;'>
+  <p>Good day,</p>
+
+  <p>
+    A <strong>Valuer Verification</strong> extract has been uploaded and is ready for verification allocation and tracking.
+  </p>
+
+  <table cellpadding='6' cellspacing='0' style='border-collapse:collapse;'>
+    <tr><td style='color:#666;'>Batch</td><td><strong>{batchName}</strong> ({batchDate:yyyy-MM-dd})</td></tr>
+    <tr><td style='color:#666;'>Week</td><td>{weekStart:yyyy-MM-dd} → {weekEnd:yyyy-MM-dd}</td></tr>
+    <tr><td style='color:#666;'>Notice Send Date</td><td><strong>{noticeSendDate:yyyy-MM-dd}</strong></td></tr>
+    <tr><td style='color:#666;'>Total Records</td><td>{totalRecords:N0}</td></tr>
+    <tr><td style='color:#666;'>Assigned Records</td><td>{assignedRecords:N0}</td></tr>
+  </table>
+
+  <p style='margin-top:16px;'>
+    Please open the Manager Dashboard to monitor progress and reassign pending items if required:
+  </p>
+
+  <p>
+    <a href='{managerDashboardUrl}' style='display:inline-block; padding:10px 14px; background:#111; color:#fff; text-decoration:none; border-radius:8px;'>
+      Open Manager Dashboard
+    </a>
+  </p>
+
+  <p style='margin-top:18px; color:#666; font-size:12px;'>
+    City of Johannesburg – Valuation Services
+  </p>
+</div>";
+
+        var text = $@"
+Good day,
+
+A Valuer Verification extract has been uploaded and is ready.
+
+Batch: {batchName} ({batchDate:yyyy-MM-dd})
+Week: {weekStart:yyyy-MM-dd} → {weekEnd:yyyy-MM-dd}
+Notice Send Date: {noticeSendDate:yyyy-MM-dd}
+Total Records: {totalRecords:N0}
+Assigned Records: {assignedRecords:N0}
+
+Manager Dashboard: {managerDashboardUrl}
+
+City of Johannesburg – Valuation Services
+";
+
+        return (subject, html, text);
+    }
+}
 
     }
 }

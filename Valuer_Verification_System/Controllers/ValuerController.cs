@@ -22,7 +22,8 @@ namespace Valuer_Verification_System.Controllers
             _dash = dash;
             _details = details;
         }
-        [RequirePageAccess("ValuerInbox")]
+
+        [RequirePageAccess("ValuerDashboard")]
         [HttpGet("/Valuer/Dashboard")]
         public async Task<IActionResult> Dashboard(CancellationToken ct)
         {
@@ -104,6 +105,7 @@ namespace Valuer_Verification_System.Controllers
 
             return View(vm);
         }
+
         [HttpPost("/Valuer/Notifications/MarkRead")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> MarkNotificationRead(long id, int? batchId, string filter = "Pending", CancellationToken ct = default)
@@ -159,6 +161,8 @@ namespace Valuer_Verification_System.Controllers
             return RedirectToAction(nameof(Inbox), new { batchId = req.BatchId, filter = req.Filter ?? "Pending" });
         }
 
+        
+
         [HttpGet("/Valuer/RowDetails")]
         public async Task<IActionResult> RowDetails(int extractRowId, CancellationToken ct)
         {
@@ -166,7 +170,7 @@ namespace Valuer_Verification_System.Controllers
 
             try
             {
-                var vm = await _details.BuildAsync(extractRowId, valuer, ct);
+                var vm = await _svc.GetRowDetailsAsync(extractRowId, valuer, ct);
                 return PartialView("_RowDetails", vm);
             }
             catch (Exception ex)

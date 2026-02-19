@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.EntityFrameworkCore;
 using Valuer_Verification_System.Data;
+using Valuer_Verification_System.Infrastructure.Configuration;
+using Valuer_Verification_System.Infrastructure.Configuration.Email.Valuer_Verification_System.Infrastructure.Configuration.Email;
 using Valuer_Verification_System.Services.Permissions;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,8 +19,8 @@ builder.Services.AddControllersWithViews();
 builder.Services.Configure<Valuer_Verification_System.Infrastructure.Configuration.EmailSettings>(
     builder.Configuration.GetSection("Email"));
 
-builder.Services.AddScoped<Valuer_Verification_System.Infrastructure.Configuration.Email.IEmailService,
-    Valuer_Verification_System.Infrastructure.Configuration.Email.EmailService>();
+builder.Services.AddScoped<IEmailService,
+    EmailService>();
 
 //----------------------------------------Storage---------------------------------------
 builder.Services.Configure<Valuer_Verification_System.Infrastructure.Configuration.StorageSettings>(
@@ -86,9 +88,15 @@ builder.Services.AddScoped<Valuer_Verification_System.Services.Notifications.INo
 // ── NEW: IHttpContextAccessor (required by UserService) ───────────────────────
 builder.Services.AddHttpContextAccessor();
 
+
+
 // ── NEW: User + Permission services ──────────────────────────────────────────
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddSingleton<IPermissionService, PermissionService>();
+
+// ✅ Bind RolePermissions from appsettings.json
+builder.Services.Configure<RolePermissionsOptions>(
+    builder.Configuration.GetSection(RolePermissionsOptions.SectionName));
 
 builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
    .AddNegotiate();
@@ -113,6 +121,8 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseRouting();
 
+
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();

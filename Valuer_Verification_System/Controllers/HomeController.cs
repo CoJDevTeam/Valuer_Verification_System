@@ -25,6 +25,14 @@ namespace Valuer_Verification_System.Controllers
         [HttpGet("/Home/Index")]
         public async Task<IActionResult> Index(CancellationToken ct)
         {
+
+            // Role routing
+            if (User.IsInRole("Valuer"))
+                return RedirectToAction("Dashboard", "Valuer");
+
+            if (User.IsInRole("Manager"))
+                return RedirectToAction("Dashboard", "Manager");
+
             await SetUserContextAsync(ct);
             var vm = await _dash.BuildAsync(ct);
             return View(vm);

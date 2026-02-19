@@ -12,5 +12,14 @@
 
         public string? Username { get; set; }
         public string? Password { get; set; }
+
+      
+        public string FromDisplayName { get; set; } = "";
+
+       
+        public bool EnableSending { get; set; } = true;
+        public string? DevRedirectAllTo { get; set; }
+
+        public List<string> AllowedRecipientDomains { get; set; } = new();
     }
 }

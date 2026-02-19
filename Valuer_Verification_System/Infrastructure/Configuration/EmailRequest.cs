@@ -2,7 +2,8 @@
 {
     public sealed class EmailRequest
     {
-        public string To { get; set; } = "";
+        public List<string>? To { get; set; }
+
         public string Subject { get; set; } = "";
         public string BodyText { get; set; } = "";
         public string? BodyHtml { get; set; }
@@ -12,8 +13,16 @@
 
         // optional: attachments later if you want
         public List<EmailAttachment> Attachments { get; set; } = new();
-    }
 
+
+    }
+    public sealed class EmailSendResult
+    {
+        public bool Sent { get; set; }
+        public string? Error { get; set; }
+        public string ArchivePath { get; set; } = "";
+        public string FinalTo { get; set; } = "";
+    }
 
     public sealed class EmailAttachment
     {

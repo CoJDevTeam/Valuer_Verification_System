@@ -4,59 +4,70 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Valuer Verification System</title>
-    <script type="importmap"></script>
 
-    <!-- Poppins Font -->
+    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
     <!-- Bootstrap & Icons -->
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
-    <!-- App Styles -->
+
+    <!-- App styles -->
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/Valuer_Verification_System.styles.css" asp-append-version="true" />
     <link href="~/css/layout.css" rel="stylesheet" />
-   
 </head>
 
 @{
-        // ── User context (set by every controller via AppBaseController.SetUserContextAsync) ─────
+        // ── User context (set in AppBaseController) ─────────────────────────
         string appFullName = ViewBag.AppUserFullName as string ?? User.Identity?.Name ?? "Unknown";
         string appRole = ViewBag.AppUserRole as string ?? string.Empty;
         string appInitials = ViewBag.AppUserInitials as string ?? "?";
 
-        // ── Page access set (driven 100% from appsettings RolePermissions — no role names here) ──
+        // ── Page permissions (from RolePermissions in appsettings) ──────────
         var pages = ViewBag.AppUserPages as IReadOnlySet<string>
-                          ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // ── Local helper: is this page key in the user's allowed set? ─────────────────────────
         bool Can(string key) => pages.Contains(key);
-}
 
+        // ── Default landing by role ─────────────────────────────────────────
+        string defaultController = "Home";
+        string defaultAction = "Index";
+
+        if (appRole.Equals("Valuer", StringComparison.OrdinalIgnoreCase))
+        {
+                defaultController = "Valuer";
+                defaultAction = "Dashboard";
+        }
+        else if (appRole.Equals("Valuer Manager", StringComparison.OrdinalIgnoreCase))
+        {
+                defaultController = "Manager";
+                defaultAction = "Dashboard";
+        }
+}
 <body>
 
-    <!-- ══════════════════════════════════════
-         NAVIGATION
-    ══════════════════════════════════════ -->
+    <!-- ═════════════════════════ NAVIGATION ═════════════════════════ -->
     <nav class="site-nav">
 
-        <!-- Brand -->
-        <a class="nav-brand" asp-area="" asp-controller="Home" asp-action="Index">
+        <!-- Brand (ROLE-AWARE) -->
+        <a class="nav-brand" asp-area="" asp-controller="@defaultController" asp-action="@defaultAction">
             <div class="nav-brand-icon"><i class="bi bi-bar-chart-fill"></i></div>
             <div>
-                <div class="nav-brand-text">Valuer <span>VVS</span></div>
+                <div class="nav-brand-text">Valuation <span>VS</span></div>
                 <div class="nav-brand-sub">Verification System</div>
             </div>
         </a>
 
         <div class="nav-divider"></div>
 
-        <!-- Desktop Nav Links -->
+        <!-- Desktop Nav -->
         <ul class="nav-links">
 
             @if (Can("Home"))
             {
                 <li class="nav-item">
-                    <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">
+                    <a class="nav-link" asp-controller="Home" asp-action="Index">
                         <i class="bi bi-house-fill"></i> Home
                     </a>
                 </li>
@@ -65,7 +76,7 @@
             @if (Can("WeekWindows"))
             {
                 <li class="nav-item">
-                    <a class="nav-link" asp-area="" asp-controller="WeekWindows" asp-action="Index">
+                    <a class="nav-link" asp-controller="WeekWindows" asp-action="Index">
                         <i class="bi bi-calendar-week"></i> Week Windows
                     </a>
                 </li>
@@ -74,7 +85,7 @@
             @if (Can("ValuerInbox"))
             {
                 <li class="nav-item">
-                    <a class="nav-link" asp-area="" asp-controller="Valuer" asp-action="Inbox">
+                    <a class="nav-link" asp-controller="Valuer" asp-action="Inbox">
                         <i class="bi bi-inbox-fill"></i> My Inbox
                     </a>
                 </li>
@@ -83,7 +94,7 @@
             @if (Can("ValuerDashboard"))
             {
                 <li class="nav-item">
-                    <a class="nav-link" asp-area="" asp-controller="Valuer" asp-action="Dashboard">
+                    <a class="nav-link" asp-controller="Valuer" asp-action="Dashboard">
                         <i class="bi bi-person-badge"></i> Valuer Dashboard
                     </a>
                 </li>
@@ -92,7 +103,7 @@
             @if (Can("ManagerDashboard"))
             {
                 <li class="nav-item">
-                    <a class="nav-link" asp-area="" asp-controller="Manager" asp-action="Dashboard">
+                    <a class="nav-link" asp-controller="Manager" asp-action="Dashboard">
                         <i class="bi bi-speedometer2"></i> Manager Dashboard
                     </a>
                 </li>
@@ -101,21 +112,23 @@
             @if (Can("Reassign"))
             {
                 <li class="nav-item">
-                    <a class="nav-link" asp-area="" asp-controller="Manager" asp-action="Reassign">
+                    <a class="nav-link" asp-controller="Manager" asp-action="Reassign">
                         <i class="bi bi-arrow-left-right"></i> Reassign
                     </a>
                 </li>
             }
 
-            <li class="nav-item">
-                <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Privacy">
-                    <i class="bi bi-shield-lock"></i> Privacy
-                </a>
-            </li>
-
+            @if (Can("Home"))
+            {
+                <li class="nav-item">
+                    <a class="nav-link" asp-controller="Home" asp-action="Privacy">
+                        <i class="bi bi-shield-lock"></i> Privacy
+                    </a>
+                </li>
+            }
         </ul>
 
-        <!-- Right: Full Name + Role label -->
+        <!-- User -->
         <div class="nav-right">
             <div class="nav-user">
                 <div class="nav-avatar">@appInitials</div>
@@ -126,210 +139,30 @@
             </div>
         </div>
 
-        <!-- Mobile Hamburger -->
-        <button class="nav-toggler" id="navToggler" aria-label="Toggle menu">
+        <!-- Mobile toggler -->
+        <button class="nav-toggler" id="navToggler">
             <i class="bi bi-list"></i>
         </button>
     </nav>
 
-    <!-- Mobile Menu (mirrors desktop, same Can() checks) -->
-    <div class="nav-mobile-menu" id="mobileMenu">
-
-        @if (Can("Home"))
-        {
-            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">
-                <i class="bi bi-house-fill"></i> Home
-            </a>
-        }
-
-        @if (Can("WeekWindows"))
-        {
-            <a class="nav-link" asp-area="" asp-controller="WeekWindows" asp-action="Index">
-                <i class="bi bi-calendar-week"></i> Week Windows
-            </a>
-        }
-
-        @if (Can("ValuerInbox"))
-        {
-            <a class="nav-link" asp-area="" asp-controller="Valuer" asp-action="Inbox">
-                <i class="bi bi-inbox-fill"></i> My Inbox
-            </a>
-        }
-
-        @if (Can("ValuerDashboard"))
-        {
-            <a class="nav-link" asp-area="" asp-controller="Valuer" asp-action="Dashboard">
-                <i class="bi bi-person-badge"></i> Valuer Dashboard
-            </a>
-        }
-
-        @if (Can("ManagerDashboard"))
-        {
-            <a class="nav-link" asp-area="" asp-controller="Manager" asp-action="Dashboard">
-                <i class="bi bi-speedometer2"></i> Manager Dashboard
-            </a>
-        }
-
-        @if (Can("Reassign"))
-        {
-            <a class="nav-link" asp-area="" asp-controller="Manager" asp-action="Reassign">
-                <i class="bi bi-arrow-left-right"></i> Reassign
-            </a>
-        }
-
-        <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Privacy">
-            <i class="bi bi-shield-lock"></i> Privacy
-        </a>
-
-        <div class="nav-mobile-user">
-            <i class="bi bi-person-circle"></i>
-            @appFullName
-            @if (!string.IsNullOrEmpty(appRole))
-            {
-                <span class="ms-auto" style="font-size:0.65rem;opacity:0.6;">@appRole</span>
-            }
-        </div>
-    </div>
-
-    <!-- ══════════════════════════════════════
-         MAIN CONTENT
-    ══════════════════════════════════════ -->
+    <!-- ═════════════════════════ MAIN ═════════════════════════ -->
     <div class="site-main">
         <main role="main" class="pb-3">
             @RenderBody()
         </main>
     </div>
 
-    <!-- ══════════════════════════════════════
-         FOOTER
-    ══════════════════════════════════════ -->
+    <!-- ═════════════════════════ FOOTER ═════════════════════════ -->
     <footer class="site-footer">
-        <div class="footer-top">
-
-            <!-- Brand + tagline -->
-            <div>
-                <div class="footer-brand">
-                    <div class="footer-brand-icon"><i class="bi bi-bar-chart-fill"></i></div>
-                    <div>
-                        <div class="footer-brand-name">Valuer <span>VVS</span></div>
-                        <div class="footer-brand-sub">Verification System</div>
-                    </div>
-                </div>
-                <p class="footer-tagline">
-                    Streamlining valuer verification workflows with precision, transparency, and audit-ready compliance.
-                </p>
-            </div>
-
-            <!-- Footer nav columns (same Can() checks — config-driven) -->
-            <div class="footer-links-group">
-
-                <div class="footer-col">
-                    <div class="footer-col-title">Navigation</div>
-                    @if (Can("Home"))
-                    {
-                        <a asp-area="" asp-controller="Home" asp-action="Index">
-                            <i class="bi bi-house"></i> Home
-                        </a>
-                    }
-                    @if (Can("WeekWindows"))
-                    {
-                        <a asp-area="" asp-controller="WeekWindows" asp-action="Index">
-                            <i class="bi bi-calendar-week"></i> Week Windows
-                        </a>
-                    }
-                    @if (Can("ValuerInbox"))
-                    {
-                        <a asp-area="" asp-controller="Valuer" asp-action="Inbox">
-                            <i class="bi bi-inbox"></i> My Inbox
-                        </a>
-                    }
-                </div>
-
-                @if (Can("ValuerDashboard") || Can("ManagerDashboard") || Can("Reassign"))
-                {
-                    <div class="footer-col">
-                        <div class="footer-col-title">Management</div>
-                        @if (Can("ValuerDashboard"))
-                        {
-                            <a asp-area="" asp-controller="Valuer" asp-action="Dashboard">
-                                <i class="bi bi-person-badge"></i> Valuer Dashboard
-                            </a>
-                        }
-                        @if (Can("ManagerDashboard"))
-                        {
-                            <a asp-area="" asp-controller="Manager" asp-action="Dashboard">
-                                <i class="bi bi-speedometer2"></i> Manager Dashboard
-                            </a>
-                        }
-                        @if (Can("Reassign"))
-                        {
-                            <a asp-area="" asp-controller="Manager" asp-action="Reassign">
-                                <i class="bi bi-arrow-left-right"></i> Reassign Records
-                            </a>
-                        }
-                    </div>
-                }
-
-                <div class="footer-col">
-                    <div class="footer-col-title">Legal</div>
-                    <a asp-area="" asp-controller="Home" asp-action="Privacy">
-                        <i class="bi bi-shield-lock"></i> Privacy Policy
-                    </a>
-                </div>
-
-            </div>
-        </div>
-
-        <!-- Bottom bar -->
         <div class="footer-bottom">
-            <span class="footer-copy">
-                &copy; 2026 &nbsp;<strong>Valuer Verification System</strong>. All rights reserved.
-            </span>
-            <div class="footer-status">
-                <div class="status-dot"></div>
-                All systems operational
-            </div>
+            <span>&copy; 2026 <strong>Valuer Verification System</strong></span>
         </div>
     </footer>
 
-    <!-- ══════════════════════════════════════
-         SCRIPTS
-    ══════════════════════════════════════ -->
+    <!-- Scripts -->
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
-
-    <script>
-        // ── Mobile menu toggle
-        var toggler     = document.getElementById('navToggler');
-        var mobileMenu  = document.getElementById('mobileMenu');
-        var togglerIcon = toggler.querySelector('i');
-
-        toggler.addEventListener('click', function () {
-            var isOpen = mobileMenu.classList.toggle('open');
-            togglerIcon.className = isOpen ? 'bi bi-x-lg' : 'bi bi-list';
-        });
-
-        document.addEventListener('click', function (e) {
-            if (!toggler.contains(e.target) && !mobileMenu.contains(e.target)) {
-                mobileMenu.classList.remove('open');
-                togglerIcon.className = 'bi bi-list';
-            }
-        });
-
-        // ── Active link highlight
-        (function () {
-            var path = window.location.pathname.toLowerCase();
-            document.querySelectorAll('.nav-links .nav-link, .nav-mobile-menu .nav-link').forEach(function (link) {
-                var href = (link.getAttribute('href') || '').toLowerCase();
-                if (href && href !== '/' && path.startsWith(href)) {
-                    link.classList.add('active');
-                } else if (href === '/' && (path === '/' || path === '')) {
-                    link.classList.add('active');
-                }
-            });
-        })();
-    </script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>

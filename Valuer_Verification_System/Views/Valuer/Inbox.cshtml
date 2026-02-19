@@ -9,12 +9,25 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Valuer Inbox</title>
+    <title>Valuer Inbox — ValComp</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/css/jquery.dataTables.min.css" />
-    <link href="~/css/valuer/inboxcss.css" rel="stylesheet" />
+    
+    <link href="~/css/valuer/inboxcss1.css" rel="stylesheet" />
+
 </head>
 <body>
+
+    <!-- ============================  PAGE LOADER  ============================ -->
+    <div id="pageLoader">
+        <div class="loader-logo">Val<span>Veri</span></div>
+        <div class="loader-spinner"></div>
+        <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+    </div>
+
+    <!-- ============================  TOAST  ============================ -->
+    <div id="toastWrap"></div>
+
     <div class="dash-wrapper">
 
         <!-- HEADER -->
@@ -70,7 +83,6 @@
                         <button class="btn btn-sm btn-mark-read" type="submit">Mark all read</button>
                     </form>
                 </div>
-
                 @foreach (var n in Model.Notifications)
                 {
                     <div class="notif-item">
@@ -101,7 +113,7 @@
                                 }
                                 else
                                 {
-                                    <button class="btn btn-sm btn-ghost" type="button" disabled style="opacity:.45; cursor:default;">Read</button>
+                                    <button class="btn btn-sm btn-ghost" type="button" disabled style="opacity:.45;cursor:default;">Read</button>
                                 }
                             </form>
                         </div>
@@ -130,9 +142,9 @@
                     }
                 </select>
                 <select class="form-select select-filter" name="filter">
-                    <option value="Pending" selected="@(Model.Filter == "Pending")">Pending</option>
-                    <option value="Yes" selected="@(Model.Filter == "Yes")">Yes</option>
-                    <option value="No" selected="@(Model.Filter == "No")">No</option>
+                    <option value="Pending" selected="@(Model.Filter == "Pending")">⏳ Pending</option>
+                    <option value="Yes" selected="@(Model.Filter == "Yes")">✔ Yes</option>
+                    <option value="No" selected="@(Model.Filter == "No")">✕ No</option>
                     <option value="All" selected="@(Model.Filter == "All")">All</option>
                 </select>
                 <button class="btn btn-gold" type="submit">Apply</button>
@@ -160,8 +172,8 @@
                         <tr>
                             <td>@r.Sector</td>
                             <td><span class="vkey">@r.ValuationKey</span></td>
-                            <td><span class="prop-desc">@r.PropertyDescription</span></td>
-                            <td>@(r.MarketValue.HasValue? r.MarketValue.Value.ToString("N2") : "—")</td>
+                            <td><span class="prop-desc" title="@r.PropertyDescription">@r.PropertyDescription</span></td>
+                            <td data-order="@(r.MarketValue ?? 0)">@(r.MarketValue.HasValue ? $"R {r.MarketValue.Value:N2}" : "—")</td>
                             <td>@r.Category</td>
                             <td>@r.PropertyType</td>
                             <td>
@@ -184,24 +196,17 @@
                             </td>
                             <td>
                                 <div class="action-btns">
-                                    <!-- VIEW -->
                                     <button type="button"
-                                            class="btn btn-sm btn-view open-canvas"
+                                            class="btn btn-sm btn-outline-primary open-details-modal"
                                             data-rowid="@r.ExtractRowId">
-                                        View
+                                        🔍 View
                                     </button>
-
-                                    <!-- YES -->
-                                    <form method="post" action="/Valuer/Verify" style="margin:0; display:inline;">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="ExtractRowId" value="@r.ExtractRowId" />
-                                        <input type="hidden" name="Decision" value="Yes" />
-                                        <input type="hidden" name="BatchId" value="@Model.BatchId" />
-                                        <input type="hidden" name="Filter" value="@Model.Filter" />
-                                        <button class="btn btn-sm btn-yes" type="submit">✓ Yes</button>
-                                    </form>
-
-                                    <!-- NO -->
+                                    <button type="button"
+                                            class="btn btn-sm btn-yes open-yes-modal"
+                                            data-rowid="@r.ExtractRowId"
+                                            data-vkey="@r.ValuationKey">
+                                        ✓ Yes
+                                    </button>
                                     <button type="button"
                                             class="btn btn-sm btn-no open-no-modal"
                                             data-rowid="@r.ExtractRowId"
@@ -215,145 +220,327 @@
                     }
                     @if (Model.Rows == null || Model.Rows.Count == 0)
                     {
-                        <tr><td colspan="8" style="text-align:center; padding:32px; color:var(--grey-400);">No records found for the selected filters.</td></tr>
+                        <tr><td colspan="8" style="text-align:center;padding:40px;color:#9a9a9a;">No records found for the selected filters.</td></tr>
                     }
                 </tbody>
             </table>
         </div>
 
-    </div>
+    </div><!-- /dash-wrapper -->
+    <!-- ════════════════════════════════════════════════
+         DETAILS MODAL
+    ════════════════════════════════════════════════ -->
+    <div class="modal fade vvs-modal" id="rowDetailsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
 
-    <!-- ══════════════ DETAILS OFFCANVAS ══════════════ -->
-    <div class="offcanvas-backdrop" id="canvasBackdrop" onclick="closeCanvas()"></div>
-    <div class="offcanvas" id="detailsCanvas">
-        <div class="offcanvas-header">
-            <div class="offcanvas-title-wrap">
-                <div class="offcanvas-icon">🏠</div>
-                <div class="offcanvas-title">Record Details</div>
+                <!-- header -->
+                <div class="modal-hdr-details">
+                    <div class="modal-hdr-icon">🏠</div>
+                    <div class="modal-hdr-text">
+                        <div class="modal-hdr-title">Record Details</div>
+                        <div class="modal-hdr-sub">Valuation Key: <span id="detailsModalVKey">—</span> &nbsp;|&nbsp; Date: <span id="detailsModalDate">—</span></div>
+                    </div>
+                    <button type="button" class="modal-close-btn" data-bs-dismiss="modal" aria-label="Close">✕</button>
+                </div>
+
+                <!-- body -->
+                <div class="modal-body modal-body-details">
+                    <div id="rowDetailsBody" style="padding:24px;color:#9a9a9a;font-size:.83rem;">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <div style="width:22px;height:22px;border:2.5px solid #f0f0f0;border-top-color:#e6b000;border-radius:50%;animation:ldSpin .8s linear infinite;flex-shrink:0;"></div>
+                            Loading record…
+                        </div>
+                    </div>
+                </div>
+
+                <!-- footer -->
+                <div class="modal-ftr-details">
+                    <span class="modal-ftr-hint">Review the record above then verify below.</span>
+                    <div style="display:flex;gap:9px;">
+                        <button type="button" class="btn-details-yes" id="detailsYesBtn">✓ Yes</button>
+                        <button type="button" class="btn-details-no" id="detailsNoBtn">✕ No</button>
+                        <button type="button" class="btn-details-close" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+
             </div>
-            <button class="offcanvas-close" onclick="closeCanvas()">✕</button>
-        </div>
-        <div class="offcanvas-body" id="detailsBody">
-            <div style="color:var(--grey-400); font-size:13px;">Select a record to view details…</div>
         </div>
     </div>
 
-    <!-- ══════════════ NO MODAL ══════════════ -->
-    <div class="modal-backdrop-el" id="noModalBackdrop" onclick="closeNoModal(event)">
-        <div class="modal-box">
-            <form method="post" action="/Valuer/Verify">
-                @Html.AntiForgeryToken()
-                <input type="hidden" id="noExtractRowId" name="ExtractRowId" />
-                <input type="hidden" name="Decision" value="No" />
-                <input type="hidden" name="BatchId" value="@Model.BatchId" />
-                <input type="hidden" name="Filter" value="@Model.Filter" />
 
-                <div class="modal-header-no">
-                    <div class="modal-header-icon-no">✕</div>
-                    <div class="modal-header-text-no">
-                        <div class="modal-title-no">Mark as No</div>
-                        <div class="modal-sub-no">A comment is required</div>
+    <!-- ════════════════════════════════════════════════
+         YES MODAL
+    ════════════════════════════════════════════════ -->
+    <div class="modal fade vvs-modal" id="yesModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" style="max-width:460px;">
+            <div class="modal-content">
+                <form method="post" action="/Valuer/Verify">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" id="yesExtractRowId" name="ExtractRowId" />
+                    <input type="hidden" name="Decision" value="Yes" />
+                    <input type="hidden" name="Comment" value="Verified" />
+                    <input type="hidden" name="BatchId" value="@Model.BatchId" />
+                    <input type="hidden" name="Filter" value="@Model.Filter" />
+
+                    <!-- header -->
+                    <div class="modal-hdr-yes">
+                        <div class="modal-hdr-icon-yes">✓</div>
+                        <div>
+                            <div class="modal-hdr-title-yes">Approve Verification</div>
+                            <div class="modal-hdr-sub-yes">This record will be marked as verified</div>
+                        </div>
                     </div>
-                    <span class="modal-vkey-display" id="noVkeyDisplay">—</span>
-                </div>
 
-                <div class="modal-body-no">
-                    <div class="modal-info-box">
-                        <div class="modal-info-label">Valuation Key</div>
-                        <div class="modal-info-val" id="noValuationKey">—</div>
+                    <!-- body -->
+                    <div class="modal-body-inner">
+                        <div class="modal-info-row">
+                            <div class="modal-info-field">
+                                <div class="mif-label">Valuation Key</div>
+                                <div class="mif-val" id="yesValuationKey">—</div>
+                            </div>
+                            <div class="modal-info-field">
+                                <div class="mif-label">Verified Date</div>
+                                <div class="mif-val" id="yesVerifiedDate">—</div>
+                            </div>
+                        </div>
+                        <div class="confirm-strip yes">
+                            <span class="confirm-strip-icon">✅</span>
+                            <div>This record will be marked <strong>Yes — Verified</strong>. A comment of <strong>"Verified"</strong> will be automatically saved.</div>
+                        </div>
                     </div>
 
-                    <div>
-                        <label class="form-label">Comment <span style="color:var(--danger)">*</span></label>
-                        <textarea class="form-textarea" id="noComment" name="Comment" rows="4" required></textarea>
-                        <div class="form-hint">Explain why this record is incorrect (required).</div>
+                    <!-- footer -->
+                    <div class="modal-ftr-btns">
+                        <button type="button" class="btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn-confirm-yes">✓ Confirm Yes</button>
                     </div>
-                </div>
-
-                <div class="modal-footer-no">
-                    <button type="button" class="btn btn-ghost" onclick="closeNoModal()">Cancel</button>
-                    <button class="btn btn-submit-no" type="submit">Save No Decision</button>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
     </div>
 
-    <!-- jQuery + DataTables -->
+
+    <!-- ════════════════════════════════════════════════
+         NO MODAL
+    ════════════════════════════════════════════════ -->
+    <div class="modal fade vvs-modal" id="noModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" style="max-width:500px;">
+            <div class="modal-content">
+                <form method="post" action="/Valuer/Verify">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" id="noExtractRowId" name="ExtractRowId" />
+                    <input type="hidden" name="Decision" value="No" />
+                    <input type="hidden" name="BatchId" value="@Model.BatchId" />
+                    <input type="hidden" name="Filter" value="@Model.Filter" />
+
+                    <!-- header -->
+                    <div class="modal-hdr-no">
+                        <div class="modal-hdr-icon-no">✕</div>
+                        <div>
+                            <div class="modal-hdr-title-no">Reject Verification</div>
+                            <div class="modal-hdr-sub-no">A comment is required to reject this record</div>
+                        </div>
+                    </div>
+
+                    <!-- body -->
+                    <div class="modal-body-inner">
+                        <div class="modal-info-row">
+                            <div class="modal-info-field">
+                                <div class="mif-label">Valuation Key</div>
+                                <div class="mif-val" id="noValuationKey">—</div>
+                            </div>
+                            <div class="modal-info-field">
+                                <div class="mif-label">Date</div>
+                                <div class="mif-val" id="noVerifiedDate">—</div>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom:6px;">
+                            <label class="vvs-field-label" for="noComment">Rejection Reason <span style="color:#c0272d;">*</span></label>
+                            <textarea class="vvs-textarea" id="noComment" name="Comment" rows="4" required
+                                      placeholder="Describe why this record is being rejected…"></textarea>
+                            <div class="char-count"><span id="noCharCount">0</span> characters</div>
+                            <div class="vvs-field-hint">A detailed comment is required when selecting No.</div>
+                        </div>
+                    </div>
+
+                    <!-- footer -->
+                    <div class="modal-ftr-btns">
+                        <button type="button" class="btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn-confirm-no">✕ Confirm No</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- jQuery + DataTables + Bootstrap -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
     <script>
-        $(document).ready(function () {
-            $('#inboxTable').DataTable({
-                pageLength: 25,
-                lengthMenu: [10, 25, 50, 100],
-                order: [[1, 'asc']],
-                language: {
-                    search: '',
-                    searchPlaceholder: 'Search records…',
-                    lengthMenu: 'Show _MENU_',
-                    info: '_START_–_END_ of _TOTAL_ records',
-                    infoEmpty: 'No records',
-                    paginate: { previous: '‹', next: '›' }
-                },
-                columnDefs: [{ orderable: false, targets: [7] }]
-            });
+        /* ============================  TOAST  ============================ */
+        const tw = document.getElementById('toastWrap');
+        function showToast(title, msg, type = 'info', dur = 4000) {
+            const icons = { info: '💡', success: '✅', error: '❌', warning: '⚠️' };
+            const el = document.createElement('div');
+            el.className = `toast-pill t-${type}`;
+            el.innerHTML = `
+                <span class="toast-ico">${icons[type]||'💡'}</span>
+                <div class="toast-bd">
+                    <div class="toast-ttl">${title}</div>
+                    ${msg ? `<div class="toast-msg">${msg}</div>` : ''}
+                </div>
+                <button class="toast-x" onclick="dismissToast(this.parentElement)">×</button>`;
+            tw.appendChild(el);
+            setTimeout(() => dismissToast(el), dur);
+        }
+        function dismissToast(el) {
+            if (!el?.parentElement) return;
+            el.classList.add('t-out');
+            setTimeout(() => el.remove(), 300);
+        }
+
+        /* ============================  PAGE LOADER  ============================ */
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('pageLoader').classList.add('hidden');
+                const count = document.querySelectorAll('#inboxTable tbody tr').length;
+                if (count > 0) {
+                    showToast('Inbox Ready', `${count} record${count !== 1 ? 's' : ''} loaded.`, 'success', 3500);
+                } else {
+                    showToast('No Records', 'No records match the current filter.', 'warning', 3500);
+                }
+            }, 1100);
         });
 
-        // ── OFFCANVAS ──
-        function openCanvas() {
-            document.getElementById('detailsCanvas').classList.add('open');
-            document.getElementById('canvasBackdrop').classList.add('open');
-            document.body.style.overflow = 'hidden';
-        }
-        function closeCanvas() {
-            document.getElementById('detailsCanvas').classList.remove('open');
-            document.getElementById('canvasBackdrop').classList.remove('open');
-            document.body.style.overflow = '';
+        /* ============================  DATATABLE — pageLength: 10  ============================ */
+        $(document).ready(function () {
+            if ($('#inboxTable').length) {
+                $('#inboxTable').DataTable({
+                    pageLength: 10,
+                    lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+                    order: [[1, 'asc']],
+                    columnDefs: [{ orderable: false, targets: 7 }],
+                    language: {
+                        search: '',
+                        searchPlaceholder: '🔍 Search records…',
+                        lengthMenu: 'Show _MENU_ rows',
+                        info: 'Showing _START_–_END_ of _TOTAL_ records',
+                        infoFiltered: '(filtered from _MAX_)',
+                        paginate: { first: '«', last: '»', previous: '‹', next: '›' },
+                        emptyTable: 'No records available',
+                        zeroRecords: 'No matching records found'
+                    },
+                    dom: '<"dt-top"fl>rt<"dt-bot"ip>'
+                });
+            }
+        });
+
+        /* ============================  HELPERS  ============================ */
+        function todayYmd() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
         }
 
-        document.querySelectorAll('.open-canvas').forEach(btn => {
-            btn.addEventListener('click', async function () {
-                const rowId = this.getAttribute('data-rowid');
-                const body = document.getElementById('detailsBody');
-                body.innerHTML = '<div style="color:var(--grey-400); font-size:13px;">Loading…</div>';
-                openCanvas();
+        let currentRowId = null;
+        let currentVKey  = null;
+
+        /* ============================  DETAILS MODAL  ============================ */
+        document.querySelectorAll('.open-details-modal').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                currentRowId = btn.getAttribute('data-rowid');
+                currentVKey  = null;
+
+                document.getElementById('detailsModalVKey').textContent = '—';
+                document.getElementById('detailsModalDate').textContent = todayYmd();
+                document.getElementById('rowDetailsBody').innerHTML =
+                    `<div style="padding:24px;display:flex;align-items:center;gap:10px;color:#9a9a9a;font-size:.82rem;">
+                        <div style="width:20px;height:20px;border:2.5px solid #f0f0f0;border-top-color:#e6b000;border-radius:50%;animation:ldSpin .8s linear infinite;flex-shrink:0;"></div>
+                        Loading record…
+                    </div>`;
+
+                new bootstrap.Modal(document.getElementById('rowDetailsModal')).show();
+
                 try {
-                    const resp = await fetch(`/Valuer/RowDetails?extractRowId=${encodeURIComponent(rowId)}`, {
+                    const resp = await fetch(`/Valuer/RowDetails?extractRowId=${encodeURIComponent(currentRowId)}`, {
                         headers: { 'X-Requested-With': 'XMLHttpRequest' }
                     });
-                    body.innerHTML = resp.ok ? await resp.text()
-                        : '<div style="color:var(--danger);">Failed to load details.</div>';
+                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                    const html = await resp.text();
+                    document.getElementById('rowDetailsBody').innerHTML = html;
+                    const vkEl = document.getElementById('rowDetailsValuationKey');
+                    currentVKey = (vkEl ? (vkEl.getAttribute('data-vkey') || vkEl.textContent) : '').trim();
+                    document.getElementById('detailsModalVKey').textContent = currentVKey || '—';
                 } catch {
-                    body.innerHTML = '<div style="color:var(--danger);">Failed to load details.</div>';
+                    document.getElementById('rowDetailsBody').innerHTML =
+                        `<div style="padding:24px;color:#c0272d;font-size:.82rem;">⚠️ Failed to load record details. Please try again.</div>`;
+                    showToast('Load Failed', 'Could not fetch record details.', 'error');
                 }
             });
         });
 
-        // ── NO MODAL ──
-        function openNoModal() {
-            document.getElementById('noModalBackdrop').classList.add('open');
-            document.body.style.overflow = 'hidden';
-            setTimeout(() => document.getElementById('noComment').focus(), 200);
-        }
-        function closeNoModal(e) {
-            if (!e || e.target === document.getElementById('noModalBackdrop')) {
-                document.getElementById('noModalBackdrop').classList.remove('open');
-                document.body.style.overflow = '';
-            }
-        }
+        /* Details → YES */
+        document.getElementById('detailsYesBtn')?.addEventListener('click', () => {
+            if (!currentRowId) return;
+            document.getElementById('yesExtractRowId').value = currentRowId;
+            document.getElementById('yesValuationKey').textContent = currentVKey || '—';
+            document.getElementById('yesVerifiedDate').textContent = todayYmd();
+            new bootstrap.Modal(document.getElementById('yesModal')).show();
+        });
 
-        document.querySelectorAll('.open-no-modal').forEach(btn => {
-            btn.addEventListener('click', function () {
-                document.getElementById('noExtractRowId').value = this.getAttribute('data-rowid');
-                const vkey = this.getAttribute('data-vkey');
-                document.getElementById('noValuationKey').textContent = vkey;
-                document.getElementById('noVkeyDisplay').textContent = vkey;
-                document.getElementById('noComment').value = this.getAttribute('data-comment') || '';
-                openNoModal();
+        /* Details → NO */
+        document.getElementById('detailsNoBtn')?.addEventListener('click', () => {
+            if (!currentRowId) return;
+            document.getElementById('noExtractRowId').value = currentRowId;
+            document.getElementById('noValuationKey').textContent = currentVKey || '—';
+            document.getElementById('noVerifiedDate').textContent = todayYmd();
+            document.getElementById('noComment').value = '';
+            document.getElementById('noCharCount').textContent = '0';
+            new bootstrap.Modal(document.getElementById('noModal')).show();
+            setTimeout(() => document.getElementById('noComment')?.focus(), 180);
+        });
+
+        /* ============================  YES MODAL (from table row)  ============================ */
+        document.querySelectorAll('.open-yes-modal').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const rowId = btn.getAttribute('data-rowid');
+                const vkey  = btn.getAttribute('data-vkey');
+                document.getElementById('yesExtractRowId').value = rowId;
+                document.getElementById('yesValuationKey').textContent = vkey || '—';
+                document.getElementById('yesVerifiedDate').textContent = todayYmd();
+                new bootstrap.Modal(document.getElementById('yesModal')).show();
+                showToast('Verify Yes', `Opening confirmation for ${vkey}.`, 'info', 2000);
             });
         });
 
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeCanvas(); closeNoModal(); } });
+        /* ============================  NO MODAL (from table row)  ============================ */
+        document.querySelectorAll('.open-no-modal').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const rowId = btn.getAttribute('data-rowid');
+                const vkey  = btn.getAttribute('data-vkey');
+                document.getElementById('noExtractRowId').value = rowId;
+                document.getElementById('noValuationKey').textContent = vkey || '—';
+                document.getElementById('noVerifiedDate').textContent = todayYmd();
+                document.getElementById('noComment').value = '';
+                document.getElementById('noCharCount').textContent = '0';
+                new bootstrap.Modal(document.getElementById('noModal')).show();
+                setTimeout(() => document.getElementById('noComment')?.focus(), 180);
+                showToast('Reject Record', `Opening rejection form for ${vkey}.`, 'warning', 2000);
+            });
+        });
+
+        /* ============================  CHAR COUNTER  ============================ */
+        document.getElementById('noComment')?.addEventListener('input', function () {
+            const len = this.value.length;
+            const el  = document.getElementById('noCharCount');
+            el.textContent = len;
+            el.style.color = len < 10 ? '#c0272d' : '#9a9a9a';
+        });
     </script>
+
 </body>
 </html>

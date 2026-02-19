@@ -1,170 +1,161 @@
 ﻿using ExcelDataReader;
-using System.Data;
-using System.Globalization;
 using Valuer_Verification_System.Models.Data;
 
 namespace Valuer_Verification_System.Services.Upload
 {
     public static class ExcelExtractParser
     {
-        static ExcelExtractParser()
-        {
-            // Required for .xls (codepages)
-            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
-        }
-
         public static List<ExtractRow> ParseExtractRows(Stream excelStream)
         {
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+
             using var reader = ExcelReaderFactory.CreateReader(excelStream);
 
-            var ds = reader.AsDataSet(new ExcelDataSetConfiguration
+            var rows = new List<ExtractRow>();
+            var header = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+            bool headerRead = false;
+
+            while (reader.Read())
             {
-                ConfigureDataTable = _ => new ExcelDataTableConfiguration
+                if (!headerRead)
                 {
-                    UseHeaderRow = true
+                    // Build header map from row 0
+                    for (int c = 0; c < reader.FieldCount; c++)
+                    {
+                        var name = (reader.GetValue(c)?.ToString() ?? "").Trim();
+                        if (!string.IsNullOrWhiteSpace(name) && !header.ContainsKey(name))
+                            header[name] = c;
+                    }
+
+                    headerRead = true;
+                    continue;
                 }
-            });
 
-            if (ds.Tables.Count == 0)
-                throw new InvalidOperationException("No worksheets found in the uploaded Excel.");
+                // skip empty rows
+                if (IsRowEmpty(reader)) continue;
 
-            var table = ds.Tables[0];
-            if (table.Rows.Count == 0)
-                return new();
+                var g = new RowGetter(reader, header);
 
-            // Build a normalized header lookup
-            var colMap = BuildColumnMap(table);
-
-            string? GetString(DataRow row, string key)
-            {
-                if (!colMap.TryGetValue(key, out var idx)) return null;
-                var v = row[idx];
-                if (v == null || v == DBNull.Value) return null;
-                return v.ToString()?.Trim();
-            }
-
-            decimal? GetDecimal(DataRow row, string key)
-            {
-                var s = GetString(row, key);
-                if (string.IsNullOrWhiteSpace(s)) return null;
-
-                // Remove commas and currency symbols if present
-                s = s.Replace("R", "", StringComparison.OrdinalIgnoreCase)
-                     .Replace(",", "")
-                     .Trim();
-
-                if (decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var d))
-                    return d;
-
-                if (decimal.TryParse(s, NumberStyles.Any, CultureInfo.GetCultureInfo("en-ZA"), out d))
-                    return d;
-
-                return null;
-            }
-
-            DateOnly? GetDateOnly(DataRow row, string key)
-            {
-                if (!colMap.TryGetValue(key, out var idx)) return null;
-                var v = row[idx];
-                if (v == null || v == DBNull.Value) return null;
-
-                if (v is DateTime dt)
-                    return DateOnly.FromDateTime(dt);
-
-                var s = v.ToString()?.Trim();
-                if (string.IsNullOrWhiteSpace(s)) return null;
-
-                // Try common formats
-                if (DateTime.TryParse(s, CultureInfo.GetCultureInfo("en-ZA"), DateTimeStyles.None, out var parsed))
-                    return DateOnly.FromDateTime(parsed);
-
-                if (DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.None, out parsed))
-                    return DateOnly.FromDateTime(parsed);
-
-                return null;
-            }
-
-            var rows = new List<ExtractRow>(table.Rows.Count);
-
-            foreach (DataRow r in table.Rows)
-            {
-                var valuationKey = GetString(r, "VALUATION_KEY") ?? "";
+                var valuationKey = g.GetString("VALUATION_KEY");
                 if (string.IsNullOrWhiteSpace(valuationKey))
-                    continue; // skip blank lines
+                    continue;
 
-                var row = new ExtractRow
+                var r = new ExtractRow
                 {
-                    ValuationKey = valuationKey,
-                    Sector = GetString(r, "SECTOR"),
-                    Valuer = GetString(r, "VALUER"),
-                    MarketValue = GetDecimal(r, "MARKET_VALUE"),
-                    PropertyDescription = GetString(r, "PROPERTY_DESC") ?? GetString(r, "PROPERTY_DESCRIPTION"),
-                    PropertyType = GetString(r, "PROPERTY_TYPE"),
-                    Category = GetString(r, "CATEGORY"),
-                    ExtractionDate = GetDateOnly(r, "EXTRACTION_DATE"),
+                    ExtractionDate = g.GetDateOnly("EXTRACTION_DATE"),
+                    TownNameDesc = g.GetString("TOWN_NAME_DESC"),
+                    PropertyId = g.GetString("PROPERTY_ID"),
+                    SgId = g.GetString("SG_ID"),
+                    StandNo = g.GetString("STAND_NO"),
+                    StatusSubtype = g.GetString("STATUS_SUBTYPE"),
+
+                    UnitKey = g.GetString("UNIT_KEY"),
+                    UnitType = g.GetString("UNIT_TYPE"),
+                    UnitNo = g.GetString("UNIT_NO"),
+                    LegalArea = g.GetString("LEGAL_AREA"),
+
+                    UnitRightsKey = g.GetString("UNIT_RIGHTS_KEY"),
+                    RightsPremise = g.GetString("RIGHTS_PREMISE"),
+                    RightDescription = g.GetString("RIGHT_DESCRIPTION"),
+                    RightsPremiseSize = g.GetDecimal("RIGHTS_PREMISE_SIZE"),
+                    RightsStatus = g.GetString("RIGHTS_STATUS"),
+
+                    ValuationKey = valuationKey.Trim(),
+                    ValuationRollKey = g.GetString("VALUATION_ROLL_KEY"),
+                    ValuationType = g.GetString("VALUATION_TYPE"),
+                    ValuationDate = g.GetDateOnly("VALUATION_DATE"),
+                    WefDate = g.GetDateOnly("WEF_DATE"),
+                    StatusCode = g.GetString("STATUS_CODE"),
+
+                    RateableArea = g.GetDecimal("RATEABLE_AREA"),
+                    MarketValue = g.GetDecimal("MARKET_VALUE"),
+
+                    ValuationSplitNo = g.GetString("VALUATION_SPLIT_NO"),
+                    ValuationSplitInd = g.GetString("VALUATION_SPLIT_IND"),
+
+                    CatCode = g.GetString("CAT_CODE"),
+                    CatDesc = g.GetString("CAT_DESC"),
+
+                    Sector = g.GetString("SECTOR"),
+                    SendNotice = g.GetString("SEND NOTICE?"),
+                    Valuer = g.GetString("VALUER"),
+
                     Decision = VerificationDecision.Pending
                 };
 
-                rows.Add(row);
+                rows.Add(r);
             }
 
             return rows;
         }
 
-        private static Dictionary<string, int> BuildColumnMap(DataTable table)
+        private static bool IsRowEmpty(IExcelDataReader reader)
         {
-            var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-
-            for (int i = 0; i < table.Columns.Count; i++)
+            for (int i = 0; i < reader.FieldCount; i++)
             {
-                var raw = table.Columns[i].ColumnName ?? "";
-                var norm = NormalizeHeader(raw);
-
-                // store both raw and normalized keys
-                if (!map.ContainsKey(raw)) map[raw] = i;
-                if (!map.ContainsKey(norm)) map[norm] = i;
-
-                // Friendly aliases
-                if (norm is "PROPERTY_DESC" or "PROPERTYDESCRIPTION" or "PROPERTY_DESCRIPTION")
-                    map["PROPERTY_DESC"] = i;
-
-                if (norm is "VALUATIONKEY")
-                    map["VALUATION_KEY"] = i;
+                if (reader.GetValue(i) != null && !string.IsNullOrWhiteSpace(reader.GetValue(i)!.ToString()))
+                    return false;
             }
-
-            // Ensure standard names exist if matching headers differ slightly
-            EnsureKey(map, "VALUATION_KEY", "VALUATIONKEY");
-            EnsureKey(map, "MARKET_VALUE", "MARKETVALUE");
-            EnsureKey(map, "EXTRACTION_DATE", "EXTRACTIONDATE");
-            EnsureKey(map, "PROPERTY_TYPE", "PROPERTYTYPE");
-            EnsureKey(map, "PROPERTY_DESC", "PROPERTYDESCRIPTION", "PROPERTY_DESCRIPTION");
-            EnsureKey(map, "SECTOR", "SECTOR");
-            EnsureKey(map, "VALUER", "VALUER");
-
-            return map;
+            return true;
         }
 
-        private static void EnsureKey(Dictionary<string, int> map, string key, params string[] alternatives)
+        private sealed class RowGetter
         {
-            if (map.ContainsKey(key)) return;
-            foreach (var alt in alternatives)
-            {
-                if (map.TryGetValue(alt, out var idx))
-                {
-                    map[key] = idx;
-                    return;
-                }
-            }
-        }
+            private readonly IExcelDataReader _r;
+            private readonly Dictionary<string, int> _h;
 
-        private static string NormalizeHeader(string s)
-        {
-            s = s.Trim();
-            s = s.Replace(" ", "")
-                 .Replace("_", "")
-                 .Replace("-", "")
-                 .Replace("/", "");
-            return s.ToUpperInvariant();
+            public RowGetter(IExcelDataReader r, Dictionary<string, int> h)
+            {
+                _r = r;
+                _h = h;
+            }
+
+            public string? GetString(string col)
+            {
+                if (!_h.TryGetValue(col, out var idx)) return null;
+                var v = _r.GetValue(idx)?.ToString();
+                return string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+            }
+
+            public decimal? GetDecimal(string col)
+            {
+                if (!_h.TryGetValue(col, out var idx)) return null;
+
+                var v = _r.GetValue(idx);
+                if (v == null) return null;
+
+                if (v is double d) return (decimal)d;
+                if (v is float f) return (decimal)f;
+                if (v is decimal m) return m;
+
+                var s = v.ToString()?.Trim();
+                if (string.IsNullOrWhiteSpace(s)) return null;
+
+                // strip commas/spaces
+                s = s.Replace(",", "").Replace(" ", "");
+
+                return decimal.TryParse(s, out var x) ? x : null;
+            }
+
+            public DateOnly? GetDateOnly(string col)
+            {
+                if (!_h.TryGetValue(col, out var idx)) return null;
+
+                var v = _r.GetValue(idx);
+                if (v == null) return null;
+
+                if (v is DateTime dt) return DateOnly.FromDateTime(dt);
+
+                var s = v.ToString()?.Trim();
+                if (string.IsNullOrWhiteSpace(s)) return null;
+
+                // Excel sometimes gives yyyy-MM-dd or dd/MM/yyyy depending on source
+                if (DateTime.TryParse(s, out var dtx))
+                    return DateOnly.FromDateTime(dtx);
+
+                return null;
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Valuer_Verification_System.Data;
 using Valuer_Verification_System.Models.Data;
+using Valuer_Verification_System.Models.ViewModels;
 using Valuer_Verification_System.Services.Notifications;
 
 namespace Valuer_Verification_System.Services.Valuer
@@ -22,6 +23,9 @@ namespace Valuer_Verification_System.Services.Valuer
 
         Task MarkNotificationReadAsync(long notificationId, string valuer, CancellationToken ct);
         Task MarkAllNotificationsReadAsync(string valuer, CancellationToken ct);
+
+        Task<ValuerRowDetailsVm?> GetRowDetailsAsync(int extractRowId, string valuer, CancellationToken ct);
+
     }
 
     public sealed class ValuerVerificationService : IValuerVerificationService
@@ -133,5 +137,46 @@ namespace Valuer_Verification_System.Services.Valuer
 
         public Task MarkAllNotificationsReadAsync(string valuer, CancellationToken ct)
             => _notif.MarkAllReadAsync((valuer ?? "").Trim(), ct);
+
+        public async Task<ValuerRowDetailsVm?> GetRowDetailsAsync(int extractRowId, string valuer, CancellationToken ct)
+        {
+            // Security: only rows assigned to this valuer
+            var row = await _db.Assignments
+                .AsNoTracking()
+                .Where(a => a.ExtractRowId == extractRowId && a.AssignedToValuer == valuer)
+                .Select(a => new
+                {
+                    a.AssignedToValuer,
+                    Row = a.ExtractRow,
+                    Batch = a.ExtractRow.Batch,
+                    Week = a.ExtractRow.Batch.WeekWindow
+                })
+                .FirstOrDefaultAsync(ct);
+
+            if (row == null) return null;
+
+            return new ValuerRowDetailsVm
+            {
+                ExtractRowId = row.Row.Id,
+                ValuationKey = row.Row.ValuationKey ?? "",
+                Sector = row.Row.Sector ?? "",
+                PropertyDescription = row.Row.PropertyDescription ?? "",
+                MarketValue = row.Row.MarketValue,
+                Category = row.Row.Category ?? "",
+                PropertyType = row.Row.PropertyType ?? "",
+
+                AssignedToValuer = row.AssignedToValuer ?? "",
+                Decision = row.Row.Decision,
+                DecisionAtUtc = row.Row.DecisionAtUtc,
+                DecisionComment = row.Row.DecisionComment,
+
+                BatchName = row.Batch.BatchName ?? "",
+                BatchDate = row.Batch.BatchDate,
+
+                WeekStart = row.Week.WeekStart,
+                WeekEnd = row.Week.WeekEnd,
+                NoticeSendDate = row.Week.NoticeSendDate
+            };
+        }
     }
 }
