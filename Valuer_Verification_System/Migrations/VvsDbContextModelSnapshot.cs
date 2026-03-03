@@ -154,6 +154,15 @@ namespace Valuer_Verification_System.Migrations
                     b.Property<string>("ManagersNotifiedBy")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("NoticesSent")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("NoticesSentAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NoticesSentBy")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -305,6 +314,21 @@ namespace Valuer_Verification_System.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Addr1")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Addr2")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Addr3")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Addr4")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Addr5")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("BatchId")
                         .HasColumnType("int");
 
@@ -315,15 +339,19 @@ namespace Valuer_Verification_System.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Category")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CojOwned")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("CreatedBy")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
 
                     b.Property<int>("Decision")
                         .HasColumnType("int");
@@ -335,29 +363,110 @@ namespace Valuer_Verification_System.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<string>("EStatus")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EmailAddr")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EmailInd")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Erf")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Extent")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ExtractPeriod")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateOnly?>("ExtractionDate")
                         .HasColumnType("date");
 
+                    b.Property<string>("LeasePropertyDesc")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("LeaseUnitNo")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("LegalArea")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateOnly?>("LetterDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("LisStreetAddress")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("MarketValue")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("NoticeOpen")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OwnerName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PhysicalAddress")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PremiseAddress")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PremiseId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PropertyCategory")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PropertyDesc")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("PropertyDescription")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<string>("PropertyDescription_")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PropertyId")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PropertyType")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Ptn")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("RateableArea")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Re")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RemarkDesc")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateOnly?>("ReviewCloseDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("ReviewCloseDate2")
+                        .HasColumnType("date");
+
+                    b.Property<string>("ReviewOpen")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateOnly?>("ReviewOpenDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("ReviewOpenDate2")
+                        .HasColumnType("date");
 
                     b.Property<string>("RightDescription")
                         .HasColumnType("nvarchar(max)");
@@ -371,14 +480,43 @@ namespace Valuer_Verification_System.Migrations
                     b.Property<string>("RightsStatus")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("RightsUnitType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SapData")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SchemeName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SchemeNameDesc")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SchemeNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SchemeNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SchemeYear")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Sector")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("SendNotice")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("SgId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SplitPost")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("StAddr2Postal")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("StPropertyDescription")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("StandNo")
@@ -399,6 +537,9 @@ namespace Valuer_Verification_System.Migrations
                     b.Property<string>("UnitNo")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("UnitNoChar")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("UnitRightsKey")
                         .HasColumnType("nvarchar(max)");
 
@@ -409,6 +550,10 @@ namespace Valuer_Verification_System.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("UpdatedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("Usable")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateOnly?>("ValuationDate")
@@ -418,6 +563,9 @@ namespace Valuer_Verification_System.Migrations
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("ValuationKey2")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ValuationRollKey")
                         .HasColumnType("nvarchar(max)");
@@ -432,8 +580,7 @@ namespace Valuer_Verification_System.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Valuer")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<DateOnly?>("WefDate")
                         .HasColumnType("date");
@@ -625,6 +772,12 @@ namespace Valuer_Verification_System.Migrations
                         .HasColumnType("nvarchar(512)");
 
                     b.Property<DateOnly>("NoticeSendDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("ReviewCloseDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("ReviewOpenDate")
                         .HasColumnType("date");
 
                     b.Property<int>("Status")

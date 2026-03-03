@@ -1,16 +1,47 @@
 ﻿@model Valuer_Verification_System.Models.ViewModels.DataTeamDashboardVm
+@using Valuer_Verification_System.Models.Data
 @using Valuer_Verification_System.Models.SLA
 @{
     ViewData["Title"] = "Data Team Dashboard";
 }
 @functions {
-    string BadgeClass(SlaStatus s) => s switch
+    string SlaClass(SlaStatus s) => s switch
     {
         SlaStatus.Completed => "sla-completed",
         SlaStatus.OnTrack => "sla-ontrack",
         SlaStatus.AtRisk => "sla-atrisk",
         SlaStatus.Overdue => "sla-overdue",
         _ => "sla-default"
+    };
+
+    string BatchStatusClass(BatchStatus s) => s switch
+    {
+        BatchStatus.Uploaded => "bs-uploaded",
+        BatchStatus.InVerification => "bs-inverification",
+        BatchStatus.ReadyToSend => "bs-readytosend",
+        BatchStatus.Sent => "bs-sent",
+        BatchStatus.Cancelled => "bs-cancelled",
+        _ => "bs-uploaded"
+    };
+
+    string BatchStatusLabel(BatchStatus s) => s switch
+    {
+        BatchStatus.Uploaded => "Uploaded",
+        BatchStatus.InVerification => "In Verification",
+        BatchStatus.ReadyToSend => "Ready to Send",
+        BatchStatus.Sent => "Sent",
+        BatchStatus.Cancelled => "Cancelled",
+        _ => s.ToString()
+    };
+
+    string ActionIcon(string title) => title switch
+    {
+        "Ready to Send Notices" => "📬",
+        "Notices Sent" => "✅",
+        "Notify Managers" => "📧",
+        "Verification In Progress" => "🔍",
+        "Upload Extract" => "📤",
+        _ => "⚡"
     };
 }
 
@@ -21,9 +52,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Data Team Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-
-    
-    <link href="~/css/home/indexcss.css" rel="stylesheet" />
+    <link href="~/css/Home/IndexCss1.css" rel="stylesheet" />
 </head>
 <body>
 
@@ -39,23 +68,22 @@
         </header>
 
         <!-- ─── NEXT ACTION HERO ─────────────────────────── -->
-        <div class="action-hero">
-            <div class="action-icon">⚡</div>
+        <div class="action-hero @(Model.NextActionTitle == "Ready to Send Notices" ? "action-hero--notices" : "")">
+            <div class="action-icon">@ActionIcon(Model.NextActionTitle)</div>
             <div class="action-text">
                 <div class="action-label">Next Action Required</div>
                 <div class="action-title">@Model.NextActionTitle</div>
                 <div class="action-hint">@Model.NextActionHint</div>
             </div>
             <div class="action-buttons">
-                <a class="btn btn-gold" href="@Model.NextActionUrl">
+                <a class="btn @(Model.NextActionTitle == "Ready to Send Notices" ? "btn-send-notices" : "btn-gold")"
+                   href="@Model.NextActionUrl">
                     <span>▶</span> @Model.NextActionButton
                 </a>
-                <a class="btn btn-outline-white" href="/WeekWindows/Create" title="Start a new week window for a new extract">
-                    <span>＋</span> Start New Weekly Process
+                <a class="btn btn-outline-white" href="/WeekWindows/Create">
+                    <span>＋</span> New Weekly Process
                 </a>
-                <a class="btn btn-outline-white" href="/WeekWindows">
-                    Week Windows
-                </a>
+                <a class="btn btn-outline-white" href="/WeekWindows">Week Windows</a>
             </div>
         </div>
 
@@ -63,15 +91,15 @@
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-icon">🗓</div>
-                <div class="stat-label">Active Week Windows (Latest)</div>
+                <div class="stat-label">Active Week Windows</div>
                 <div class="stat-value">@Model.ActiveWeekWindows</div>
-                <div class="stat-sub">Currently active windows</div>
+                <div class="stat-sub">Currently tracked</div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon">📦</div>
-                <div class="stat-label">Batches Created — Last 30 Days</div>
+                <div class="stat-label">Batches — Last 30 Days</div>
                 <div class="stat-value">@Model.TotalBatchesLast30</div>
-                <div class="stat-sub">Recent batch activity</div>
+                <div class="stat-sub">Recent upload activity</div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon">🔍</div>
@@ -79,12 +107,27 @@
                 <div class="stat-value">@Model.BatchesInVerification</div>
                 <div class="stat-sub">Currently under review</div>
             </div>
+            <div class="stat-card stat-card--notices @(Model.BatchesReadyToSend > 0 ? "stat-card--notices-active" : "")">
+                <div class="stat-icon">📬</div>
+                <div class="stat-label">Batches Ready to Send</div>
+                <div class="stat-value">@Model.BatchesReadyToSend</div>
+                <div class="stat-sub">
+                    @if (Model.BatchesReadyToSend > 0)
+                    {
+                        <a href="/DataTeam/SendNotice" class="stat-link">Send notices now →</a>
+                    }
+                    else
+                    {
+                        <span>No notices pending</span>
+                    }
+                </div>
+            </div>
         </div>
 
         <!-- ─── MAIN CONTENT PANELS ──────────────────────── -->
         <div class="content-grid">
 
-            <!-- WEEK WINDOWS PANEL -->
+            <!-- ── WEEK WINDOWS PANEL ── -->
             <div class="panel">
                 <div class="panel-header">
                     <div class="panel-title-wrap">
@@ -98,7 +141,9 @@
                         <thead>
                             <tr>
                                 <th>Week Period</th>
-                                <th>Send Date</th>
+                                <th>Notice Date</th>
+                                <th>Review Open</th>
+                                <th>Review Close</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
@@ -109,35 +154,33 @@
                                 <tr>
                                     <td>
                                         <span class="week-range">
-                                            @w.WeekStart.ToString("yyyy-MM-dd")
+                                            @w.WeekStart.ToString("dd MMM")
                                             <span class="week-arrow">→</span>
-                                            @w.WeekEnd.ToString("yyyy-MM-dd")
+                                            @w.WeekEnd.ToString("dd MMM yyyy")
                                         </span>
                                     </td>
-                                    <td>
-                                        <span class="date-chip">@w.NoticeSendDate.ToString("yyyy-MM-dd")</span>
-                                    </td>
-                                    <td>
-                                        <span class="status-badge badge-week">@w.Status</span>
-                                    </td>
+                                    <td><span class="date-chip date-chip--gold">@w.NoticeSendDate.ToString("dd MMM yyyy")</span></td>
+                                    <td><span class="date-chip">@w.ReviewOpenDate.ToString("dd MMM yyyy")</span></td>
+                                    <td><span class="date-chip">@w.ReviewCloseDate.ToString("dd MMM yyyy")</span></td>
+                                    <td><span class="status-badge badge-week">@w.Status</span></td>
                                     <td>
                                         <div class="action-cell">
                                             <a class="btn btn-sm btn-primary-sm" href="/WeekWindows/Details/@w.Id">Details</a>
-                                            <a class="btn btn-sm btn-secondary-sm" href="/ExtractUpload?weekWindowId=@w.Id">Upload</a>
+                                            <a class="btn btn-sm btn-secondary-sm" href="/Upload">Upload</a>
                                         </div>
                                     </td>
                                 </tr>
                             }
-                            @if (Model.WeekWindows.Count == 0)
+                            @if (!Model.WeekWindows.Any())
                             {
-                                <tr class="empty-row"><td colspan="4">No week windows yet.</td></tr>
+                                <tr class="empty-row"><td colspan="6">No week windows yet. <a href="/WeekWindows/Create">Create one →</a></td></tr>
                             }
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <!-- RECENT BATCHES PANEL -->
+            <!-- ── RECENT BATCHES PANEL ── -->
             <div class="panel">
                 <div class="panel-header">
                     <div class="panel-title-wrap">
@@ -156,43 +199,73 @@
                                 <th>Pending</th>
                                 <th>SLA</th>
                                 <th>Progress</th>
+                                <th>Status</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var b in Model.RecentBatches)
                             {
-                                <tr>
+                                <tr class="@(b.NoticesCanBeSent ? "row-highlight-notices" : b.NoticesSent ? "row-highlight-sent" : "")">
                                     <td>
                                         <div class="batch-name">@b.BatchName</div>
-                                        <div class="batch-date">@b.BatchDate.ToString("yyyy-MM-dd")</div>
+                                        <div class="batch-date">@b.BatchDate.ToString("dd MMM yyyy")</div>
                                     </td>
-                                    <td style="font-size:11.5px; white-space:nowrap;">
-                                        @b.WeekStart.ToString("MM-dd") <span class="week-arrow">→</span> @b.WeekEnd.ToString("MM-dd")
+                                    <td class="no-wrap-sm">
+                                        @b.WeekStart.ToString("dd MMM")
+                                        <span class="week-arrow">→</span>
+                                        @b.WeekEnd.ToString("dd MMM")
                                     </td>
-                                    <td><span class="total-txt">@b.Total</span></td>
-                                    <td><span class="pending-pill">@b.Pending</span></td>
+                                    <td><span class="total-txt">@b.Total.ToString("N0")</span></td>
                                     <td>
-                                        <span class="sla-badge @BadgeClass(b.SlaStatus)" title="@b.SlaLabel">@b.SlaStatus</span>
+                                        <span class="pending-pill @(b.Pending == 0 ? "pending-pill--zero" : "")">
+                                            @b.Pending
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="sla-badge @SlaClass(b.SlaStatus)" title="@b.SlaLabel">@b.SlaStatus</span>
                                         <div class="sla-label">@b.SlaLabel</div>
                                     </td>
                                     <td>
                                         <div class="progress-bar-wrap">
-                                            <div class="progress-bar-fill" style="width:@b.ProgressPercent"></div>
+                                            <div class="progress-bar-fill" style="width:@(b.ProgressPercent)%"></div>
                                         </div>
-                                        <span class="pct-text">@b.ProgressPercent</span>
+                                        <span class="pct-text">@b.ProgressPercent%</span>
+                                    </td>
+                                    <td>
+                                        @if (b.NoticesSent)
+                                        {
+                                            <span class="status-badge bs-sent" title="Sent by @b.NoticesSentBy on @b.NoticesSentAtUtc?.ToString("dd MMM yyyy HH:mm")">
+                                                ✓ Sent
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="status-badge @BatchStatusClass(b.Status)">
+                                                @BatchStatusLabel(b.Status)
+                                            </span>
+                                        }
                                     </td>
                                     <td>
                                         <div class="action-cell">
-                                            <a class="btn btn-sm btn-manager" href="/Manager/Dashboard?batchId=@b.Id">Manager</a>
-                                            <a class="btn btn-sm btn-stats" href="/Manager/Stats/Download?batchId=@b.Id">Stats</a>
+                                            @if (b.NoticesCanBeSent)
+                                            {
+                                                <a class="btn btn-sm btn-send-notices-sm" href="/DataTeam/SendNotice">
+                                                    📬 Send Notices
+                                                </a>
+                                            }
+                                            else
+                                            {
+                                                <a class="btn btn-sm btn-manager" href="/Manager/Dashboard?batchId=@b.Id">Manager</a>
+                                                <a class="btn btn-sm btn-stats" href="/Manager/Stats/Download?batchId=@b.Id">Stats</a>
+                                            }
                                         </div>
                                     </td>
                                 </tr>
                             }
-                            @if (Model.RecentBatches.Count == 0)
+                            @if (!Model.RecentBatches.Any())
                             {
-                                <tr class="empty-row"><td colspan="7">No batches yet.</td></tr>
+                                <tr class="empty-row"><td colspan="8">No batches yet.</td></tr>
                             }
                         </tbody>
                     </table>
@@ -203,7 +276,6 @@
     </div><!-- /dash-wrapper -->
 
     <script>
-        /* Live clock */
         (function () {
             const el = document.getElementById('live-time');
             if (!el) return;
@@ -211,7 +283,7 @@
                 const d = new Date();
                 el.textContent = d.toLocaleDateString('en-ZA', {
                     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-                }) + ' · ' + d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+                }) + ' \u00b7 ' + d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
             };
             fmt(); setInterval(fmt, 30000);
         })();

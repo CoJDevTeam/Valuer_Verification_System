@@ -86,7 +86,7 @@ namespace Valuer_Verification_System.Controllers
                     ExtractRowId = r.Id,
                     ValuationKey = r.ValuationKey,
                     Sector = r.Sector,
-                    PropertyDescription = r.PropertyDescription,
+                    PropertyDescription = r.CatDesc,
                     MarketValue = r.MarketValue,
                     Category = r.Category,
                     PropertyType = r.PropertyType,

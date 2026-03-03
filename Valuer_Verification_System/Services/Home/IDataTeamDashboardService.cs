@@ -34,6 +34,8 @@ namespace Valuer_Verification_System.Services.Home
                     WeekStart = w.WeekStart,
                     WeekEnd = w.WeekEnd,
                     NoticeSendDate = w.NoticeSendDate,
+                    ReviewOpenDate = w.ReviewOpenDate,
+                    ReviewCloseDate = w.ReviewCloseDate,
                     Status = w.Status
                 })
                 .ToListAsync(ct);
@@ -93,6 +95,8 @@ namespace Valuer_Verification_System.Services.Home
                     WeekStart = b.WeekWindow.WeekStart,
                     WeekEnd = b.WeekWindow.WeekEnd,
                     NoticeSendDate = b.WeekWindow.NoticeSendDate,
+                    ReviewOpenDate = b.WeekWindow.ReviewOpenDate,
+                    ReviewCloseDate = b.WeekWindow.ReviewCloseDate,
 
                     Total = total,
                     Pending = pending,
@@ -103,7 +107,16 @@ namespace Valuer_Verification_System.Services.Home
                     // ✅ SLA fields
                     SlaStatus = sla.Status,
                     DaysToSend = sla.DaysToSend,
-                    SlaLabel = sla.Label
+                    SlaLabel = sla.Label,
+
+                    // Lifecycle
+                    Status = b.Status,
+                    ManagersNotified = b.ManagersNotifiedAtUtc != null,
+
+                    // Notice send tracking
+                    NoticesSent = b.NoticesSent,
+                    NoticesSentAtUtc = b.NoticesSentAtUtc,
+                    NoticesSentBy = b.NoticesSentBy
                 };
             }).ToList();
 
@@ -111,6 +124,7 @@ namespace Valuer_Verification_System.Services.Home
             var from30 = DateTime.UtcNow.AddDays(-30);
             var totalBatchesLast30 = await _db.Batches.AsNoTracking().CountAsync(b => b.CreatedAt >= from30, ct);
             var batchesInVerification = await _db.Batches.AsNoTracking().CountAsync(b => b.Status == BatchStatus.InVerification, ct);
+            var batchesReadyToSend = await _db.Batches.AsNoTracking().CountAsync(b => b.Status == BatchStatus.ReadyToSend && !b.NoticesSent, ct);
 
             var vm = new DataTeamDashboardVm
             {
@@ -118,7 +132,8 @@ namespace Valuer_Verification_System.Services.Home
                 RecentBatches = recentBatches,
                 ActiveWeekWindows = weeks.Count,
                 TotalBatchesLast30 = totalBatchesLast30,
-                BatchesInVerification = batchesInVerification
+                BatchesInVerification = batchesInVerification,
+                BatchesReadyToSend = batchesReadyToSend
             };
 
             var latestWeek = weeks.FirstOrDefault();
@@ -131,26 +146,41 @@ namespace Valuer_Verification_System.Services.Home
                 vm.NextActionUrl = "/WeekWindows/Create";
                 vm.NextActionButton = "Create Week Window";
             }
-            else if (latestWeek.Status != WeekWindowStatus.Uploaded)
+            else if (latestWeek.Status == WeekWindowStatus.Draft
+                  || latestWeek.Status == WeekWindowStatus.Confirmed)
             {
                 vm.NextActionTitle = "Upload Extract";
-                vm.NextActionHint = $"Week {latestWeek.WeekStart:yyyy-MM-dd} → {latestWeek.WeekEnd:yyyy-MM-dd} is not uploaded yet.";
-                vm.NextActionUrl = $"/ExtractUpload?weekWindowId={latestWeek.Id}";
+                vm.NextActionHint = $"Week {latestWeek.WeekStart:dd MMM yyyy} is ready — upload the LIS extract to begin verification.";
+                vm.NextActionUrl = "/Upload";
                 vm.NextActionButton = "Go to Upload";
             }
             else if (latestBatch != null && latestBatch.Pending > 0)
             {
                 vm.NextActionTitle = "Verification In Progress";
-                vm.NextActionHint = $"Latest batch {latestBatch.BatchName} has {latestBatch.Pending} pending records. Managers may need to reassign.";
+                vm.NextActionHint = $"Batch {latestBatch.BatchName} has {latestBatch.Pending} unverified records. Check the Manager Dashboard.";
                 vm.NextActionUrl = $"/Manager/Dashboard?batchId={latestBatch.Id}";
                 vm.NextActionButton = "Open Manager Dashboard";
             }
-            else if (latestBatch != null && latestBatch.ReadyForNotices)
+            else if (latestBatch != null && latestBatch.ReadyForNotices && !latestBatch.ManagersNotified)
             {
-                vm.NextActionTitle = "Batch Ready";
-                vm.NextActionHint = $"Batch {latestBatch.BatchName} is fully verified. Generate weekly stats or proceed to notices (later module).";
-                vm.NextActionUrl = $"/Manager/Stats/Download?batchId={latestBatch.Id}";
-                vm.NextActionButton = "Download Stats";
+                vm.NextActionTitle = "Notify Managers";
+                vm.NextActionHint = $"Batch {latestBatch.BatchName} is fully verified — notify sector managers before sending notices.";
+                vm.NextActionUrl = $"/Upload/Review/{latestBatch.Id}";
+                vm.NextActionButton = "Notify Managers";
+            }
+            else if (latestBatch != null && latestBatch.NoticesCanBeSent)
+            {
+                vm.NextActionTitle = "Ready to Send Notices";
+                vm.NextActionHint = $"Batch {latestBatch.BatchName} is verified and managers are notified. Send the Section 78 notices now.";
+                vm.NextActionUrl = "/DataTeam/SendNotice";
+                vm.NextActionButton = "Send Notices";
+            }
+            else if (latestBatch != null && latestBatch.NoticesSent)
+            {
+                vm.NextActionTitle = "Notices Sent";
+                vm.NextActionHint = $"Batch {latestBatch.BatchName} notices were sent on {latestBatch.NoticesSentAtUtc:dd MMM yyyy HH:mm}. Start the next weekly process.";
+                vm.NextActionUrl = "/WeekWindows/Create";
+                vm.NextActionButton = "Start Next Week";
             }
             else
             {

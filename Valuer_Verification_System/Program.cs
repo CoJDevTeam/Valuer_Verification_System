@@ -2,7 +2,9 @@
 using Microsoft.EntityFrameworkCore;
 using Valuer_Verification_System.Data;
 using Valuer_Verification_System.Infrastructure.Configuration;
+using Valuer_Verification_System.Infrastructure.Configuration.Email;
 using Valuer_Verification_System.Infrastructure.Configuration.Email.Valuer_Verification_System.Infrastructure.Configuration.Email;
+using Valuer_Verification_System.Services.Notice;
 using Valuer_Verification_System.Services.Permissions;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -65,6 +67,9 @@ builder.Services.AddScoped<Valuer_Verification_System.Services.Manager.IManagerD
 //---------------------------------Notice ---------------------------------
 builder.Services.AddScoped<Valuer_Verification_System.Services.Notice.INoticeGuardService,
     Valuer_Verification_System.Services.Notice.NoticeGuardService>();
+
+builder.Services.AddScoped<INoticeCleaningService, NoticeCleaningService>();
+builder.Services.AddScoped<INoticePdfService, NoticePdfService>();
 
 builder.Services.AddScoped<Valuer_Verification_System.Services.Stats.IStatsExportService,
     Valuer_Verification_System.Services.Stats.StatsExportService>();

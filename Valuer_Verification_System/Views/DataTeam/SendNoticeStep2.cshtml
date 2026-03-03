@@ -1,0 +1,281 @@
+﻿@model Valuer_Verification_System.Models.ViewModels.SendNoticeStep2Vm
+@{
+    ViewData["Title"] = "Send Notices – Step 2: Clean Data";
+    var steps = new[]
+    {
+        new { Key = "UnitType",           Label = "Set Unit Types (00 / ST / FL / SL)" },
+        new { Key = "PremiseId",          Label = "Build Premise IDs" },
+        new { Key = "ErfPtnRe",           Label = "Extract ERF / PTN / RE from Premise ID" },
+        new { Key = "SchemeInfo",         Label = "Update Scheme Name, Year & Number (from LIS)" },
+        new { Key = "PropertyDescription",Label = "Build Property Descriptions" },
+        new { Key = "SapAddresses",       Label = "Load Addresses from SAP" },
+        new { Key = "LisStreetAddress",   Label = "Fill LIS Street Addresses" },
+        new { Key = "UsableFlags",        Label = "Set USABLE Flags (address keywords)" },
+        new { Key = "CojOwned",           Label = "Flag COJ-Owned Properties" },
+        new { Key = "FallbackAddresses",  Label = "Build Fallback Addresses (FH / ST)" },
+        new { Key = "FinalMappings",      Label = "Final Field Mappings & Decimals" },
+        new { Key = "Trim",               Label = "Trim All Fields" }
+    };
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Send Notices – Step 2</title>
+ 
+    <link href="~/css/noticesent/noticesentcss.css" rel="stylesheet" />
+</head>
+<body>
+    <div class="sn-wrapper">
+
+        <!-- PAGE HEADER -->
+        <header class="sn-header">
+            <div>
+                <div class="sn-eyebrow">Valuer Verification System · Data Team</div>
+                <h1 class="sn-title">Send Notices <span>— Step 2</span></h1>
+                <p class="sn-subtitle">Clean ExtractRow data, then export to the Week Table on the GV2018 server.</p>
+            </div>
+            <a href="/DataTeam/SendNotice" class="btn-outline">← Back to Step 1</a>
+        </header>
+
+        <!-- STEP INDICATOR -->
+        <div class="step-bar">
+            <div class="step done"><span class="step-num">✓</span><span class="step-label">Select Week</span></div>
+            <div class="step-line done"></div>
+            <div class="step active"><span class="step-num">2</span><span class="step-label">Clean Data</span></div>
+            <div class="step-line"></div>
+            <div class="step"><span class="step-num">3</span><span class="step-label">Send Notices</span></div>
+        </div>
+
+        <div class="sn-content">
+
+            <!-- CONFIG CARD -->
+            <div class="card" id="configCard">
+                <div class="card-header">
+                    <span class="card-icon">⚙️</span>
+                    <span>Cleaning Configuration — Batch @Model.BatchId</span>
+                </div>
+                <div class="card-body">
+
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Extraction Date</span>
+                            <span class="info-value">@Model.ExtractionDate.ToString("dd MMM yyyy")</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Letter Date (Notice Send)</span>
+                            <span class="info-value">@Model.NoticeSendDate.ToString("dd MMMM yyyy").ToUpperInvariant()</span>
+                        </div>
+                        <div class="info-item span-2">
+                            <span class="info-label">Target Week Table (173 server · GV2018_SECTION_78)</span>
+                            <span class="info-value table-name">@Model.WeekTableName</span>
+                        </div>
+                    </div>
+
+                    <div class="field-row" style="margin-top:1.2rem;">
+                        <label class="field-label" for="lisMasterTable">LIS Master Table</label>
+                        <input id="lisMasterTable" type="text" class="field-input"
+                               value="@Model.LisMasterTable"
+                               placeholder="e.g. LIS_MASTER.dbo.LIS_2025_09_16" />
+                        <span class="field-hint">Change only if a newer LIS snapshot is available</span>
+                    </div>
+
+                    <div class="field-row">
+                        <label class="field-label" for="sapTable">SAP Statements Table</label>
+                        <input id="sapTable" type="text" class="field-input"
+                               value="@Model.SapTable"
+                               placeholder="e.g. SAP_STATEMENTS_RECORDS.dbo.SAP_STATEMENT_RECORDS_2026_01" />
+                        <span class="field-hint">Use the latest monthly SAP statements table</span>
+                    </div>
+
+                    <button id="btnStartCleaning" class="btn-gold" onclick="startCleaning()">
+                        ▶ Start Data Cleaning
+                    </button>
+                </div>
+            </div>
+
+            <!-- PROGRESS CARD (hidden until cleaning starts) -->
+            <div class="card" id="progressCard" style="display:none;">
+                <div class="card-header">
+                    <span class="card-icon" id="progressIcon">🔄</span>
+                    <span id="progressTitle">Cleaning in Progress...</span>
+                    <span class="badge badge-amber" id="progressBadge">Running</span>
+                </div>
+                <div class="card-body">
+
+                    <!-- Overall progress bar -->
+                    <div class="progress-bar-outer">
+                        <div class="progress-bar-inner" id="overallBar" style="width:0%"></div>
+                    </div>
+                    <div class="progress-label" id="progressLabel">Preparing...</div>
+
+                    <!-- Step list -->
+                    <div class="step-list" id="stepList">
+                        @foreach (var step in steps)
+                        {
+                            <div class="step-item" id="step-@step.Key" data-step="@step.Key">
+                                <span class="step-status" id="status-@step.Key">⬜</span>
+                                <span class="step-text">@step.Label</span>
+                                <span class="step-rows" id="rows-@step.Key"></span>
+                            </div>
+                        }
+                        <!-- Create Week Table (final step) -->
+                        <div class="step-item" id="step-CreateWeekTable" data-step="CreateWeekTable">
+                            <span class="step-status" id="status-CreateWeekTable">⬜</span>
+                            <span class="step-text">
+                                Create Week Table: <strong id="weekTableLabel">@Model.WeekTableName</strong>
+                                <span class="server-badge">173 server</span>
+                            </span>
+                            <span class="step-rows" id="rows-CreateWeekTable"></span>
+                        </div>
+                    </div>
+
+                    <!-- Error display -->
+                    <div class="error-box" id="errorBox" style="display:none;"></div>
+
+                    <!-- Done panel -->
+                    <div id="donePanel" style="display:none;">
+                        <div class="success-box">
+                            ✅ Data cleaning complete. Table <strong id="doneTableName">@Model.WeekTableName</strong>
+                            has been created on the GV2018 server (173).
+                        </div>
+                        <div style="margin-top:1.2rem; display:flex; gap:1rem;">
+                            <a href="#" class="btn-gold" id="btnStep3">
+                                Proceed to Send Notices →
+                            </a>
+                            <button onclick="location.reload()" class="btn-outline">
+                                Run Again
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const EXTRACTION_DATE = "@Model.ExtractionDate.ToString("yyyy-MM-dd")";
+        const BATCH_ID        = @Model.BatchId;
+        const WEEK_TABLE      = "@Model.WeekTableName";
+
+        const STEPS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                    steps.Select(s => s.Key).ToArray()
+                ));
+
+        async function startCleaning() {
+          const lis = document.getElementById('lisMasterTable').value.trim();
+          const sap = document.getElementById('sapTable').value.trim();
+
+          if (!lis || !sap) {
+            alert('Please fill in both table names before cleaning.');
+            return;
+          }
+
+          document.getElementById('configCard').style.opacity = '0.4';
+          document.getElementById('btnStartCleaning').disabled = true;
+          document.getElementById('progressCard').style.display = '';
+          document.getElementById('weekTableLabel').textContent = WEEK_TABLE;
+          document.getElementById('doneTableName').textContent  = WEEK_TABLE;
+
+          const total = STEPS.length + 1; // +1 for CreateWeekTable
+          let   done  = 0;
+          let   hadError = false;
+
+          function updateBar(n) {
+            const pct = Math.round(n / total * 100);
+            document.getElementById('overallBar').style.width = pct + '%';
+          }
+
+          function setStatus(key, icon, rowsText) {
+            document.getElementById('status-' + key).textContent = icon;
+            if (rowsText !== undefined)
+              document.getElementById('rows-' + key).textContent = rowsText;
+          }
+
+          // ── Run each cleaning step ─────────────────────────────────────────────
+          for (const step of STEPS) {
+            document.getElementById('progressLabel').textContent = 'Running: ' + step + '...';
+            document.getElementById('step-' + step)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            setStatus(step, '🔄');
+
+            const res = await fetchStep('/DataTeam/SendNotice/RunCleanStep', {
+              stepName:       step,
+              extractionDate: EXTRACTION_DATE,
+              lisMasterTable: lis,
+              sapTable:       sap
+            });
+
+            if (res.success) {
+              setStatus(step, '✅', res.rowsAffected + ' rows');
+              done++;
+              updateBar(done);
+            } else {
+              setStatus(step, '❌');
+              showError('Step ' + step + ' failed: ' + res.error);
+              hadError = true;
+              break;
+            }
+          }
+
+          if (hadError) return;
+
+          // ── Create Week Table (final step) ────────────────────────────────────
+          document.getElementById('progressLabel').textContent = 'Creating week table on 173 server...';
+          setStatus('CreateWeekTable', '🔄');
+
+          const tableRes = await fetchStep('/DataTeam/SendNotice/CreateWeekTable', {
+            weekTableName:  WEEK_TABLE,
+            extractionDate: EXTRACTION_DATE
+          });
+
+          if (tableRes.success) {
+            setStatus('CreateWeekTable', '✅', tableRes.rowsAffected + ' rows');
+            done++;
+            updateBar(done);
+
+            document.getElementById('progressIcon').textContent    = '✅';
+            document.getElementById('progressTitle').textContent   = 'Cleaning Complete';
+            document.getElementById('progressBadge').textContent   = 'Done';
+            document.getElementById('progressBadge').className     = 'badge badge-green';
+            document.getElementById('progressLabel').textContent   = 'All steps completed successfully.';
+            document.getElementById('btnStep3').href = '/DataTeam/SendNotice/Step3/' + BATCH_ID;
+            document.getElementById('donePanel').style.display = '';
+          } else {
+            setStatus('CreateWeekTable', '❌');
+            showError('Create Week Table failed: ' + tableRes.error);
+          }
+        }
+
+        async function fetchStep(url, body) {
+          try {
+            const resp = await fetch(url, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? ''
+              },
+              body: JSON.stringify(body)
+            });
+            return await resp.json();
+          } catch (e) {
+            return { success: false, error: e.message };
+          }
+        }
+
+        function showError(msg) {
+          const box = document.getElementById('errorBox');
+          box.textContent = '❌ ' + msg;
+          box.style.display = '';
+          document.getElementById('progressIcon').textContent  = '❌';
+          document.getElementById('progressTitle').textContent = 'Error — Cleaning Stopped';
+          document.getElementById('progressBadge').textContent = 'Failed';
+          document.getElementById('progressBadge').className   = 'badge badge-red';
+        }
+    </script>
+
+    @Html.AntiForgeryToken()
+</body>
+</html>

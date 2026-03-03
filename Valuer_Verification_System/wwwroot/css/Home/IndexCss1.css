@@ -712,3 +712,168 @@ tbody td {
 }
 
 
+
+
+/* ═══════════════════════════════════════════════
+        KPI GRID — 4 COLUMNS
+═══════════════════════════════════════════════ */
+.stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 1100px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 580px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Notices-ready stat card */
+.stat-card--notices-active {
+    border-color: var(--gold);
+    box-shadow: var(--shadow-gold);
+}
+
+    .stat-card--notices-active::before {
+        opacity: 1 !important;
+    }
+
+.stat-link {
+    color: var(--gold-dark);
+    font-weight: 600;
+    text-decoration: none;
+    font-size: 11px;
+}
+
+    .stat-link:hover {
+        text-decoration: underline;
+    }
+
+/* ═══════════════════════════════════════════════
+        HERO — NOTICES VARIANT
+═══════════════════════════════════════════════ */
+.action-hero--notices {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2a2200 100%);
+    border: 1.5px solid var(--gold);
+}
+
+    .action-hero--notices::before {
+        background: radial-gradient(circle, rgba(230,176,0,.55) 0%, transparent 70%);
+    }
+
+/* Send Notices primary button */
+.btn-send-notices {
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    color: var(--black);
+    box-shadow: 0 2px 18px rgba(230,176,0,.6);
+    font-size: 14px;
+    padding: 12px 28px;
+    animation: pulse-gold 2s infinite;
+}
+
+    .btn-send-notices:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 28px rgba(230,176,0,.7);
+    }
+
+@keyframes pulse-gold {
+    0%, 100% {
+        box-shadow: 0 2px 18px rgba(230,176,0,.6);
+    }
+
+    50% {
+        box-shadow: 0 2px 30px rgba(230,176,0,.9);
+    }
+}
+
+/* Small Send Notices button inside table */
+.btn-send-notices-sm {
+    background: var(--gold);
+    color: var(--black);
+    font-weight: 700;
+    border: none;
+    box-shadow: 0 2px 8px rgba(230,176,0,.4);
+    animation: pulse-gold 2s infinite;
+}
+
+    .btn-send-notices-sm:hover {
+        background: var(--gold-light);
+        transform: translateY(-1px);
+    }
+
+/* ═══════════════════════════════════════════════
+        DATE CHIPS — VARIANTS
+═══════════════════════════════════════════════ */
+.date-chip--gold {
+    background: var(--gold-pale);
+    border-color: rgba(230,176,0,.45);
+    color: var(--gold-dark);
+    font-weight: 700;
+}
+
+/* ═══════════════════════════════════════════════
+        BATCH STATUS BADGES
+═══════════════════════════════════════════════ */
+.bs-uploaded {
+    background: var(--grey-100);
+    color: var(--grey-600);
+}
+
+.bs-inverification {
+    background: #e8f0ff;
+    color: #1a40a8;
+}
+
+.bs-readytosend {
+    background: var(--warning-bg);
+    color: var(--warning);
+}
+
+.bs-sent {
+    background: var(--success-bg);
+    color: var(--success);
+}
+
+.bs-cancelled {
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+
+/* ═══════════════════════════════════════════════
+        TABLE ROW HIGHLIGHTS
+═══════════════════════════════════════════════ */
+.row-highlight-notices {
+    background: var(--gold-pale) !important;
+}
+
+    .row-highlight-notices td:first-child {
+        border-left: 3px solid var(--gold);
+    }
+
+.row-highlight-sent {
+    background: var(--success-bg) !important;
+    opacity: .85;
+}
+
+/* ═══════════════════════════════════════════════
+        PENDING PILL — ZERO STATE
+═══════════════════════════════════════════════ */
+.pending-pill--zero {
+    background: var(--success-bg);
+    color: var(--success);
+    border-color: rgba(26,138,74,.3);
+}
+
+/* ═══════════════════════════════════════════════
+        SMALL HELPERS
+═══════════════════════════════════════════════ */
+.no-wrap-sm {
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--grey-600);
+}

@@ -13,6 +13,13 @@ namespace Valuer_Verification_System.Models.Data
         // Friday of following week, or Thursday if Friday holiday (computed in app logic)
         public DateOnly NoticeSendDate { get; set; }
 
+        // Last Friday of the same calendar month as NoticeSendDate.
+        // If that Friday is a public holiday → last Thursday of the month.
+        public DateOnly ReviewOpenDate { get; set; }
+
+        // ReviewOpenDate + 60 calendar days.
+        public DateOnly ReviewCloseDate { get; set; }
+
         public WeekWindowStatus Status { get; set; } = WeekWindowStatus.Draft;
 
         [MaxLength(512)]
@@ -42,6 +49,11 @@ namespace Valuer_Verification_System.Models.Data
 
         public DateTime? ManagersNotifiedAtUtc { get; set; }
         public string? ManagersNotifiedBy { get; set; }
+
+        // Notice send tracking (set by Data Team via Send Notices workflow)
+        public bool NoticesSent { get; set; } = false;
+        public DateTime? NoticesSentAtUtc { get; set; }
+        public string? NoticesSentBy { get; set; }
 
     }
 
