@@ -1,5 +1,6 @@
 ﻿namespace Valuer_Verification_System.Models.ViewModels
-{// ── Step 1 – Week & Batch Summary ────────────────────────────────────────
+{
+    // ── Step 1 – Week & Batch Summary ────────────────────────────────────────
     public sealed class SendNoticeStep1Vm
     {
         // Available weeks for dropdown
@@ -46,8 +47,9 @@
         public DateOnly NoticeSendDate { get; set; }
 
         // Data Team inputs
-        public string LisMasterTable { get; set; } = "LIS_MASTER.dbo.LIS_2025_09_16";
-        public string SapTable { get; set; } = "SAP_STATEMENTS_RECORDS.dbo.SAP_STATEMENT_RECORDS_2026_01";
+        // Plain table name only — both tables are in Valuer_Verification_DB on 118 server
+        public string LisMasterTable { get; set; } = "LIS_2025_09_16";
+        public string SapTable { get; set; } = "SAP_STATEMENT_RECORDS_2026_01";
 
         // Auto-generated table name on 173 server
         public string WeekTableName { get; set; } = "";   // GV23_LIS_SV_YYYY_MM_EXTRACT_Wn

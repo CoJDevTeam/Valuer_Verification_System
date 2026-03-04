@@ -1,0 +1,410 @@
+﻿@model Valuer_Verification_System.Models.ViewModels.PrintNoticeVm
+@{
+    ViewData["Title"] = "Send Notices – Step 3: Print";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Print Notices – Step 3</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+
+    <link href="~/css/noticesent/noticesentcss.css" rel="stylesheet" />
+    <link href="~/css/noticesent/sentnoticestep3css.css" rel="stylesheet" />
+   
+</head>
+<body>
+<div class="sn-wrapper">
+
+  <!-- HEADER -->
+  <header class="sn-header">
+    <div>
+      <div class="sn-eyebrow">Valuer Verification System · Data Team</div>
+      <h1 class="sn-title">Send Notices <span>— Step 3</span></h1>
+      <p class="sn-subtitle">Preview, then print all notice PDFs to the file system.</p>
+    </div>
+    <a href="/" class="btn-outline">← Dashboard</a>
+  </header>
+
+  <!-- STEP INDICATOR -->
+  <div class="step-bar">
+    <div class="step done"><span class="step-num">✓</span><span class="step-label">Select Week</span></div>
+    <div class="step-line done"></div>
+    <div class="step done"><span class="step-num">✓</span><span class="step-label">Clean Data</span></div>
+    <div class="step-line done"></div>
+    <div class="step active"><span class="step-num">3</span><span class="step-label">Print Notices</span></div>
+    <div class="step-line"></div>
+    <div class="step"><span class="step-num">4</span><span class="step-label">Confirm &amp; Send</span></div>
+  </div>
+
+  <div class="sn-content">
+
+    <!-- ── BATCH SELECTOR ──────────────────────────────────────────────── -->
+    <div class="batch-bar">
+      <label for="batchSelect">Batch</label>
+                <select id="batchSelect" class="batch-select" onchange="onBatchChange(this.value)">
+                    @foreach (var b in Model.AvailableBatches)
+                    {
+                        if (b.Id == Model.SelectedBatchId)
+                        {
+                            <option value="@b.Id"
+                                    data-table="@b.WeekTableName"
+                                    data-count="@b.NoticeCount"
+                                    selected>
+                                @b.BatchName — @b.NoticeSendDate.ToString("dd MMM yyyy") (@b.NoticeCount notices)
+                            </option>
+                        }
+                        else
+                        {
+                            <option value="@b.Id"
+                                    data-table="@b.WeekTableName"
+                                    data-count="@b.NoticeCount">
+                                @b.BatchName — @b.NoticeSendDate.ToString("dd MMM yyyy") (@b.NoticeCount notices)
+                            </option>
+                        }
+                    }
+                </select>
+      <div class="batch-meta">
+        <span class="batch-meta__item">Table: <strong id="metaTable">@Model.WeekTableName</strong></span>
+        <span class="batch-meta__item">Notices: <strong id="metaCount">@Model.TotalNotices</strong></span>
+      </div>
+    </div>
+
+    <!-- ── DATE STRIP ──────────────────────────────────────────────────── -->
+    <div class="date-strip">
+      <div class="date-card highlight">
+        <div class="date-card__label">📬 Letter Date</div>
+        <div class="date-card__value" id="dateLetterDate">@Model.NoticeSendDate.ToString("dd MMMM yyyy").ToUpperInvariant()</div>
+      </div>
+      <div class="date-card">
+        <div class="date-card__label">📅 Review Opens</div>
+        <div class="date-card__value" id="dateReviewOpen">@Model.ReviewOpenDate.ToString("dd MMMM yyyy").ToUpperInvariant()</div>
+      </div>
+      <div class="date-card">
+        <div class="date-card__label">⏰ Review Closes</div>
+        <div class="date-card__value" id="dateReviewClose">@Model.ReviewCloseDate.ToString("dd MMMM yyyy").ToUpperInvariant()</div>
+      </div>
+    </div>
+
+    <!-- ── STATS ROW ───────────────────────────────────────────────────── -->
+    <div class="stat-row">
+      <div class="stat-box gold">
+        <div class="stat-box__label">Total Notices</div>
+        <div class="stat-box__val" id="statTotal">@Model.TotalNotices</div>
+        <div class="stat-box__sub">distinct ValuationKey groups</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-box__label">Single Properties</div>
+        <div class="stat-box__val" id="statSingle">@Model.SingleCount</div>
+        <div class="stat-box__sub">1-row notices</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-box__label">Multipurpose</div>
+        <div class="stat-box__val" id="statMulti">@Model.MultiPurposeCount</div>
+        <div class="stat-box__sub">up to 4 splits per notice</div>
+      </div>
+      <div class="stat-box green">
+        <div class="stat-box__label">Output Folder</div>
+        <div class="stat-box__val" style="font-size:.75rem;word-break:break-all;font-weight:600;" id="statFolder">
+          @System.IO.Path.GetFileName(Model.OutputFolderDisplay)
+        </div>
+        <div class="stat-box__sub">Notices folder</div>
+      </div>
+    </div>
+
+    <!-- ── OUTPUT PATH ─────────────────────────────────────────────────── -->
+    <div class="folder-pill">
+      📁 <span>Output:</span> <span id="fullFolderPath">@Model.OutputFolderDisplay</span>
+    </div>
+
+    <!-- ── PREVIEW ─────────────────────────────────────────────────────── -->
+    <div class="card" style="margin-bottom:1.4rem;">
+      <div class="card-header">
+        <span class="card-icon">👁</span>
+        <span>Preview — First Sendable Property</span>
+        <button onclick="loadPreviews()" class="btn-outline" style="margin-left:auto;padding:.3rem .9rem;font-size:.78rem;">
+          ↺ Refresh
+        </button>
+      </div>
+      <div class="card-body">
+        <div class="preview-grid">
+          <!-- PDF Preview -->
+          <div class="preview-card">
+            <div class="preview-card__header">📄 Notice PDF</div>
+            <div class="preview-card__body">
+              <div class="preview-loading" id="pdfLoading">Loading PDF…</div>
+              <iframe id="pdfFrame" class="pdf-frame" style="display:none;"></iframe>
+            </div>
+          </div>
+          <!-- Email Preview -->
+          <div class="preview-card">
+            <div class="preview-card__header">📧 Email Preview</div>
+            <div class="preview-card__body">
+              <div id="emailPreviewContent" class="email-preview">
+                <div class="preview-loading">Loading email preview…</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PRINT PROGRESS ─────────────────────────────────────────────── -->
+    <div class="progress-wrap">
+      <div class="progress-header">
+        <span class="progress-title">🖨 Print Progress</span>
+        <span class="progress-badge" id="progressBadge">Ready</span>
+      </div>
+      <div class="progress-body">
+
+        <div class="prog-numbers">
+          <span><span class="prog-count" id="progDone">0</span> / <span id="progTotal">@Model.TotalNotices</span> notices printed</span>
+          <span class="prog-pct" id="progPct">0%</span>
+        </div>
+
+        <div class="prog-bar-outer">
+          <div class="prog-bar-inner" id="progBar" style="width:0%;"></div>
+        </div>
+
+        <div style="margin-bottom:.8rem;">
+          <div class="current-prop__label">Currently printing:</div>
+          <div class="current-prop" id="currentProp">—</div>
+        </div>
+
+        <div id="errorLog" class="error-log"></div>
+
+        <div id="doneBanner" class="done-banner">
+          <div class="done-banner__icon">✅</div>
+          <div class="done-banner__text">
+            <h3>All notices printed successfully!</h3>
+            <p>Files saved to: <span id="doneFolderLabel" style="font-family:monospace;font-size:.76rem;"></span></p>
+          </div>
+        </div>
+
+        <div style="margin-top:1.2rem;display:flex;align-items:center;flex-wrap:wrap;gap:.6rem;">
+          <button id="btnStartPrint" class="btn-print" onclick="startPrint()">
+            🖨 Print All Notices
+          </button>
+          <a id="btnNext" class="btn-next" href="#">
+            → Step 4: Confirm &amp; Send
+          </a>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /sn-content -->
+</div><!-- /sn-wrapper -->
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────────────────────
+let BATCH_ID       = @Model.SelectedBatchId;
+let WEEK_TABLE     = "@Model.WeekTableName";
+let TOTAL_NOTICES  = @Model.TotalNotices;
+let CHUNK_SIZE     = 25;
+let printing       = false;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Batch change
+// ─────────────────────────────────────────────────────────────────────────────
+async function onBatchChange(batchId) {
+  BATCH_ID = parseInt(batchId);
+  resetProgress();
+
+  const res  = await fetch(`/DataTeam/SendNotice/PrintDetails/${batchId}`);
+  const data = await res.json();
+
+  WEEK_TABLE    = data.weekTableName;
+  TOTAL_NOTICES = data.totalNotices;
+
+  document.getElementById('dateLetterDate').textContent  = data.letterDate;
+  document.getElementById('dateReviewOpen').textContent  = data.reviewOpenDate;
+  document.getElementById('dateReviewClose').textContent = data.reviewCloseDate;
+  document.getElementById('metaTable').textContent       = data.weekTableName;
+  document.getElementById('metaCount').textContent       = data.totalNotices;
+  document.getElementById('statTotal').textContent       = data.totalNotices;
+  document.getElementById('statSingle').textContent      = data.singleCount;
+  document.getElementById('statMulti').textContent       = data.multiCount;
+  document.getElementById('fullFolderPath').textContent  = data.outputFolder;
+  document.getElementById('statFolder').textContent      = data.outputFolder.split(/[/\\]/).pop();
+  document.getElementById('progTotal').textContent       = data.totalNotices;
+
+  loadPreviews();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Preview loaders
+// ─────────────────────────────────────────────────────────────────────────────
+function loadPreviews() {
+  loadPdfPreview();
+  loadEmailPreview();
+}
+
+function loadPdfPreview() {
+  const frame   = document.getElementById('pdfFrame');
+  const loading = document.getElementById('pdfLoading');
+  frame.style.display   = 'none';
+  loading.style.display = 'flex';
+
+  const url = `/DataTeam/SendNotice/PreviewPdf/${BATCH_ID}?t=${Date.now()}`;
+  frame.onload = () => {
+    loading.style.display = 'none';
+    frame.style.display   = 'block';
+  };
+  frame.onerror = () => {
+    loading.textContent = 'Could not load PDF preview.';
+  };
+  frame.src = url;
+}
+
+function loadEmailPreview() {
+  const container = document.getElementById('emailPreviewContent');
+  const letterDate   = document.getElementById('dateLetterDate').textContent;
+  const reviewOpen   = document.getElementById('dateReviewOpen').textContent;
+  const reviewClose  = document.getElementById('dateReviewClose').textContent;
+  const batchName    = document.querySelector('#batchSelect option:checked').textContent.split(' —')[0].trim();
+  const weekTable    = WEEK_TABLE;
+
+  container.innerHTML = `
+    <div class="ep-subject">📧 Subject: Notice of Supplementary Valuation — ${batchName}</div>
+    <div class="ep-label">To</div>
+    <div style="margin-bottom:.5rem;">valuationenquiries@joburg.org.za</div>
+    <div class="ep-label">Body</div>
+    <div class="ep-banner">
+      Dear Owner / Registered Owner,<br><br>
+      Please find attached your <strong>Notice of Supplementary Valuation</strong>
+      for the property as described in the enclosed document.
+    </div>
+    <p style="margin:.5rem 0;font-size:.78rem;">
+      <strong>Letter Date:</strong> ${letterDate}<br>
+      <strong>Review Period:</strong> ${reviewOpen} – ${reviewClose}<br>
+      <strong>Week Table:</strong> ${weekTable}
+    </p>
+    <p style="font-size:.78rem;margin:.5rem 0;">
+      The review form is available at 
+      <a href="https://eservices.joburg.org.za/Pages/Overview.aspx" style="color:#e6b000;">
+        eservices.joburg.org.za
+      </a> or from our offices at Jorissen Place, 66 Jorissen Street, Braamfontein.
+    </p>
+    <p style="font-size:.78rem;margin:.5rem 0;">
+      Submit completed forms by <strong>${reviewClose}</strong> at 15:00 to 
+      valuationenquiries@joburg.org.za or hand in at the Valuation Services office.
+    </p>
+    <hr style="border:none;border-top:1px solid #eee;margin:.8rem 0;"/>
+    <p style="font-size:.72rem;color:#888;">
+      City of Johannesburg · Finance: Valuation Services<br>
+      Tel: 011-407-6622 / 011-407-6597
+    </p>
+  `;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Print loop
+// ─────────────────────────────────────────────────────────────────────────────
+async function startPrint() {
+  if (printing) return;
+  printing = true;
+
+  const btn = document.getElementById('btnStartPrint');
+  btn.disabled    = true;
+  btn.textContent = '⏳ Printing…';
+  document.getElementById('progressBadge').textContent = 'Running';
+  document.getElementById('doneBanner').classList.remove('visible');
+  document.getElementById('errorLog').className = 'error-log';
+  document.getElementById('errorLog').innerHTML = '';
+
+  let offset = 0;
+  let totalPrinted = 0;
+
+  while (true) {
+    const res = await fetch('/DataTeam/SendNotice/PrintChunk', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        batchId:       BATCH_ID,
+        weekTableName: WEEK_TABLE,
+        offset:        offset,
+        chunkSize:     CHUNK_SIZE
+      })
+    });
+
+    const data = await res.json();
+
+    if (!data.success) {
+      logErrors(data.errors);
+      document.getElementById('progressBadge').textContent = '❌ Error';
+      break;
+    }
+
+    totalPrinted += data.printed;
+    offset        = offset + data.printed + (data.errors ? data.errors.length : 0);
+    const total   = data.total || TOTAL_NOTICES;
+
+    updateProgress(totalPrinted, total, data.currentProperty);
+    if (data.errors && data.errors.length) logErrors(data.errors);
+
+    if (data.done || offset >= total) {
+      showDone(totalPrinted, total);
+      break;
+    }
+
+    // Small yield to keep the UI alive
+    await new Promise(r => setTimeout(r, 80));
+  }
+
+  printing = false;
+  btn.disabled = false;
+  btn.textContent = '🖨 Print All Notices';
+}
+
+function updateProgress(done, total, currentProp) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  document.getElementById('progBar').style.width  = pct + '%';
+  document.getElementById('progDone').textContent = done;
+  document.getElementById('progTotal').textContent = total;
+  document.getElementById('progPct').textContent  = pct + '%';
+  if (currentProp) document.getElementById('currentProp').textContent = currentProp;
+}
+
+function showDone(printed, total) {
+  document.getElementById('progressBadge').textContent = '✅ Done';
+  document.getElementById('doneBanner').classList.add('visible');
+  document.getElementById('doneFolderLabel').textContent = document.getElementById('fullFolderPath').textContent;
+  updateProgress(printed, total, '—');
+
+  const btnNext = document.getElementById('btnNext');
+  btnNext.href = `/DataTeam/SendNotice/Step4/${BATCH_ID}?weekTableName=${encodeURIComponent(WEEK_TABLE)}`;
+  btnNext.classList.add('visible');
+}
+
+function resetProgress() {
+  document.getElementById('progBar').style.width  = '0%';
+  document.getElementById('progDone').textContent = '0';
+  document.getElementById('progPct').textContent  = '0%';
+  document.getElementById('currentProp').textContent = '—';
+  document.getElementById('progressBadge').textContent = 'Ready';
+  document.getElementById('doneBanner').classList.remove('visible');
+  document.getElementById('btnNext').classList.remove('visible');
+}
+
+function logErrors(errors) {
+  if (!errors || !errors.length) return;
+  const log = document.getElementById('errorLog');
+  log.classList.add('has-errors');
+  errors.forEach(e => {
+    const d = document.createElement('div');
+    d.textContent = '⚠ ' + e;
+    log.appendChild(d);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => loadPreviews());
+</script>
+</body>
+</html>

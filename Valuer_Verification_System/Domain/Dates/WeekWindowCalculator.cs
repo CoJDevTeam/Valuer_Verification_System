@@ -53,8 +53,11 @@ namespace Valuer_Verification_System.Domain.Dates
             return candidate;
         }
 
-        /// <summary>ReviewOpenDate + 60 calendar days.</summary>
+        /// <summary>
+        /// ReviewOpenDate + 6 weeks (42 calendar days).
+        /// Example: Open 27 Feb 2026 → Close 10 Apr 2026.
+        /// </summary>
         public DateOnly ComputeReviewCloseDate(DateOnly reviewOpenDate)
-            => reviewOpenDate.AddDays(60);
+            => reviewOpenDate.AddDays(42);
     }
 }

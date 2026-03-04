@@ -23,7 +23,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Send Notices – Step 2</title>
- 
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
     <link href="~/css/noticesent/noticesentcss.css" rel="stylesheet" />
 </head>
 <body>
@@ -34,7 +35,7 @@
             <div>
                 <div class="sn-eyebrow">Valuer Verification System · Data Team</div>
                 <h1 class="sn-title">Send Notices <span>— Step 2</span></h1>
-                <p class="sn-subtitle">Clean ExtractRow data, then export to the Week Table on the GV2018 server.</p>
+                <p class="sn-subtitle">Clean ExtractRow data, then export to the Week Table on the 118 server (SECTION_78_NOTICE).</p>
             </div>
             <a href="/DataTeam/SendNotice" class="btn-outline">← Back to Step 1</a>
         </header>
@@ -45,7 +46,9 @@
             <div class="step-line done"></div>
             <div class="step active"><span class="step-num">2</span><span class="step-label">Clean Data</span></div>
             <div class="step-line"></div>
-            <div class="step"><span class="step-num">3</span><span class="step-label">Send Notices</span></div>
+            <div class="step"><span class="step-num">3</span><span class="step-label">Print Notices</span></div>
+            <div class="step-line"></div>
+            <div class="step"><span class="step-num">4</span><span class="step-label">Confirm &amp; Send</span></div>
         </div>
 
         <div class="sn-content">
@@ -68,7 +71,7 @@
                             <span class="info-value">@Model.NoticeSendDate.ToString("dd MMMM yyyy").ToUpperInvariant()</span>
                         </div>
                         <div class="info-item span-2">
-                            <span class="info-label">Target Week Table (173 server · GV2018_SECTION_78)</span>
+                            <span class="info-label">Target Week Table (118 server · SECTION_78_NOTICE)</span>
                             <span class="info-value table-name">@Model.WeekTableName</span>
                         </div>
                     </div>
@@ -77,16 +80,16 @@
                         <label class="field-label" for="lisMasterTable">LIS Master Table</label>
                         <input id="lisMasterTable" type="text" class="field-input"
                                value="@Model.LisMasterTable"
-                               placeholder="e.g. LIS_MASTER.dbo.LIS_2025_09_16" />
-                        <span class="field-hint">Change only if a newer LIS snapshot is available</span>
+                               placeholder="e.g. LIS_2025_09_16" />
+                        <span class="field-hint">Table name only — lives in Valuer_Verification_DB on 118 server</span>
                     </div>
 
                     <div class="field-row">
                         <label class="field-label" for="sapTable">SAP Statements Table</label>
                         <input id="sapTable" type="text" class="field-input"
                                value="@Model.SapTable"
-                               placeholder="e.g. SAP_STATEMENTS_RECORDS.dbo.SAP_STATEMENT_RECORDS_2026_01" />
-                        <span class="field-hint">Use the latest monthly SAP statements table</span>
+                               placeholder="e.g. SAP_STATEMENT_RECORDS_2026_01" />
+                        <span class="field-hint">Table name only — lives in Valuer_Verification_DB on 118 server</span>
                     </div>
 
                     <button id="btnStartCleaning" class="btn-gold" onclick="startCleaning()">
@@ -125,7 +128,7 @@
                             <span class="step-status" id="status-CreateWeekTable">⬜</span>
                             <span class="step-text">
                                 Create Week Table: <strong id="weekTableLabel">@Model.WeekTableName</strong>
-                                <span class="server-badge">173 server</span>
+                                <span class="server-badge">118 server</span>
                             </span>
                             <span class="step-rows" id="rows-CreateWeekTable"></span>
                         </div>
@@ -138,11 +141,11 @@
                     <div id="donePanel" style="display:none;">
                         <div class="success-box">
                             ✅ Data cleaning complete. Table <strong id="doneTableName">@Model.WeekTableName</strong>
-                            has been created on the GV2018 server (173).
+                            has been created on the 118 server (SECTION_78_NOTICE).
                         </div>
                         <div style="margin-top:1.2rem; display:flex; gap:1rem;">
                             <a href="#" class="btn-gold" id="btnStep3">
-                                Proceed to Send Notices →
+                                🖨 Proceed to Print Notices →
                             </a>
                             <button onclick="location.reload()" class="btn-outline">
                                 Run Again
@@ -158,121 +161,121 @@
 
     <script>
         const EXTRACTION_DATE = "@Model.ExtractionDate.ToString("yyyy-MM-dd")";
-        const BATCH_ID        = @Model.BatchId;
-        const WEEK_TABLE      = "@Model.WeekTableName";
+        const BATCH_ID = @Model.BatchId;
+        const WEEK_TABLE = "@Model.WeekTableName";
 
         const STEPS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-                    steps.Select(s => s.Key).ToArray()
-                ));
+                        steps.Select(s => s.Key).ToArray()
+                        ));
 
         async function startCleaning() {
-          const lis = document.getElementById('lisMasterTable').value.trim();
-          const sap = document.getElementById('sapTable').value.trim();
+            const lis = document.getElementById('lisMasterTable').value.trim();
+            const sap = document.getElementById('sapTable').value.trim();
 
-          if (!lis || !sap) {
-            alert('Please fill in both table names before cleaning.');
-            return;
-          }
+            if (!lis || !sap) {
+                alert('Please fill in both table names before cleaning.');
+                return;
+            }
 
-          document.getElementById('configCard').style.opacity = '0.4';
-          document.getElementById('btnStartCleaning').disabled = true;
-          document.getElementById('progressCard').style.display = '';
-          document.getElementById('weekTableLabel').textContent = WEEK_TABLE;
-          document.getElementById('doneTableName').textContent  = WEEK_TABLE;
+            document.getElementById('configCard').style.opacity = '0.4';
+            document.getElementById('btnStartCleaning').disabled = true;
+            document.getElementById('progressCard').style.display = '';
+            document.getElementById('weekTableLabel').textContent = WEEK_TABLE;
+            document.getElementById('doneTableName').textContent = WEEK_TABLE;
 
-          const total = STEPS.length + 1; // +1 for CreateWeekTable
-          let   done  = 0;
-          let   hadError = false;
+            const total = STEPS.length + 1; // +1 for CreateWeekTable
+            let done = 0;
+            let hadError = false;
 
-          function updateBar(n) {
-            const pct = Math.round(n / total * 100);
-            document.getElementById('overallBar').style.width = pct + '%';
-          }
+            function updateBar(n) {
+                const pct = Math.round(n / total * 100);
+                document.getElementById('overallBar').style.width = pct + '%';
+            }
 
-          function setStatus(key, icon, rowsText) {
-            document.getElementById('status-' + key).textContent = icon;
-            if (rowsText !== undefined)
-              document.getElementById('rows-' + key).textContent = rowsText;
-          }
+            function setStatus(key, icon, rowsText) {
+                document.getElementById('status-' + key).textContent = icon;
+                if (rowsText !== undefined)
+                    document.getElementById('rows-' + key).textContent = rowsText;
+            }
 
-          // ── Run each cleaning step ─────────────────────────────────────────────
-          for (const step of STEPS) {
-            document.getElementById('progressLabel').textContent = 'Running: ' + step + '...';
-            document.getElementById('step-' + step)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            setStatus(step, '🔄');
+            // ── Run each cleaning step ─────────────────────────────────────────────
+            for (const step of STEPS) {
+                document.getElementById('progressLabel').textContent = 'Running: ' + step + '...';
+                document.getElementById('step-' + step)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                setStatus(step, '🔄');
 
-            const res = await fetchStep('/DataTeam/SendNotice/RunCleanStep', {
-              stepName:       step,
-              extractionDate: EXTRACTION_DATE,
-              lisMasterTable: lis,
-              sapTable:       sap
+                const res = await fetchStep('/DataTeam/SendNotice/RunCleanStep', {
+                    stepName: step,
+                    extractionDate: EXTRACTION_DATE,
+                    lisMasterTable: lis,
+                    sapTable: sap
+                });
+
+                if (res.success) {
+                    setStatus(step, '✅', res.rowsAffected + ' rows');
+                    done++;
+                    updateBar(done);
+                } else {
+                    setStatus(step, '❌');
+                    showError('Step ' + step + ' failed: ' + res.error);
+                    hadError = true;
+                    break;
+                }
+            }
+
+            if (hadError) return;
+
+            // ── Create Week Table (final step) ────────────────────────────────────
+            document.getElementById('progressLabel').textContent = 'Creating week table on 118 server (SECTION_78_NOTICE)...';
+            setStatus('CreateWeekTable', '🔄');
+
+            const tableRes = await fetchStep('/DataTeam/SendNotice/CreateWeekTable', {
+                weekTableName: WEEK_TABLE,
+                extractionDate: EXTRACTION_DATE
             });
 
-            if (res.success) {
-              setStatus(step, '✅', res.rowsAffected + ' rows');
-              done++;
-              updateBar(done);
+            if (tableRes.success) {
+                setStatus('CreateWeekTable', '✅', tableRes.rowsAffected + ' rows');
+                done++;
+                updateBar(done);
+
+                document.getElementById('progressIcon').textContent = '✅';
+                document.getElementById('progressTitle').textContent = 'Cleaning Complete';
+                document.getElementById('progressBadge').textContent = 'Done';
+                document.getElementById('progressBadge').className = 'badge badge-green';
+                document.getElementById('progressLabel').textContent = 'All steps completed successfully.';
+                document.getElementById('btnStep3').href = '/DataTeam/SendNotice/Step3/' + BATCH_ID;
+                document.getElementById('donePanel').style.display = '';
             } else {
-              setStatus(step, '❌');
-              showError('Step ' + step + ' failed: ' + res.error);
-              hadError = true;
-              break;
+                setStatus('CreateWeekTable', '❌');
+                showError('Create Week Table failed: ' + tableRes.error);
             }
-          }
-
-          if (hadError) return;
-
-          // ── Create Week Table (final step) ────────────────────────────────────
-          document.getElementById('progressLabel').textContent = 'Creating week table on 173 server...';
-          setStatus('CreateWeekTable', '🔄');
-
-          const tableRes = await fetchStep('/DataTeam/SendNotice/CreateWeekTable', {
-            weekTableName:  WEEK_TABLE,
-            extractionDate: EXTRACTION_DATE
-          });
-
-          if (tableRes.success) {
-            setStatus('CreateWeekTable', '✅', tableRes.rowsAffected + ' rows');
-            done++;
-            updateBar(done);
-
-            document.getElementById('progressIcon').textContent    = '✅';
-            document.getElementById('progressTitle').textContent   = 'Cleaning Complete';
-            document.getElementById('progressBadge').textContent   = 'Done';
-            document.getElementById('progressBadge').className     = 'badge badge-green';
-            document.getElementById('progressLabel').textContent   = 'All steps completed successfully.';
-            document.getElementById('btnStep3').href = '/DataTeam/SendNotice/Step3/' + BATCH_ID;
-            document.getElementById('donePanel').style.display = '';
-          } else {
-            setStatus('CreateWeekTable', '❌');
-            showError('Create Week Table failed: ' + tableRes.error);
-          }
         }
 
         async function fetchStep(url, body) {
-          try {
-            const resp = await fetch(url, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? ''
-              },
-              body: JSON.stringify(body)
-            });
-            return await resp.json();
-          } catch (e) {
-            return { success: false, error: e.message };
-          }
+            try {
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? ''
+                    },
+                    body: JSON.stringify(body)
+                });
+                return await resp.json();
+            } catch (e) {
+                return { success: false, error: e.message };
+            }
         }
 
         function showError(msg) {
-          const box = document.getElementById('errorBox');
-          box.textContent = '❌ ' + msg;
-          box.style.display = '';
-          document.getElementById('progressIcon').textContent  = '❌';
-          document.getElementById('progressTitle').textContent = 'Error — Cleaning Stopped';
-          document.getElementById('progressBadge').textContent = 'Failed';
-          document.getElementById('progressBadge').className   = 'badge badge-red';
+            const box = document.getElementById('errorBox');
+            box.textContent = '❌ ' + msg;
+            box.style.display = '';
+            document.getElementById('progressIcon').textContent = '❌';
+            document.getElementById('progressTitle').textContent = 'Error — Cleaning Stopped';
+            document.getElementById('progressBadge').textContent = 'Failed';
+            document.getElementById('progressBadge').className = 'badge badge-red';
         }
     </script>
 

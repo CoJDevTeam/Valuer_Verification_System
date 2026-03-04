@@ -26,7 +26,20 @@ namespace Valuer_Verification_System.Domain.WeekWindows
                 .FirstOrDefaultAsync(x => x.WeekStart == weekStart, ct);
 
             if (existing != null)
+            {
+                // Heal: if review dates were never calculated (0001-01-01 = MinValue)
+                // recalculate and persist so the UI never shows blank dates.
+                if (existing.ReviewOpenDate == DateOnly.MinValue ||
+                    existing.ReviewCloseDate == DateOnly.MinValue)
+                {
+                    var healOpen = _calc.ComputeReviewOpenDate(existing.NoticeSendDate);
+                    var healClose = _calc.ComputeReviewCloseDate(healOpen);
+                    existing.ReviewOpenDate = healOpen;
+                    existing.ReviewCloseDate = healClose;
+                    await _db.SaveChangesAsync(ct);
+                }
                 return existing;
+            }
 
             var weekEnd = _calc.ComputeWeekEnd(weekStart);
             var sendDate = _calc.ComputeNoticeSendDate(weekEnd);
@@ -69,11 +82,21 @@ namespace Valuer_Verification_System.Domain.WeekWindows
         public async Task<WeekWindow?> GetByBatchAsync(int batchId, CancellationToken ct)
         {
             var batch = await _db.Batches
-                .AsNoTracking()
                 .Include(b => b.WeekWindow)
                 .FirstOrDefaultAsync(b => b.Id == batchId, ct);
 
-            return batch?.WeekWindow;
+            var ww = batch?.WeekWindow;
+            if (ww is null) return null;
+
+            // Heal missing review dates
+            if (ww.ReviewOpenDate == DateOnly.MinValue || ww.ReviewCloseDate == DateOnly.MinValue)
+            {
+                ww.ReviewOpenDate = _calc.ComputeReviewOpenDate(ww.NoticeSendDate);
+                ww.ReviewCloseDate = _calc.ComputeReviewCloseDate(ww.ReviewOpenDate);
+                await _db.SaveChangesAsync(ct);
+            }
+
+            return ww;
         }
 
         public async Task<List<WeekWindow>> ListAsync(int take = 200, CancellationToken ct = default)

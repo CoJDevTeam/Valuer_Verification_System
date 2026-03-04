@@ -3,14 +3,20 @@ using Valuer_Verification_System.Models.Notice;
 
 namespace Valuer_Verification_System.Services.Notice
 {
-    public interface INoticePdfService
+   public interface INoticePdfService
     {
         /// <summary>
-        /// Generates a single notice PDF for the given property row.
+        /// Generates a notice PDF.
+        /// For multipurpose properties: splitRows holds up to 4 split records (grouped by ValuationKey).
+        /// For single properties:       splitRows has exactly 1 item (the main row).
         /// </summary>
-        /// <param name="row">The cleaned ExtractRow containing all property and owner data.</param>
-        /// <param name="ctx">Shared batch context: letter date, review dates, logo path.</param>
-        /// <returns>Raw PDF bytes ready to save or stream to the browser.</returns>
-        byte[] GenerateNotice(ExtractRow row, NoticeContext ctx);
+        byte[] GenerateNotice(ExtractRow mainRow, NoticeContext ctx, List<ExtractRow> splitRows);
+
+        /// <summary>
+        /// Preview: generates a notice for the first sendable property in a batch.
+        /// Returns null if no sendable rows exist.
+        /// </summary>
+        Task<byte[]?> GeneratePreviewAsync(int batchId, NoticeContext ctx,
+            Microsoft.EntityFrameworkCore.DbContext db, CancellationToken ct);
     }
 }

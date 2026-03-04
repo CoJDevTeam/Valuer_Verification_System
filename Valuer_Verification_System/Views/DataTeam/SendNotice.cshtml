@@ -10,7 +10,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Send Notices – Step 1</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-
+  <link href="~/css/DataTeam/SendNotice.css" rel="stylesheet"/>
     <link href="~/css/noticesent/noticesentcss.css" rel="stylesheet" />
 </head>
 <body>
@@ -32,7 +32,9 @@
     <div class="step-line"></div>
     <div class="step"><span class="step-num">2</span><span class="step-label">Clean Data</span></div>
     <div class="step-line"></div>
-    <div class="step"><span class="step-num">3</span><span class="step-label">Send Notices</span></div>
+    <div class="step"><span class="step-num">3</span><span class="step-label">Print Notices</span></div>
+    <div class="step-line"></div>
+    <div class="step"><span class="step-num">4</span><span class="step-label">Confirm &amp; Send</span></div>
   </div>
 
   <div class="sn-content">
@@ -50,13 +52,15 @@
             <label class="field-label" for="weekWindowId">Week Window</label>
             <select id="weekWindowId" name="weekWindowId" class="field-select"
                     onchange="document.getElementById('weekForm').submit()">
-              <option value="">— Select a week —</option>
-              @foreach (var w in Model.Weeks)
-              {
-                                    <option value="@w.Id" selected="@(Model.SelectedWeekWindowId == w.Id)">
-                                        @w.Label
-                                    </option>
-              }
+          
+                                    <option value="">— Select a week —</option>
+                                    @foreach (var w in Model.Weeks)
+                                    {
+                                        <option value="@w.Id" selected="@(Model.SelectedWeekWindowId == w.Id)">
+                                            @w.Label
+                                        </option>
+                                    }
+              
             </select>
           </div>
         </form>
