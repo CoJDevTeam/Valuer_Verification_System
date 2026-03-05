@@ -459,12 +459,22 @@ namespace Valuer_Verification_System.Services.Notice
         private static string FormatDate(DateOnly? d) => d.HasValue ? d.Value.ToString("yyyy/MM/dd") : "";
         private static string BuildPhysical(ExtractRow r) =>
             Safe(r.PhysicalAddress ?? r.PremiseAddress ?? r.LisStreetAddress) is { Length: > 0 } s ? s : "";
+
         private static string FormatExtent(string? e)
         {
             if (string.IsNullOrWhiteSpace(e)) return "";
-            return decimal.TryParse(e.Trim(), out var d) ? $"{d:N0}" : e.Trim();
+            var s = e.Trim();
+            // Parse with InvariantCulture so "2000.000000" always works regardless of server locale
+            if (decimal.TryParse(s,
+                    System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var d))
+                return $"{d:N0}";   // e.g. 2 000  (no decimals, thousands separator)
+                                    // Fallback: strip trailing .000... manually
+            if (s.Contains('.'))
+                s = s.TrimEnd('0').TrimEnd('.');
+            return s;
         }
-
         private static IContainer LabelCell(IContainer c) =>
             c.PaddingBottom(2, Unit.Millimetre).PaddingRight(3, Unit.Millimetre);
         private static IContainer ValueCell(IContainer c) =>
