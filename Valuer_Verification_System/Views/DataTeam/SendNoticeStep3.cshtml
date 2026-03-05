@@ -8,403 +8,355 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Print Notices – Step 3</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
-
-    <link href="~/css/noticesent/noticesentcss.css" rel="stylesheet" />
-    <link href="~/css/noticesent/sentnoticestep3css.css" rel="stylesheet" />
-   
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link href="~/css/DataTeam/SendNotice.css" rel="stylesheet"/>
+    <link href="~/css/noticesent/sentnoticestep3css1.css" rel="stylesheet" />
 </head>
 <body>
-<div class="sn-wrapper">
+<div class="page">
 
-  <!-- HEADER -->
-  <header class="sn-header">
-    <div>
-      <div class="sn-eyebrow">Valuer Verification System · Data Team</div>
-      <h1 class="sn-title">Send Notices <span>— Step 3</span></h1>
-      <p class="sn-subtitle">Preview, then print all notice PDFs to the file system.</p>
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <div class="top-bar__left">
+      <div class="eyebrow">Valuer Verification System · Data Team</div>
+      <div class="page-title">Send Notices <span>— Step 3: Print</span></div>
+      <div class="page-sub">Select a week, preview the notice &amp; email, then print all PDFs to the output folder.</div>
     </div>
-    <a href="/" class="btn-outline">← Dashboard</a>
-  </header>
-
-  <!-- STEP INDICATOR -->
-  <div class="step-bar">
-    <div class="step done"><span class="step-num">✓</span><span class="step-label">Select Week</span></div>
-    <div class="step-line done"></div>
-    <div class="step done"><span class="step-num">✓</span><span class="step-label">Clean Data</span></div>
-    <div class="step-line done"></div>
-    <div class="step active"><span class="step-num">3</span><span class="step-label">Print Notices</span></div>
-    <div class="step-line"></div>
-    <div class="step"><span class="step-num">4</span><span class="step-label">Confirm &amp; Send</span></div>
+    <a href="/" class="btn-back">← Dashboard</a>
   </div>
 
-  <div class="sn-content">
+  <!-- STEPPER -->
+  <div class="stepper">
+    <div class="stp done"><span class="stp-n">✓</span><span class="stp-l">Select Week</span></div>
+    <div class="stp-line done"></div>
+    <div class="stp done"><span class="stp-n">✓</span><span class="stp-l">Clean Data</span></div>
+    <div class="stp-line done"></div>
+    <div class="stp active"><span class="stp-n">3</span><span class="stp-l">Print Notices</span></div>
+    <div class="stp-line"></div>
+    <div class="stp"><span class="stp-n">4</span><span class="stp-l">Confirm &amp; Send</span></div>
+  </div>
 
-    <!-- ── BATCH SELECTOR ──────────────────────────────────────────────── -->
-    <div class="batch-bar">
-      <label for="batchSelect">Batch</label>
-                <select id="batchSelect" class="batch-select" onchange="onBatchChange(this.value)">
-                    @foreach (var b in Model.AvailableBatches)
-                    {
-                        if (b.Id == Model.SelectedBatchId)
-                        {
-                            <option value="@b.Id"
-                                    data-table="@b.WeekTableName"
-                                    data-count="@b.NoticeCount"
-                                    selected>
-                                @b.BatchName — @b.NoticeSendDate.ToString("dd MMM yyyy") (@b.NoticeCount notices)
-                            </option>
-                        }
-                        else
-                        {
-                            <option value="@b.Id"
-                                    data-table="@b.WeekTableName"
-                                    data-count="@b.NoticeCount">
-                                @b.BatchName — @b.NoticeSendDate.ToString("dd MMM yyyy") (@b.NoticeCount notices)
-                            </option>
-                        }
-                    }
-                </select>
-      <div class="batch-meta">
-        <span class="batch-meta__item">Table: <strong id="metaTable">@Model.WeekTableName</strong></span>
-        <span class="batch-meta__item">Notices: <strong id="metaCount">@Model.TotalNotices</strong></span>
-      </div>
+  <!-- ══ WEEK SELECTOR — standalone dark bar, NO card wrapper ══ -->
+  <div class="week-selector">
+    <span class="week-selector__label">📋 Week / Batch</span>
+    <select id="batchSel" onchange="onBatchChange(this.value)">
+                @foreach (var b in Model.AvailableBatches)
+                {
+                    <option value="@b.Id"
+                            data-table="@b.WeekTableName"
+                            data-count="@b.NoticeCount"
+                            selected="@(Model.SelectedBatchId == b.Id)">
+                        @b.BatchName — @b.NoticeSendDate.ToString("dd MMM yyyy") (@b.NoticeCount notices)
+                    </option>
+                }
+    </select>
+    <div class="week-meta">
+      <span class="week-chip">Table: <strong id="metaTable">@Model.WeekTableName</strong></span>
+      <span class="week-chip">Notices: <strong id="metaCount">@Model.TotalNotices</strong></span>
     </div>
+  </div>
 
-    <!-- ── DATE STRIP ──────────────────────────────────────────────────── -->
-    <div class="date-strip">
-      <div class="date-card highlight">
-        <div class="date-card__label">📬 Letter Date</div>
-        <div class="date-card__value" id="dateLetterDate">@Model.NoticeSendDate.ToString("dd MMMM yyyy").ToUpperInvariant()</div>
-      </div>
-      <div class="date-card">
-        <div class="date-card__label">📅 Review Opens</div>
-        <div class="date-card__value" id="dateReviewOpen">@Model.ReviewOpenDate.ToString("dd MMMM yyyy").ToUpperInvariant()</div>
-      </div>
-      <div class="date-card">
-        <div class="date-card__label">⏰ Review Closes</div>
-        <div class="date-card__value" id="dateReviewClose">@Model.ReviewCloseDate.ToString("dd MMMM yyyy").ToUpperInvariant()</div>
-      </div>
-    </div>
+  <!-- ══ BODY GRID: PDF LEFT | DATES + EMAIL RIGHT ══ -->
+  <div class="body-grid">
 
-    <!-- ── STATS ROW ───────────────────────────────────────────────────── -->
-    <div class="stat-row">
-      <div class="stat-box gold">
-        <div class="stat-box__label">Total Notices</div>
-        <div class="stat-box__val" id="statTotal">@Model.TotalNotices</div>
-        <div class="stat-box__sub">distinct ValuationKey groups</div>
+    <!-- LEFT: PDF -->
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-hd__ico">📄</span>
+        <span class="card-hd__ttl">Notice PDF Preview — First Sendable Property</span>
+        <button class="card-hd__btn" onclick="loadPdf()">↺ Refresh</button>
       </div>
-      <div class="stat-box">
-        <div class="stat-box__label">Single Properties</div>
-        <div class="stat-box__val" id="statSingle">@Model.SingleCount</div>
-        <div class="stat-box__sub">1-row notices</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-box__label">Multipurpose</div>
-        <div class="stat-box__val" id="statMulti">@Model.MultiPurposeCount</div>
-        <div class="stat-box__sub">up to 4 splits per notice</div>
-      </div>
-      <div class="stat-box green">
-        <div class="stat-box__label">Output Folder</div>
-        <div class="stat-box__val" style="font-size:.75rem;word-break:break-all;font-weight:600;" id="statFolder">
-          @System.IO.Path.GetFileName(Model.OutputFolderDisplay)
-        </div>
-        <div class="stat-box__sub">Notices folder</div>
-      </div>
-    </div>
-
-    <!-- ── OUTPUT PATH ─────────────────────────────────────────────────── -->
-    <div class="folder-pill">
-      📁 <span>Output:</span> <span id="fullFolderPath">@Model.OutputFolderDisplay</span>
-    </div>
-
-    <!-- ── PREVIEW ─────────────────────────────────────────────────────── -->
-    <div class="card" style="margin-bottom:1.4rem;">
-      <div class="card-header">
-        <span class="card-icon">👁</span>
-        <span>Preview — First Sendable Property</span>
-        <button onclick="loadPreviews()" class="btn-outline" style="margin-left:auto;padding:.3rem .9rem;font-size:.78rem;">
-          ↺ Refresh
-        </button>
-      </div>
-      <div class="card-body">
-        <div class="preview-grid">
-          <!-- PDF Preview -->
-          <div class="preview-card">
-            <div class="preview-card__header">📄 Notice PDF</div>
-            <div class="preview-card__body">
-              <div class="preview-loading" id="pdfLoading">Loading PDF…</div>
-              <iframe id="pdfFrame" class="pdf-frame" style="display:none;"></iframe>
-            </div>
+      <div class="card-body" style="padding:.75rem;">
+        <div class="pdf-box" id="pdfBox">
+          <div class="pdf-spin" id="pdfSpin">
+            <div class="spin"></div>
+            <span>Loading PDF…</span>
           </div>
-          <!-- Email Preview -->
-          <div class="preview-card">
-            <div class="preview-card__header">📧 Email Preview</div>
-            <div class="preview-card__body">
-              <div id="emailPreviewContent" class="email-preview">
-                <div class="preview-loading">Loading email preview…</div>
+          <iframe id="pdfFrame"></iframe>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: DATES + EMAIL -->
+    <div class="right">
+
+      <div class="card">
+        <div class="card-hd">
+          <span class="card-hd__ico">📅</span>
+          <span class="card-hd__ttl">Notice Dates</span>
+        </div>
+        <div class="card-body">
+          <div class="date-list">
+            <div class="date-row primary">
+              <span class="date-row__ico">📬</span>
+              <div>
+                <div class="date-row__lbl">Letter Date</div>
+                <div class="date-row__val" id="dLetter">@Model.NoticeSendDate.ToString("dd MMMM yyyy").ToUpperInvariant()</div>
+              </div>
+            </div>
+            <div class="date-row">
+              <span class="date-row__ico">🗓</span>
+              <div>
+                <div class="date-row__lbl">Objection Period Opens</div>
+                <div class="date-row__val" id="dOpen">@Model.ReviewOpenDate.ToString("dd MMMM yyyy").ToUpperInvariant()</div>
+              </div>
+            </div>
+            <div class="date-row">
+              <span class="date-row__ico">⏰</span>
+              <div>
+                <div class="date-row__lbl">Objection Deadline</div>
+                <div class="date-row__val" id="dClose">@Model.ReviewCloseDate.ToString("dd MMMM yyyy").ToUpperInvariant()</div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- ── PRINT PROGRESS ─────────────────────────────────────────────── -->
-    <div class="progress-wrap">
-      <div class="progress-header">
-        <span class="progress-title">🖨 Print Progress</span>
-        <span class="progress-badge" id="progressBadge">Ready</span>
-      </div>
-      <div class="progress-body">
-
-        <div class="prog-numbers">
-          <span><span class="prog-count" id="progDone">0</span> / <span id="progTotal">@Model.TotalNotices</span> notices printed</span>
-          <span class="prog-pct" id="progPct">0%</span>
+      <div class="card">
+        <div class="card-hd">
+          <span class="card-hd__ico">📧</span>
+          <span class="card-hd__ttl">Client Email Preview</span>
+          <button class="card-hd__btn" onclick="reloadEmail()">↺ Refresh</button>
         </div>
-
-        <div class="prog-bar-outer">
-          <div class="prog-bar-inner" id="progBar" style="width:0%;"></div>
-        </div>
-
-        <div style="margin-bottom:.8rem;">
-          <div class="current-prop__label">Currently printing:</div>
-          <div class="current-prop" id="currentProp">—</div>
-        </div>
-
-        <div id="errorLog" class="error-log"></div>
-
-        <div id="doneBanner" class="done-banner">
-          <div class="done-banner__icon">✅</div>
-          <div class="done-banner__text">
-            <h3>All notices printed successfully!</h3>
-            <p>Files saved to: <span id="doneFolderLabel" style="font-family:monospace;font-size:.76rem;"></span></p>
+        <div class="card-body" style="padding:0;">
+          <div class="email-shell">
+            <iframe id="emailFrame"></iframe>
           </div>
         </div>
-
-        <div style="margin-top:1.2rem;display:flex;align-items:center;flex-wrap:wrap;gap:.6rem;">
-          <button id="btnStartPrint" class="btn-print" onclick="startPrint()">
-            🖨 Print All Notices
-          </button>
-          <a id="btnNext" class="btn-next" href="#">
-            → Step 4: Confirm &amp; Send
-          </a>
-        </div>
-
       </div>
+
     </div>
+  </div>
 
-  </div><!-- /sn-content -->
-</div><!-- /sn-wrapper -->
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat gold">
+      <div class="stat__lbl">Total Notices</div>
+      <div class="stat__val" id="sTot">@Model.TotalNotices</div>
+      <div class="stat__sub">ValuationKey groups</div>
+    </div>
+    <div class="stat">
+      <div class="stat__lbl">Single Properties</div>
+      <div class="stat__val" id="sSgl">@Model.SingleCount</div>
+      <div class="stat__sub">1-row notices</div>
+    </div>
+    <div class="stat">
+      <div class="stat__lbl">Multipurpose</div>
+      <div class="stat__val" id="sMlt">@Model.MultiPurposeCount</div>
+      <div class="stat__sub">split-row notices</div>
+    </div>
+    <div class="stat green">
+      <div class="stat__lbl">Output Folder</div>
+      <div class="stat__val" id="sFolder" style="font-size:.72rem;word-break:break-all;font-weight:800;line-height:1.3;">
+        @System.IO.Path.GetFileName(Model.OutputFolderDisplay)
+      </div>
+      <div class="stat__sub">Notices folder</div>
+    </div>
+  </div>
 
+  <!-- FOLDER PATH -->
+  <div class="folder-strip">
+    <span>📁</span>
+    <span class="folder-strip__path" id="folderPath">@Model.OutputFolderDisplay</span>
+  </div>
+
+  <!-- PRINT PROGRESS -->
+  <div class="prog-card">
+    <div class="prog-hd">
+      <span class="prog-hd__title">🖨&nbsp; Print Progress</span>
+      <span class="prog-badge" id="progBadge">Ready</span>
+    </div>
+    <div class="prog-body">
+
+      <div class="prog-top">
+        <div>
+          <div class="prog-count"><span id="progDone">0</span> / <span id="progTot">@Model.TotalNotices</span> notices</div>
+          <div class="prog-sub">printed to output folder</div>
+        </div>
+        <div class="prog-pct" id="progPct">0%</div>
+      </div>
+
+      <div class="prog-bar-outer">
+        <div class="prog-bar-inner" id="progBar" style="width:0%;"></div>
+      </div>
+
+      <div class="cur-prop">
+        <div class="cur-prop__lbl">Currently printing</div>
+        <div class="cur-prop__val" id="curProp">—</div>
+      </div>
+
+      <div id="errLog" class="err-log"></div>
+
+      <div id="doneBanner" class="done-banner">
+        <span class="done-ico">✅</span>
+        <div>
+          <div class="done-h">All notices printed successfully!</div>
+          <div class="done-p">Saved to: <span id="donePath" class="done-path"></span></div>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button id="btnPrint" class="btn-print" onclick="startPrint()">🖨&nbsp; Print All Notices</button>
+        <a id="btnNext" class="btn-next" href="#">Proceed to Step 4: Confirm &amp; Send →</a>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /page -->
 <script>
-// ─────────────────────────────────────────────────────────────────────────────
-// State
-// ─────────────────────────────────────────────────────────────────────────────
-let BATCH_ID       = @Model.SelectedBatchId;
-let WEEK_TABLE     = "@Model.WeekTableName";
-let TOTAL_NOTICES  = @Model.TotalNotices;
-let CHUNK_SIZE     = 25;
-let printing       = false;
+// ── state ─────────────────────────────────────────────────────────────────────
+let BATCH_ID      = @Model.SelectedBatchId;
+let WEEK_TABLE    = "@Model.WeekTableName";
+let TOTAL         = @Model.TotalNotices;
+const CHUNK       = 25;
+let printing      = false;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Batch change
-// ─────────────────────────────────────────────────────────────────────────────
-async function onBatchChange(batchId) {
-  BATCH_ID = parseInt(batchId);
+// ── batch change ──────────────────────────────────────────────────────────────
+async function onBatchChange(id) {
+  BATCH_ID = parseInt(id);
   resetProgress();
+  setDates('…','…','…');
 
-  const res  = await fetch(`/DataTeam/SendNotice/PrintDetails/${batchId}`);
-  const data = await res.json();
+  try {
+    const r = await fetch(`/DataTeam/SendNotice/PrintDetails/${BATCH_ID}`);
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
 
-  WEEK_TABLE    = data.weekTableName;
-  TOTAL_NOTICES = data.totalNotices;
+    WEEK_TABLE = d.weekTableName;
+    TOTAL      = d.totalNotices;
 
-  document.getElementById('dateLetterDate').textContent  = data.letterDate;
-  document.getElementById('dateReviewOpen').textContent  = data.reviewOpenDate;
-  document.getElementById('dateReviewClose').textContent = data.reviewCloseDate;
-  document.getElementById('metaTable').textContent       = data.weekTableName;
-  document.getElementById('metaCount').textContent       = data.totalNotices;
-  document.getElementById('statTotal').textContent       = data.totalNotices;
-  document.getElementById('statSingle').textContent      = data.singleCount;
-  document.getElementById('statMulti').textContent       = data.multiCount;
-  document.getElementById('fullFolderPath').textContent  = data.outputFolder;
-  document.getElementById('statFolder').textContent      = data.outputFolder.split(/[/\\]/).pop();
-  document.getElementById('progTotal').textContent       = data.totalNotices;
+    setDates(d.letterDate, d.reviewOpenDate, d.reviewCloseDate);
 
-  loadPreviews();
+    setText('metaTable', d.weekTableName);
+    setText('metaCount', d.totalNotices);
+    setText('sTot',      d.totalNotices);
+    setText('sSgl',      d.singleCount);
+    setText('sMlt',      d.multiCount);
+    setText('progTot',   d.totalNotices);
+    setText('folderPath',d.outputFolder);
+    setText('sFolder',   d.outputFolder.split(/[/\\]/).pop());
+
+    loadPdf();
+    if (d.emailHtml) renderEmail(d.emailHtml);
+
+  } catch(e) {
+    console.error('PrintDetails failed:', e);
+    setDates('Error','Error','Error');
+  }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Preview loaders
-// ─────────────────────────────────────────────────────────────────────────────
-function loadPreviews() {
-  loadPdfPreview();
-  loadEmailPreview();
+function setDates(l,o,c){
+  setText('dLetter', l);
+  setText('dOpen',   o);
+  setText('dClose',  c);
+}
+function setText(id, val){ document.getElementById(id).textContent = val; }
+
+// ── PDF ───────────────────────────────────────────────────────────────────────
+function loadPdf() {
+  const f = document.getElementById('pdfFrame');
+  const s = document.getElementById('pdfSpin');
+  f.style.display = 'none';
+  s.style.display = 'flex';
+  f.onload  = ()=>{ s.style.display='none'; f.style.display='block'; };
+  f.onerror = ()=>{ s.innerHTML='<span>⚠ Could not load PDF</span>'; };
+  f.src = `/DataTeam/SendNotice/PreviewPdf/${BATCH_ID}?t=${Date.now()}`;
 }
 
-function loadPdfPreview() {
-  const frame   = document.getElementById('pdfFrame');
-  const loading = document.getElementById('pdfLoading');
-  frame.style.display   = 'none';
-  loading.style.display = 'flex';
-
-  const url = `/DataTeam/SendNotice/PreviewPdf/${BATCH_ID}?t=${Date.now()}`;
-  frame.onload = () => {
-    loading.style.display = 'none';
-    frame.style.display   = 'block';
-  };
-  frame.onerror = () => {
-    loading.textContent = 'Could not load PDF preview.';
-  };
-  frame.src = url;
+// ── Email ─────────────────────────────────────────────────────────────────────
+// Use Blob URL so the full HTML document renders correctly in the iframe
+let _emailBlobUrl = null;
+function renderEmail(html) {
+  if (_emailBlobUrl) URL.revokeObjectURL(_emailBlobUrl);
+  const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
+  _emailBlobUrl = URL.createObjectURL(blob);
+  document.getElementById('emailFrame').src = _emailBlobUrl;
 }
 
-function loadEmailPreview() {
-  const container = document.getElementById('emailPreviewContent');
-  const letterDate   = document.getElementById('dateLetterDate').textContent;
-  const reviewOpen   = document.getElementById('dateReviewOpen').textContent;
-  const reviewClose  = document.getElementById('dateReviewClose').textContent;
-  const batchName    = document.querySelector('#batchSelect option:checked').textContent.split(' —')[0].trim();
-  const weekTable    = WEEK_TABLE;
-
-  container.innerHTML = `
-    <div class="ep-subject">📧 Subject: Notice of Supplementary Valuation — ${batchName}</div>
-    <div class="ep-label">To</div>
-    <div style="margin-bottom:.5rem;">valuationenquiries@joburg.org.za</div>
-    <div class="ep-label">Body</div>
-    <div class="ep-banner">
-      Dear Owner / Registered Owner,<br><br>
-      Please find attached your <strong>Notice of Supplementary Valuation</strong>
-      for the property as described in the enclosed document.
-    </div>
-    <p style="margin:.5rem 0;font-size:.78rem;">
-      <strong>Letter Date:</strong> ${letterDate}<br>
-      <strong>Review Period:</strong> ${reviewOpen} – ${reviewClose}<br>
-      <strong>Week Table:</strong> ${weekTable}
-    </p>
-    <p style="font-size:.78rem;margin:.5rem 0;">
-      The review form is available at 
-      <a href="https://eservices.joburg.org.za/Pages/Overview.aspx" style="color:#e6b000;">
-        eservices.joburg.org.za
-      </a> or from our offices at Jorissen Place, 66 Jorissen Street, Braamfontein.
-    </p>
-    <p style="font-size:.78rem;margin:.5rem 0;">
-      Submit completed forms by <strong>${reviewClose}</strong> at 15:00 to 
-      valuationenquiries@joburg.org.za or hand in at the Valuation Services office.
-    </p>
-    <hr style="border:none;border-top:1px solid #eee;margin:.8rem 0;"/>
-    <p style="font-size:.72rem;color:#888;">
-      City of Johannesburg · Finance: Valuation Services<br>
-      Tel: 011-407-6622 / 011-407-6597
-    </p>
-  `;
+async function reloadEmail(){
+  try {
+    const r = await fetch(`/DataTeam/SendNotice/PrintDetails/${BATCH_ID}`);
+    const d = await r.json();
+    if (d.emailHtml) renderEmail(d.emailHtml);
+  } catch(e){ console.error(e); }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Print loop
-// ─────────────────────────────────────────────────────────────────────────────
-async function startPrint() {
-  if (printing) return;
+// ── Print loop ────────────────────────────────────────────────────────────────
+async function startPrint(){
+  if(printing) return;
   printing = true;
+  const btn = document.getElementById('btnPrint');
+  btn.disabled  = true;
+  btn.innerHTML = '⏳&nbsp; Printing…';
+  setText('progBadge','Running');
+  document.getElementById('doneBanner').classList.remove('show');
+  document.getElementById('errLog').className = 'err-log';
+  document.getElementById('errLog').innerHTML = '';
 
-  const btn = document.getElementById('btnStartPrint');
-  btn.disabled    = true;
-  btn.textContent = '⏳ Printing…';
-  document.getElementById('progressBadge').textContent = 'Running';
-  document.getElementById('doneBanner').classList.remove('visible');
-  document.getElementById('errorLog').className = 'error-log';
-  document.getElementById('errorLog').innerHTML = '';
-
-  let offset = 0;
-  let totalPrinted = 0;
-
-  while (true) {
-    const res = await fetch('/DataTeam/SendNotice/PrintChunk', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
-        batchId:       BATCH_ID,
-        weekTableName: WEEK_TABLE,
-        offset:        offset,
-        chunkSize:     CHUNK_SIZE
-      })
+  let offset=0, done=0;
+  while(true){
+    const r = await fetch('/DataTeam/SendNotice/PrintChunk',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({batchId:BATCH_ID, weekTableName:WEEK_TABLE, offset, chunkSize:CHUNK})
     });
+    const d = await r.json();
 
-    const data = await res.json();
+    if(!d.success){ appendErrors(d.errors); setText('progBadge','❌ Error'); break; }
 
-    if (!data.success) {
-      logErrors(data.errors);
-      document.getElementById('progressBadge').textContent = '❌ Error';
-      break;
-    }
-
-    totalPrinted += data.printed;
-    offset        = offset + data.printed + (data.errors ? data.errors.length : 0);
-    const total   = data.total || TOTAL_NOTICES;
-
-    updateProgress(totalPrinted, total, data.currentProperty);
-    if (data.errors && data.errors.length) logErrors(data.errors);
-
-    if (data.done || offset >= total) {
-      showDone(totalPrinted, total);
-      break;
-    }
-
-    // Small yield to keep the UI alive
-    await new Promise(r => setTimeout(r, 80));
+    done   += d.printed;
+    offset += d.printed + (d.errors?.length ?? 0);
+    const total = d.total || TOTAL;
+    setProgress(done, total, d.currentProperty);
+    if(d.errors?.length) appendErrors(d.errors);
+    if(d.done || offset >= total){ showDone(done, total); break; }
+    await new Promise(r=>setTimeout(r,60));
   }
 
   printing = false;
-  btn.disabled = false;
-  btn.textContent = '🖨 Print All Notices';
+  btn.disabled  = false;
+  btn.innerHTML = '🖨&nbsp; Print All Notices';
 }
 
-function updateProgress(done, total, currentProp) {
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  document.getElementById('progBar').style.width  = pct + '%';
-  document.getElementById('progDone').textContent = done;
-  document.getElementById('progTotal').textContent = total;
-  document.getElementById('progPct').textContent  = pct + '%';
-  if (currentProp) document.getElementById('currentProp').textContent = currentProp;
+function setProgress(done, total, cur){
+  const pct = total>0 ? Math.round(done/total*100) : 0;
+  document.getElementById('progBar').style.width = pct+'%';
+  setText('progDone', done);
+  setText('progTot',  total);
+  setText('progPct',  pct+'%');
+  if(cur) setText('curProp', cur);
 }
 
-function showDone(printed, total) {
-  document.getElementById('progressBadge').textContent = '✅ Done';
-  document.getElementById('doneBanner').classList.add('visible');
-  document.getElementById('doneFolderLabel').textContent = document.getElementById('fullFolderPath').textContent;
-  updateProgress(printed, total, '—');
-
-  const btnNext = document.getElementById('btnNext');
-  btnNext.href = `/DataTeam/SendNotice/Step4/${BATCH_ID}?weekTableName=${encodeURIComponent(WEEK_TABLE)}`;
-  btnNext.classList.add('visible');
+function showDone(done, total){
+  setText('progBadge','✅ Done');
+  document.getElementById('doneBanner').classList.add('show');
+  setText('donePath', document.getElementById('folderPath').textContent);
+  setProgress(done, total, '— complete —');
+  const btn = document.getElementById('btnNext');
+  btn.href = `/DataTeam/SendNotice/Step4/${BATCH_ID}?weekTableName=${encodeURIComponent(WEEK_TABLE)}`;
+  btn.classList.add('show');
 }
 
-function resetProgress() {
-  document.getElementById('progBar').style.width  = '0%';
-  document.getElementById('progDone').textContent = '0';
-  document.getElementById('progPct').textContent  = '0%';
-  document.getElementById('currentProp').textContent = '—';
-  document.getElementById('progressBadge').textContent = 'Ready';
-  document.getElementById('doneBanner').classList.remove('visible');
-  document.getElementById('btnNext').classList.remove('visible');
+function resetProgress(){
+  document.getElementById('progBar').style.width = '0%';
+  setText('progDone','0'); setText('progPct','0%');
+  setText('curProp','—'); setText('progBadge','Ready');
+  document.getElementById('doneBanner').classList.remove('show');
+  document.getElementById('btnNext').classList.remove('show');
 }
 
-function logErrors(errors) {
-  if (!errors || !errors.length) return;
-  const log = document.getElementById('errorLog');
-  log.classList.add('has-errors');
-  errors.forEach(e => {
-    const d = document.createElement('div');
-    d.textContent = '⚠ ' + e;
-    log.appendChild(d);
-  });
+function appendErrors(errors){
+  if(!errors?.length) return;
+  const log = document.getElementById('errLog');
+  log.classList.add('show');
+  errors.forEach(e=>{ const d=document.createElement('div'); d.textContent='⚠ '+e; log.appendChild(d); });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Init
-// ─────────────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => loadPreviews());
+// ── init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', ()=>{
+  if(BATCH_ID > 0) onBatchChange(BATCH_ID);
+});
 </script>
 </body>
 </html>

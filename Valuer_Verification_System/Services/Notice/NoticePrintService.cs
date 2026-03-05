@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Valuer_Verification_System.Data;
 using Valuer_Verification_System.Infrastructure.Configuration;
@@ -48,8 +49,8 @@ namespace Valuer_Verification_System.Services.Notice
             return await _db.ExtractRows
                 .AsNoTracking()
                 .Where(r => r.BatchId == batchId
-                         && r.SendNotice == "Y"
-                         && r.Decision == VerificationDecision.Yes)
+                         && r.SendNotice != null
+                         && r.SendNotice.ToUpper() == "Y")
                 .Select(r => r.ValuationKey)
                 .Distinct()
                 .CountAsync(ct);
@@ -100,11 +101,13 @@ namespace Valuer_Verification_System.Services.Notice
                 };
 
                 // All distinct ValuationKeys for this batch (ordered for stable paging)
+                // Notice printing is driven by SendNotice == "Y" only.
+                // Decision is for the valuer verification workflow — separate flow.
                 var allKeys = await _db.ExtractRows
                     .AsNoTracking()
                     .Where(r => r.BatchId == batchId
-                             && r.SendNotice == "Y"
-                             && r.Decision == VerificationDecision.Yes)
+                             && r.SendNotice != null
+                             && r.SendNotice.ToUpper() == "Y")
                     .Select(r => r.ValuationKey)
                     .Distinct()
                     .OrderBy(k => k)
@@ -124,8 +127,8 @@ namespace Valuer_Verification_System.Services.Notice
                 var rows = await _db.ExtractRows
                     .AsNoTracking()
                     .Where(r => r.BatchId == batchId
-                             && r.SendNotice == "Y"
-                             && r.Decision == VerificationDecision.Yes
+                             && r.SendNotice != null
+                             && r.SendNotice.ToUpper() == "Y"
                              && chunkKeys.Contains(r.ValuationKey))
                     .OrderBy(r => r.ValuationKey).ThenBy(r => r.ValuationSplitNo)
                     .ToListAsync(ct);
@@ -165,6 +168,20 @@ namespace Valuer_Verification_System.Services.Notice
                 result.Success = true;
                 result.Printed = printed;
                 result.Done = (offset + chunkKeys.Count) >= result.Total;
+
+                // On the final chunk, mark the batch as printed and awaiting email send
+                if (result.Done)
+                {
+                    var batchToUpdate = await _db.Batches
+                        .FirstOrDefaultAsync(b => b.Id == batchId, ct);
+
+                    if (batchToUpdate != null &&
+                        batchToUpdate.Status != BatchStatus.Sent) // don't downgrade if already sent
+                    {
+                        batchToUpdate.Status = BatchStatus.PrintedEmailPending;
+                        await _db.SaveChangesAsync(ct);
+                    }
+                }
             }
             catch (Exception ex)
             {

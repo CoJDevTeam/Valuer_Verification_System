@@ -2,7 +2,7 @@
 using Valuer_Verification_System.Data;
 using Valuer_Verification_System.Infrastructure.Configuration;
 using Valuer_Verification_System.Infrastructure.Configuration.Email;
-using Valuer_Verification_System.Infrastructure.Configuration.Email.Valuer_Verification_System.Infrastructure.Configuration.Email;
+
 using Valuer_Verification_System.Infrastructure.Storage;
 using Valuer_Verification_System.Models.Data;
 

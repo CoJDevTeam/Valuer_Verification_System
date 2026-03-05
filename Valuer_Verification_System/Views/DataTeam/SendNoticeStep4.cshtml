@@ -1,158 +1,357 @@
 ﻿@model Valuer_Verification_System.Models.ViewModels.SendNoticeStep4Vm
 @{
-    ViewData["Title"] = "Send Notices \u2013 Step 4";
+    ViewData["Title"] = "Send Notices – Step 4: Send";
 }
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Send Notices \u2013 Step 4</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-   
-
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Send Notices – Step 4</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="~/css/noticesent/noticesentcss.css" rel="stylesheet" />
+    <link href="~/css/noticesent/noticesentstep4css.css" rel="stylesheet" />
+  
 </head>
 <body>
-    <div class="sn-wrapper">
+<div class="page">
 
-        <!-- PAGE HEADER -->
-        <header class="sn-header">
-            <div>
-                <div class="sn-eyebrow">Valuer Verification System \u00b7 Data Team</div>
-                <h1 class="sn-title">Send Notices <span>\u2014 Step 4</span></h1>
-                <p class="sn-subtitle">Review the send summary then confirm to mark notices as sent.</p>
-            </div>
-            <a href="/" class="btn-outline">\u2190 Dashboard</a>
-        </header>
-
-        <!-- STEP INDICATOR -->
-        <div class="step-bar">
-            <div class="step done"><span class="step-num">✓</span><span class="step-label">Select Week</span></div>
-            <div class="step-line done"></div>
-            <div class="step done"><span class="step-num">✓</span><span class="step-label">Clean Data</span></div>
-            <div class="step-line done"></div>
-            <div class="step done"><span class="step-num">✓</span><span class="step-label">Print Notices</span></div>
-            <div class="step-line done"></div>
-            <div class="step active"><span class="step-num">4</span><span class="step-label">Confirm &amp; Send</span></div>
-        </div>
-
-        <div class="sn-content">
-
-            @if (Model.AlreadySent)
-            {
-                <!-- ALREADY SENT BANNER -->
-                <div class="card">
-                    <div class="card-header" style="background:#1a8a4a;">
-                        <span class="card-icon">\u2705</span>
-                        <span>Notices Already Sent \u2014 @Model.BatchName</span>
-                    </div>
-                    <div class="card-body">
-                        <div class="success-box" style="border-left-color:#1a8a4a;">
-                            Notices for batch <strong>@Model.BatchName</strong> were already sent on
-                            <strong>@Model.SentAtUtc?.ToString("dd MMMM yyyy")</strong>
-                            at <strong>@Model.SentAtUtc?.ToString("HH:mm")</strong>
-                            by <strong>@Model.SentBy</strong>.
-                        </div>
-                        <div style="margin-top:1.4rem;">
-                            <a href="/" class="btn-gold">\u2190 Back to Dashboard</a>
-                        </div>
-                    </div>
-                </div>
-            }
-            else
-            {
-                <!-- SEND SUMMARY CARD -->
-                <div class="card">
-                    <div class="card-header">
-                        <span class="card-icon">\U0001f4ec</span>
-                        <span>Send Summary \u2014 @Model.BatchName</span>
-                    </div>
-                    <div class="card-body">
-
-                        <!-- Stat cards row -->
-                        <div class="stats-grid" style="margin-bottom:1.6rem;">
-                            <div class="stat-card">
-                                <div class="stat-label">Batch</div>
-                                <div class="stat-value" style="font-size:1.15rem;font-weight:700;">@Model.BatchName</div>
-                            </div>
-                            <div class="stat-card stat-green">
-                                <div class="stat-label">\U0001f4ec Notices to Send</div>
-                                <div class="stat-value">@Model.NoticeSendCount.ToString("N0")</div>
-                                <div class="stat-sub">SendNotice = Y &amp; Decision = Yes</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-label">Total Rows in Batch</div>
-                                <div class="stat-value">@Model.TotalRows.ToString("N0")</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-label">Week Table (173 server)</div>
-                                <div class="stat-value" style="font-size:.82rem;word-break:break-all;font-weight:600;">@Model.WeekTableName</div>
-                            </div>
-                        </div>
-
-                        <!-- Date summary table -->
-                        <table class="date-table" style="margin-bottom:1.6rem;">
-                            <thead>
-                                <tr>
-                                    <th>Letter Date (Notice Send Date)</th>
-                                    <th>Review Opens</th>
-                                    <th>Review Closes (+ 60 days)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td><strong>@Model.NoticeSendDate.ToString("dd MMMM yyyy").ToUpperInvariant()</strong></td>
-                                    <td><strong>@Model.ReviewOpenDate.ToString("dd MMMM yyyy").ToUpperInvariant()</strong></td>
-                                    <td><strong>@Model.ReviewCloseDate.ToString("dd MMMM yyyy").ToUpperInvariant()</strong></td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        <!-- Info box -->
-                        <div class="info-box" style="background:#fff8e0;border-left:4px solid #e6b000;padding:1rem 1.2rem;border-radius:8px;margin-bottom:1.8rem;font-size:.875rem;">
-                            <strong>\u2139\ufe0f  What happens when you confirm:</strong>
-                            <ul style="margin:.6rem 0 0 1.2rem;line-height:1.9;">
-                                <li>Batch <strong>@Model.BatchName</strong> status is set to <strong>Sent</strong>.</li>
-                                <li>The Week Window status is updated to <strong>Sent</strong>.</li>
-                                <li>Your username and timestamp are recorded as the sender.</li>
-                                <li>The cleaned data in <strong>@Model.WeekTableName</strong> on the 173 server is ready for QUEST.</li>
-                                <li>This action <strong>cannot be undone</strong>.</li>
-                            </ul>
-                        </div>
-
-                        <!-- Warning if zero notices -->
-                        @if (Model.NoticeSendCount == 0)
-                        {
-                            <div style="background:#fdeaea;border-left:4px solid #c0272d;padding:1rem 1.2rem;border-radius:8px;margin-bottom:1.4rem;font-size:.875rem;color:#c0272d;">
-                                <strong>\u26a0\ufe0f  Warning:</strong> No rows have SendNotice = Y with a Yes decision.
-                                Confirm only if you are sure the week table has been created correctly.
-                            </div>
-                        }
-
-                        <!-- Confirm form -->
-                        <form method="post" action="/DataTeam/SendNotice/ConfirmSend">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="batchId" value="@Model.BatchId" />
-                            <input type="hidden" name="weekTableName" value="@Model.WeekTableName" />
-
-                            <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:center;margin-top:.5rem;">
-                                <button type="submit"
-                                        class="btn-confirm-send"
-                                        onclick="return confirm('Confirm: mark notices as sent for batch @Model.BatchName?\n\n@Model.NoticeSendCount.ToString(" N0") notice(s) will be recorded as sent.\n\nThis cannot be undone.')">
-                                    \u2713 Confirm &mdash; Mark Notices as Sent
-                                </button>
-                                <a href="/DataTeam/SendNotice/Step3/@Model.BatchId" class="btn-outline">
-                                    \u2190 ← Back to Print
-                                </a>
-                            </div>
-                        </form>
-
-                    </div>
-                </div>
-            }
-
-        </div>
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <div>
+      <div class="eyebrow">Valuer Verification System · Data Team</div>
+      <div class="page-title">Send Notices <span>— Step 4: Send Emails</span></div>
+      <div class="page-sub">Select a batch, preview the client email, then send all notices to property owners.</div>
     </div>
+    <a href="/" class="btn-back">← Dashboard</a>
+  </div>
+
+  <!-- STEPPER -->
+  <div class="stepper">
+    <div class="stp done"><span class="stp-n">✓</span><span class="stp-l">Select Week</span></div>
+    <div class="stp-line done"></div>
+    <div class="stp done"><span class="stp-n">✓</span><span class="stp-l">Clean Data</span></div>
+    <div class="stp-line done"></div>
+    <div class="stp done"><span class="stp-n">✓</span><span class="stp-l">Print Notices</span></div>
+    <div class="stp-line done"></div>
+    <div class="stp active"><span class="stp-n">4</span><span class="stp-l">Send Emails</span></div>
+  </div>
+
+  <!-- WEEK SELECTOR -->
+  <div class="week-selector">
+    <span class="week-selector__label">📋 Week / Batch</span>
+    <select id="batchSel" onchange="onBatchChange(this.value)">
+                @foreach (var b in Model.AvailableBatches)
+                {
+                    <option value="@b.Id"
+                            selected="@(b.Id == Model.SelectedBatchId)">
+                        @b.BatchName — @b.NoticeSendDate.ToString("dd MMM yyyy") (@b.NoticeCount notices)
+                    </option>
+                }
+    </select>
+    <div class="week-meta">
+      <span class="week-chip">Table: <strong id="metaTable">@Model.WeekTableName</strong></span>
+      <span class="week-chip">Notices: <strong id="metaCount">@Model.TotalNotices</strong></span>
+    </div>
+  </div>
+
+  <!-- ALREADY SENT BANNER (shown dynamically) -->
+  <div id="sentBanner" class="sent-banner" style="display:none;">
+    <span class="sent-banner__ico">✅</span>
+    <div>
+      <div class="sent-banner__h">Notices Already Sent</div>
+      <div class="sent-banner__p" id="sentBannerText"></div>
+    </div>
+  </div>
+
+  <!-- BODY GRID: EMAIL PREVIEW LEFT | DATES + FOLDERS RIGHT -->
+  <div class="body-grid">
+
+    <!-- LEFT: EMAIL PREVIEW -->
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-hd__ico">📧</span>
+        <span class="card-hd__ttl">Client Email Preview — Notice Template</span>
+        <button class="card-hd__btn" onclick="reloadEmail()">↺ Refresh</button>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div class="email-shell">
+          <iframe id="emailFrame"></iframe>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: DATES + FOLDERS -->
+    <div class="right">
+
+      <div class="card">
+        <div class="card-hd">
+          <span class="card-hd__ico">📅</span>
+          <span class="card-hd__ttl">Notice Dates</span>
+        </div>
+        <div class="card-body">
+          <div class="date-list">
+            <div class="date-row primary">
+              <span class="date-row__ico">📬</span>
+              <div>
+                <div class="date-row__lbl">Letter Date</div>
+                <div class="date-row__val" id="dLetter">@Model.NoticeSendDate.ToString("dd MMMM yyyy").ToUpperInvariant()</div>
+              </div>
+            </div>
+            <div class="date-row">
+              <span class="date-row__ico">🗓</span>
+              <div>
+                <div class="date-row__lbl">Objection Period Opens</div>
+                <div class="date-row__val" id="dOpen">@Model.ReviewOpenDate.ToString("dd MMMM yyyy").ToUpperInvariant()</div>
+              </div>
+            </div>
+            <div class="date-row">
+              <span class="date-row__ico">⏰</span>
+              <div>
+                <div class="date-row__lbl">Objection Deadline</div>
+                <div class="date-row__val" id="dClose">@Model.ReviewCloseDate.ToString("dd MMMM yyyy").ToUpperInvariant()</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Print folder -->
+      <div class="folder-card">
+        <div class="folder-card__lbl">📄 Print Folder (PDF source)</div>
+        <div class="folder-card__path" id="printFolder">@Model.PrintFolderDisplay</div>
+      </div>
+
+      <!-- Email folder -->
+      <div class="folder-card">
+        <div class="folder-card__lbl">📧 Email Archive Folder (.eml files)</div>
+        <div class="folder-card__path" id="emailFolder">@Model.EmailFolderDisplay</div>
+        <span class="folder-card__tag">_EMAIL</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat blue">
+      <div class="stat__lbl">Total to Send</div>
+      <div class="stat__val" id="sTot">@Model.TotalNotices</div>
+      <div class="stat__sub">SendNotice = Y</div>
+    </div>
+    <div class="stat">
+      <div class="stat__lbl">Total Rows</div>
+      <div class="stat__val" id="sRows">@Model.TotalRows</div>
+      <div class="stat__sub">in batch</div>
+    </div>
+    <div class="stat">
+      <div class="stat__lbl">Week Table</div>
+      <div class="stat__val" id="sTable" style="font-size:.68rem;font-weight:800;word-break:break-all;line-height:1.3;">@Model.WeekTableName</div>
+      <div class="stat__sub">173 server</div>
+    </div>
+    <div class="stat green">
+      <div class="stat__lbl">Email Folder</div>
+      <div class="stat__val" id="sFolder" style="font-size:.68rem;font-weight:800;word-break:break-all;line-height:1.3;">@(System.IO.Path.GetFileName(Model.EmailFolderDisplay))</div>
+      <div class="stat__sub">archive destination</div>
+    </div>
+  </div>
+
+  <!-- EMAIL ARCHIVE FOLDER STRIP -->
+  <div class="folder-strip">
+    <span>📁</span>
+    <span class="folder-strip__path" id="folderPathStrip">@Model.EmailFolderDisplay</span>
+  </div>
+
+  <!-- SEND PROGRESS -->
+  <div class="prog-card">
+    <div class="prog-hd">
+      <span class="prog-hd__title">📤&nbsp; Send Progress</span>
+      <span class="prog-badge" id="progBadge">Ready</span>
+    </div>
+    <div class="prog-body">
+
+      <div class="prog-top">
+        <div>
+          <div class="prog-count"><span id="progDone">0</span> / <span id="progTot">@Model.TotalNotices</span> emails sent</div>
+          <div class="prog-sub">archived as .eml with PDF attachment</div>
+        </div>
+        <div class="prog-pct" id="progPct">0%</div>
+      </div>
+
+      <div class="prog-bar-outer">
+        <div class="prog-bar-inner" id="progBar" style="width:0%;"></div>
+      </div>
+
+      <div class="cur-prop">
+        <div class="cur-prop__lbl">Currently sending</div>
+        <div class="cur-prop__val" id="curProp">—</div>
+      </div>
+
+      <div id="errLog" class="err-log"></div>
+
+      <div id="doneBanner" class="done-banner">
+        <span class="done-ico">✅</span>
+        <div>
+          <div class="done-h">All emails sent &amp; archived successfully!</div>
+          <div class="done-p">Saved to: <span id="donePath" class="done-path"></span></div>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button id="btnSend" class="btn-send" onclick="startSend()">📤&nbsp; Send All Notices</button>
+        <a id="btnDash" class="btn-dash" href="/">← Back to Dashboard</a>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /page -->
+<script>
+// ── state ─────────────────────────────────────────────────────────────────────
+let BATCH_ID   = @Model.SelectedBatchId;
+let WEEK_TABLE = "@Model.WeekTableName";
+let TOTAL      = @Model.TotalNotices;
+const CHUNK    = 10;
+let sending    = false;
+
+// ── batch change ──────────────────────────────────────────────────────────────
+async function onBatchChange(id) {
+  BATCH_ID = parseInt(id);
+  resetProgress();
+  setDates('…','…','…');
+  document.getElementById('sentBanner').style.display = 'none';
+
+  try {
+    const r = await fetch(`/DataTeam/SendNotice/SendDetails/${BATCH_ID}`);
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+
+    WEEK_TABLE = d.weekTableName;
+    TOTAL      = d.totalNotices;
+
+    setDates(d.letterDate, d.reviewOpenDate, d.reviewCloseDate);
+    setText('metaTable',     d.weekTableName);
+    setText('metaCount',     d.totalNotices);
+    setText('sTot',          d.totalNotices);
+    setText('sRows',         d.totalRows ?? '—');
+    setText('sTable',        d.weekTableName);
+    setText('printFolder',   d.printFolder);
+    setText('emailFolder',   d.emailFolder);
+    setText('folderPathStrip', d.emailFolder);
+    setText('sFolder',       d.emailFolder.split(/[/\\]/).pop());
+    setText('progTot',       d.totalNotices);
+
+    if (d.alreadySent) {
+      document.getElementById('sentBanner').style.display = 'flex';
+      setText('sentBannerText',
+        `Batch "${d.batchName}" was already sent on ${d.sentAt} by ${d.sentBy}.`);
+      document.getElementById('btnSend').disabled = true;
+      document.getElementById('btnDash').classList.add('show');
+    } else {
+      document.getElementById('btnSend').disabled = false;
+    }
+
+    if (d.emailHtml) renderEmail(d.emailHtml);
+  } catch(e) {
+    console.error('SendDetails failed:', e);
+    setDates('Error','Error','Error');
+  }
+}
+
+function setDates(l,o,c){
+  setText('dLetter',l); setText('dOpen',o); setText('dClose',c);
+}
+function setText(id,val){ const el=document.getElementById(id); if(el) el.textContent=val; }
+
+// ── Email preview ─────────────────────────────────────────────────────────────
+let _blobUrl = null;
+function renderEmail(html) {
+  if (_blobUrl) URL.revokeObjectURL(_blobUrl);
+  const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
+  _blobUrl = URL.createObjectURL(blob);
+  document.getElementById('emailFrame').src = _blobUrl;
+}
+async function reloadEmail() {
+  try {
+    const r = await fetch(`/DataTeam/SendNotice/SendDetails/${BATCH_ID}`);
+    const d = await r.json();
+    if (d.emailHtml) renderEmail(d.emailHtml);
+  } catch(e){ console.error(e); }
+}
+
+// ── Send loop ─────────────────────────────────────────────────────────────────
+async function startSend() {
+  if (sending) return;
+  sending = true;
+  const btn = document.getElementById('btnSend');
+  btn.disabled  = true;
+  btn.innerHTML = '⏳&nbsp; Sending…';
+  setText('progBadge', 'Sending');
+  document.getElementById('doneBanner').classList.remove('show');
+  document.getElementById('errLog').className = 'err-log';
+  document.getElementById('errLog').innerHTML = '';
+
+  let offset = 0, done = 0;
+  while (true) {
+    const r = await fetch('/DataTeam/SendNotice/SendChunk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ batchId: BATCH_ID, weekTableName: WEEK_TABLE, offset, chunkSize: CHUNK })
+    });
+    const d = await r.json();
+
+    if (!d.success) { appendErrors(d.errors); setText('progBadge','❌ Error'); break; }
+
+    done   += d.sent;
+    offset += CHUNK;
+    const total = d.total || TOTAL;
+    setProgress(done, total, d.currentProperty);
+    if (d.errors?.length) appendErrors(d.errors);
+    if (d.done || offset >= total) { showDone(done, total); break; }
+    await new Promise(r => setTimeout(r, 80));
+  }
+
+  sending = false;
+  btn.disabled  = false;
+  btn.innerHTML = '📤&nbsp; Send All Notices';
+}
+
+function setProgress(done, total, cur) {
+  const pct = total > 0 ? Math.round(done / total * 100) : 0;
+  document.getElementById('progBar').style.width = pct + '%';
+  setText('progDone', done);
+  setText('progTot',  total);
+  setText('progPct',  pct + '%');
+  if (cur) setText('curProp', cur);
+}
+
+function showDone(done, total) {
+  setText('progBadge','✅ Done');
+  document.getElementById('doneBanner').classList.add('show');
+  setText('donePath', document.getElementById('folderPathStrip').textContent);
+  setProgress(done, total, '— complete —');
+  document.getElementById('btnDash').classList.add('show');
+}
+
+function resetProgress() {
+  document.getElementById('progBar').style.width = '0%';
+  setText('progDone','0'); setText('progPct','0%');
+  setText('curProp','—'); setText('progBadge','Ready');
+  document.getElementById('doneBanner').classList.remove('show');
+  document.getElementById('btnDash').classList.remove('show');
+}
+
+function appendErrors(errors) {
+  if (!errors?.length) return;
+  const log = document.getElementById('errLog');
+  log.classList.add('show');
+  errors.forEach(e => { const d = document.createElement('div'); d.textContent = '⚠ ' + e; log.appendChild(d); });
+}
+
+// ── init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  if (BATCH_ID > 0) onBatchChange(BATCH_ID);
+});
+</script>
 </body>
 </html>

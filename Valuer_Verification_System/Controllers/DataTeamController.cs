@@ -1,8 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Valuer_Verification_System.Data;
 using Valuer_Verification_System.Domain.Dates;
 using Valuer_Verification_System.Domain.WeekWindows;
+using Valuer_Verification_System.Infrastructure.Configuration;
+using Valuer_Verification_System.Infrastructure.Configuration.Email;
 using Valuer_Verification_System.Models.Data;
 using Valuer_Verification_System.Models.Notice;
 using Valuer_Verification_System.Models.ViewModels;
@@ -18,7 +21,9 @@ namespace Valuer_Verification_System.Controllers
         private readonly INoticeCleaningService _cleaning;
         private readonly INoticePdfService _pdf;
         private readonly INoticePrintService _print;
+        private readonly INoticeSendService _send;
         private readonly IWebHostEnvironment _env;
+        private readonly EmailSettings _emailCfg;
 
         public DataTeamController(
             VvsDbContext db,
@@ -27,7 +32,9 @@ namespace Valuer_Verification_System.Controllers
             INoticeCleaningService cleaning,
             INoticePdfService pdf,
             INoticePrintService print,
-            IWebHostEnvironment env)
+            INoticeSendService send,
+            IWebHostEnvironment env,
+            IOptions<EmailSettings> emailCfg)
         {
             _db = db;
             _calc = calc;
@@ -35,7 +42,9 @@ namespace Valuer_Verification_System.Controllers
             _cleaning = cleaning;
             _pdf = pdf;
             _print = print;
+            _send = send;
             _env = env;
+            _emailCfg = emailCfg.Value;
         }
 
         // ═════════════════════════════════════════════════════════════════════
@@ -105,12 +114,41 @@ namespace Valuer_Verification_System.Controllers
                 return BadRequest(new { success = false, error = "Table name required." });
 
             var result = await _cleaning.CreateWeekTableAsync(req.WeekTableName, req.ExtractionDate, ct);
+
+            // Advance batch to ReadyToSend so it appears in Step 3 dropdown
+            if (result.Success && req.BatchId > 0)
+            {
+                var batch = await _db.Batches.FirstOrDefaultAsync(b => b.Id == req.BatchId, ct);
+                if (batch != null
+                    && batch.Status != BatchStatus.PrintedEmailPending
+                    && batch.Status != BatchStatus.Sent)
+                {
+                    batch.Status = BatchStatus.ReadyToSend;
+                    await _db.SaveChangesAsync(ct);
+                }
+            }
+
             return Json(result);
         }
 
+        // AJAX: check if week table already exists in SECTION_78_NOTICE
         // ═════════════════════════════════════════════════════════════════════
-        // STEP 3 – Print Notices
+        // GET /DataTeam/SendNotice/WeekTableExists?weekTableName=GV23_...  (AJAX)
+        // Returns { exists: true/false } — used by Step 2 to enable/disable
+        // the "Proceed to Print" button.
         // ═════════════════════════════════════════════════════════════════════
+        [HttpGet("/DataTeam/SendNotice/WeekTableExists")]
+        public async Task<IActionResult> WeekTableExists(
+            [FromQuery] string weekTableName, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(weekTableName))
+                return Json(new { exists = false });
+
+            var exists = await _cleaning.WeekTableExistsAsync(weekTableName, ct);
+            return Json(new { exists });
+        }
+
+
 
         [HttpGet("/DataTeam/SendNotice/Step3/{batchId:int}")]
         public async Task<IActionResult> PrintNotices(int batchId, CancellationToken ct)
@@ -133,6 +171,18 @@ namespace Valuer_Verification_System.Controllers
 
             var counts = await GetNoticeCounts(batchId, ct);
 
+            // Build email preview HTML using real settings + resolved dates
+            var (_, emailHtml, _) = EmailTemplates.ClientNotice(
+                propertyDescription: $"[YOUR PROPERTY — {batch.BatchName}]",
+                letterDate: ww.NoticeSendDate,
+                reviewOpenDate: ww.ReviewOpenDate,
+                reviewCloseDate: ww.ReviewCloseDate,
+                contactEmail: _emailCfg.NoticeContactEmail,
+                signOff: _emailCfg.NoticeSignOff,
+                municipalityName: _emailCfg.NoticeMunicipalityName,
+                actReference: _emailCfg.NoticeActReference,
+                subjectPrefix: _emailCfg.NoticeSubjectPrefix);
+
             return Json(new
             {
                 batchId,
@@ -146,7 +196,8 @@ namespace Valuer_Verification_System.Controllers
                 singleCount = counts.single,
                 multiCount = counts.multi,
                 outputFolder = _print.BuildOutputFolder(extractionDate, batch.BatchName,
-                                      _cleaning.BuildWeekTableName(extractionDate))
+                                        _cleaning.BuildWeekTableName(extractionDate)),
+                emailHtml
             });
         }
 
@@ -186,11 +237,20 @@ namespace Valuer_Verification_System.Controllers
         }
 
         // ═════════════════════════════════════════════════════════════════════
-        // STEP 4 – Confirm & Send
+        // ═════════════════════════════════════════════════════════════════════
+        // STEP 4 – Send Notices
         // ═════════════════════════════════════════════════════════════════════
 
         [HttpGet("/DataTeam/SendNotice/Step4/{batchId:int}")]
         public async Task<IActionResult> ConfirmSendPage(int batchId, [FromQuery] string? weekTableName, CancellationToken ct)
+        {
+            var vm = await BuildSendVmAsync(batchId, ct);
+            return View("SendNoticeStep4", vm);
+        }
+
+        // AJAX: fetch send details when batch changes in dropdown
+        [HttpGet("/DataTeam/SendNotice/SendDetails/{batchId:int}")]
+        public async Task<IActionResult> SendDetails(int batchId, CancellationToken ct)
         {
             var batch = await _db.Batches.Include(b => b.WeekWindow)
                                          .AsNoTracking()
@@ -198,51 +258,122 @@ namespace Valuer_Verification_System.Controllers
             if (batch is null) return NotFound();
 
             var ww = batch.WeekWindow;
-            var extractionDate = await GetExtractionDateAsync(batchId, batch.BatchDate, ct);
-            var tableName = weekTableName ?? _cleaning.BuildWeekTableName(extractionDate);
+            var extractDate = await GetExtractionDateAsync(batchId, batch.BatchDate, ct);
+            var tableName = _cleaning.BuildWeekTableName(extractDate);
+            var counts = await GetNoticeCounts(batchId, ct);
+            var printFolder = _print.BuildOutputFolder(extractDate, batch.BatchName, tableName);
+            var emailFolder = _send.BuildEmailFolder(extractDate, batch.BatchName, tableName);
 
-            var totalRows = await _db.ExtractRows.CountAsync(r => r.BatchId == batchId, ct);
-            var sendCount = await _db.ExtractRows.CountAsync(r =>
-                r.BatchId == batchId && r.SendNotice == "Y" && r.Decision == VerificationDecision.Yes, ct);
+            var (_, emailHtml, _) = EmailTemplates.ClientNotice(
+                propertyDescription: $"[YOUR PROPERTY — {batch.BatchName}]",
+                letterDate: ww.NoticeSendDate,
+                reviewOpenDate: ww.ReviewOpenDate,
+                reviewCloseDate: ww.ReviewCloseDate,
+                contactEmail: _emailCfg.NoticeContactEmail,
+                signOff: _emailCfg.NoticeSignOff,
+                municipalityName: _emailCfg.NoticeMunicipalityName,
+                actReference: _emailCfg.NoticeActReference,
+                subjectPrefix: _emailCfg.NoticeSubjectPrefix);
 
-            var vm = new SendNoticeStep4Vm
+            return Json(new
             {
-                BatchId = batch.Id,
-                BatchName = batch.BatchName,
+                batchId,
+                batchName = batch.BatchName,
+                weekTableName = tableName,
+                letterDate = ww.NoticeSendDate.ToString("dd MMMM yyyy").ToUpperInvariant(),
+                reviewOpenDate = ww.ReviewOpenDate.ToString("dd MMMM yyyy").ToUpperInvariant(),
+                reviewCloseDate = ww.ReviewCloseDate.ToString("dd MMMM yyyy").ToUpperInvariant(),
+                totalNotices = counts.total,
+                singleCount = counts.single,
+                multiCount = counts.multi,
+                printFolder,
+                emailFolder,
+                emailHtml,
+                alreadySent = batch.NoticesSent,
+                sentAt = batch.NoticesSentAtUtc?.ToString("dd MMMM yyyy HH:mm"),
+                sentBy = batch.NoticesSentBy
+            });
+        }
+
+        // AJAX: send one chunk of emails
+        [HttpPost("/DataTeam/SendNotice/SendChunk")]
+        public async Task<IActionResult> SendChunk([FromBody] SendChunkRequest req, CancellationToken ct)
+        {
+            if (req is null) return BadRequest();
+            var result = await _send.SendChunkAsync(req.BatchId, req.WeekTableName, req.Offset, req.ChunkSize, ct);
+            return Json(result);
+        }
+
+        private async Task<SendNoticeStep4Vm> BuildSendVmAsync(int selectedBatchId, CancellationToken ct)
+        {
+            var batches = await _db.Batches
+                .Include(b => b.WeekWindow)
+                .AsNoTracking()
+                .Where(b => b.Status == BatchStatus.PrintedEmailPending
+                         || b.Status == BatchStatus.ReadyToSend
+                         || b.Status == BatchStatus.Sent
+                         || b.Status == BatchStatus.InVerification
+                         || b.Status == BatchStatus.Uploaded)
+                .OrderByDescending(b => b.Id)
+                .ToListAsync(ct);
+
+            var options = new List<SendNoticeStep4Vm.BatchOption>();
+            foreach (var b in batches)
+            {
+                var exDate = await GetExtractionDateAsync(b.Id, b.BatchDate, ct);
+                var cnt = await _db.ExtractRows.CountAsync(r =>
+                    r.BatchId == b.Id && r.SendNotice != null && r.SendNotice.ToUpper() == "Y", ct);
+                options.Add(new SendNoticeStep4Vm.BatchOption
+                {
+                    Id = b.Id,
+                    BatchName = b.BatchName,
+                    WeekTableName = _cleaning.BuildWeekTableName(exDate),
+                    NoticeSendDate = b.WeekWindow.NoticeSendDate,
+                    NoticeCount = cnt
+                });
+            }
+
+            if (selectedBatchId == 0 && options.Any()) selectedBatchId = options[0].Id;
+            var sel = batches.FirstOrDefault(b => b.Id == selectedBatchId) ?? batches.FirstOrDefault();
+            if (sel is null) return new SendNoticeStep4Vm { AvailableBatches = options };
+
+            var ww = sel.WeekWindow;
+            var extractDate = await GetExtractionDateAsync(sel.Id, sel.BatchDate, ct);
+            var tableName = _cleaning.BuildWeekTableName(extractDate);
+            var counts = await GetNoticeCounts(sel.Id, ct);
+            var printFolder = _print.BuildOutputFolder(extractDate, sel.BatchName, tableName);
+            var emailFolder = _send.BuildEmailFolder(extractDate, sel.BatchName, tableName);
+
+            var (_, emailHtml, _) = EmailTemplates.ClientNotice(
+                propertyDescription: $"[YOUR PROPERTY — {sel.BatchName}]",
+                letterDate: ww.NoticeSendDate,
+                reviewOpenDate: ww.ReviewOpenDate,
+                reviewCloseDate: ww.ReviewCloseDate,
+                contactEmail: _emailCfg.NoticeContactEmail,
+                signOff: _emailCfg.NoticeSignOff,
+                municipalityName: _emailCfg.NoticeMunicipalityName,
+                actReference: _emailCfg.NoticeActReference,
+                subjectPrefix: _emailCfg.NoticeSubjectPrefix);
+
+            return new SendNoticeStep4Vm
+            {
+                AvailableBatches = options,
+                SelectedBatchId = sel.Id,
+                BatchId = sel.Id,
+                BatchName = sel.BatchName,
                 WeekTableName = tableName,
                 NoticeSendDate = ww.NoticeSendDate,
                 ReviewOpenDate = ww.ReviewOpenDate,
                 ReviewCloseDate = ww.ReviewCloseDate,
-                TotalRows = totalRows,
-                NoticeSendCount = sendCount,
-                AlreadySent = batch.NoticesSent,
-                SentAtUtc = batch.NoticesSentAtUtc,
-                SentBy = batch.NoticesSentBy
+                TotalNotices = counts.total,
+                TotalRows = await _db.ExtractRows.CountAsync(r => r.BatchId == sel.Id, ct),
+                PrintFolderDisplay = printFolder,
+                EmailFolderDisplay = emailFolder,
+                EmailPreviewHtml = emailHtml,
+                AlreadySent = sel.NoticesSent,
+                SentAtUtc = sel.NoticesSentAtUtc,
+                SentBy = sel.NoticesSentBy
             };
-
-            return View("SendNoticeStep4", vm);
-        }
-
-        [HttpPost("/DataTeam/SendNotice/ConfirmSend")]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ConfirmSend(int batchId, string weekTableName, CancellationToken ct)
-        {
-            var batch = await _db.Batches.Include(b => b.WeekWindow)
-                                         .FirstOrDefaultAsync(b => b.Id == batchId, ct);
-            if (batch is null) return NotFound();
-            if (batch.NoticesSent) return RedirectToAction("ConfirmSendPage", new { batchId, weekTableName });
-
-            var user = User.Identity?.Name ?? "DataTeam";
-
-            batch.NoticesSent = true;
-            batch.NoticesSentAtUtc = DateTime.UtcNow;
-            batch.NoticesSentBy = user;
-            batch.Status = BatchStatus.Sent;
-
-            batch.WeekWindow.Status = WeekWindowStatus.Sent;
-
-            await _db.SaveChangesAsync(ct);
-            return Redirect("/");
         }
 
         // ═════════════════════════════════════════════════════════════════════
@@ -255,7 +386,11 @@ namespace Valuer_Verification_System.Controllers
             var batches = await _db.Batches
                 .Include(b => b.WeekWindow)
                 .AsNoTracking()
-                .Where(b => b.Status == BatchStatus.ReadyToSend || b.Status == BatchStatus.Sent)
+                .Where(b => b.Status == BatchStatus.ReadyToSend
+                         || b.Status == BatchStatus.PrintedEmailPending
+                         || b.Status == BatchStatus.Sent
+                         || b.Status == BatchStatus.InVerification   // cleaning done, table may exist
+                         || b.Status == BatchStatus.Uploaded)        // fallback safety
                 .OrderByDescending(b => b.Id)
                 .ToListAsync(ct);
 
@@ -264,7 +399,7 @@ namespace Valuer_Verification_System.Controllers
             {
                 var exDate = await GetExtractionDateAsync(b.Id, b.BatchDate, ct);
                 var count = await _db.ExtractRows.CountAsync(r =>
-                    r.BatchId == b.Id && r.SendNotice == "Y" && r.Decision == VerificationDecision.Yes, ct);
+                    r.BatchId == b.Id && r.SendNotice != null && r.SendNotice.ToUpper() == "Y", ct);
                 options.Add(new PrintNoticeVm.BatchOption
                 {
                     Id = b.Id,
@@ -307,7 +442,7 @@ namespace Valuer_Verification_System.Controllers
         {
             var keys = await _db.ExtractRows
                 .AsNoTracking()
-                .Where(r => r.BatchId == batchId && r.SendNotice == "Y" && r.Decision == VerificationDecision.Yes)
+                .Where(r => r.BatchId == batchId && r.SendNotice != null && r.SendNotice.ToUpper() == "Y")
                 .GroupBy(r => r.ValuationKey)
                 .Select(g => new
                 {
@@ -417,7 +552,16 @@ namespace Valuer_Verification_System.Controllers
 
     public sealed class CreateWeekTableRequest
     {
+        public int BatchId { get; set; }
         public string WeekTableName { get; set; } = "";
         public DateOnly ExtractionDate { get; set; }
+    }
+
+    public sealed class SendChunkRequest
+    {
+        public int BatchId { get; set; }
+        public string WeekTableName { get; set; } = "";
+        public int Offset { get; set; }
+        public int ChunkSize { get; set; } = 10;
     }
 }

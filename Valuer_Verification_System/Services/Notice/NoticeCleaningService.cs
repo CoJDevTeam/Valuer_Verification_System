@@ -23,6 +23,7 @@ namespace Valuer_Verification_System.Services.Notice
             "UnitType",
             "PremiseId",
             "ErfPtnRe",
+            "Dates",              // Stamp LetterDate, ReviewOpenDate, ReviewCloseDate from WeekWindow
             "SchemeInfo",
             "PropertyDescription",
             "SapAddresses",
@@ -114,6 +115,7 @@ namespace Valuer_Verification_System.Services.Notice
                 await conn.OpenAsync(ct);
 
                 await using var cmd = conn.CreateCommand();
+                
                 cmd.CommandText = "sp_VVS_CreateWeekTable";
                 cmd.CommandType = System.Data.CommandType.StoredProcedure;
                 cmd.CommandTimeout = 600;
@@ -134,6 +136,32 @@ namespace Valuer_Verification_System.Services.Notice
             catch (Exception ex)
             {
                 return new CleaningStepResultVm { Success = false, StepName = "CreateWeekTable", Error = ex.Message };
+            }
+        }
+        public async Task<bool> WeekTableExistsAsync(string weekTableName, CancellationToken ct)
+        {
+            var cs = _config.GetConnectionString("Section78Notice");
+            if (string.IsNullOrWhiteSpace(cs)) return false;
+
+            try
+            {
+                await using var conn = new SqlConnection(cs);
+                await conn.OpenAsync(ct);
+
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"
+            SELECT COUNT(1)
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = 'dbo'
+              AND TABLE_NAME   = @TableName";
+                cmd.Parameters.Add(new SqlParameter("@TableName", weekTableName));
+
+                var result = await cmd.ExecuteScalarAsync(ct);
+                return Convert.ToInt32(result) > 0;
+            }
+            catch
+            {
+                return false;
             }
         }
     }

@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using Valuer_Verification_System.Data;
 using Valuer_Verification_System.Infrastructure.Configuration;
 using Valuer_Verification_System.Infrastructure.Configuration.Email;
-using Valuer_Verification_System.Infrastructure.Configuration.Email.Valuer_Verification_System.Infrastructure.Configuration.Email;
 using Valuer_Verification_System.Services.Notice;
 using Valuer_Verification_System.Services.Permissions;
 
@@ -71,6 +70,8 @@ builder.Services.AddScoped<Valuer_Verification_System.Services.Notice.INoticeGua
 builder.Services.AddScoped<INoticeCleaningService, NoticeCleaningService>();
 builder.Services.AddScoped<INoticePdfService, NoticePdfService>();
 builder.Services.AddScoped<INoticePrintService, NoticePrintService>();
+builder.Services.AddScoped<Valuer_Verification_System.Services.Notice.INoticeSendService,
+    Valuer_Verification_System.Services.Notice.NoticeSendService>();
 
 builder.Services.AddScoped<Valuer_Verification_System.Services.Stats.IStatsExportService,
     Valuer_Verification_System.Services.Stats.StatsExportService>();

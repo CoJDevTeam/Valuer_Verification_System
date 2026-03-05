@@ -1,0 +1,541 @@
+﻿/* ── Reset & base ──────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background: #f0f0f0;
+    color: #111;
+    min-height: 100vh;
+}
+
+/* ── Layout ────────────────────────────────────────────────────────────────── */
+.sn-wrapper {
+    max-width: 940px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────────── */
+.sn-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.sn-eyebrow {
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #e6b000;
+    margin-bottom: .3rem;
+}
+
+.sn-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #111;
+    line-height: 1.2;
+}
+
+    .sn-title span {
+        color: #e6b000;
+    }
+
+.sn-subtitle {
+    font-size: .85rem;
+    color: #666;
+    margin-top: .3rem;
+}
+
+/* ── Step progress bar ─────────────────────────────────────────────────────── */
+.step-bar {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 2rem;
+    background: #fff;
+    border-radius: 10px;
+    padding: 1rem 1.5rem;
+    box-shadow: 0 1px 6px rgba(0,0,0,.07);
+}
+
+.step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .25rem;
+    flex-shrink: 0;
+}
+
+.step-num {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #e0e0e0;
+    color: #999;
+    font-weight: 700;
+    font-size: .85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .3s;
+}
+
+.step.active .step-num {
+    background: #e6b000;
+    color: #111;
+}
+
+.step.done .step-num {
+    background: #2d8f2d;
+    color: #fff;
+}
+
+.step-label {
+    font-size: .72rem;
+    font-weight: 600;
+    color: #999;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+}
+
+.step.active .step-label {
+    color: #e6b000;
+}
+
+.step.done .step-label {
+    color: #2d8f2d;
+}
+
+.step-line {
+    flex: 1;
+    height: 2px;
+    background: #e0e0e0;
+    margin: 0 .6rem;
+    margin-bottom: 1.1rem;
+}
+
+    .step-line.done {
+        background: #2d8f2d;
+    }
+
+/* ── Cards ─────────────────────────────────────────────────────────────────── */
+.card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.07);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+
+.card-header {
+    background: #e6b000;
+    padding: .85rem 1.4rem;
+    font-size: .9rem;
+    font-weight: 700;
+    color: #111;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+}
+
+.card-icon {
+    font-size: 1.1rem;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+.sn-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+/* ── Stats grid ─────────────────────────────────────────────────────────────── */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: .9rem;
+    margin-bottom: 1.4rem;
+}
+
+.stat-card {
+    background: #fafafa;
+    border: 1px solid #ececec;
+    border-radius: 8px;
+    padding: .85rem 1rem;
+}
+
+    .stat-card.stat-green {
+        border-color: #b5e0b5;
+        background: #f0faf0;
+    }
+
+    .stat-card.stat-amber {
+        border-color: #f5d980;
+        background: #fffbec;
+    }
+
+.stat-label {
+    font-size: .72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: #888;
+    margin-bottom: .25rem;
+}
+
+.stat-value {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #111;
+}
+
+/* ── Date table ─────────────────────────────────────────────────────────────── */
+.date-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .85rem;
+}
+
+    .date-table th {
+        background: #f5f5f5;
+        padding: .6rem 1rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: .75rem;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        border-bottom: 2px solid #e6b000;
+    }
+
+    .date-table td {
+        padding: .75rem 1rem;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+/* ── Warning / error / success boxes ────────────────────────────────────────── */
+.warning-box {
+    background: #fffbec;
+    border: 1px solid #f5d980;
+    border-radius: 8px;
+    padding: .85rem 1rem;
+    font-size: .85rem;
+    margin-top: 1rem;
+    color: #7a6000;
+}
+
+.error-box {
+    background: #fff0f0;
+    border: 1px solid #f5b0b0;
+    border-radius: 8px;
+    padding: .85rem 1rem;
+    font-size: .85rem;
+    margin-top: 1rem;
+    color: #8b0000;
+}
+
+.success-box {
+    background: #f0faf0;
+    border: 1px solid #b5e0b5;
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    font-size: .9rem;
+    color: #1a6b1a;
+}
+
+/* ── Badges ─────────────────────────────────────────────────────────────────── */
+.badge {
+    margin-left: auto;
+    padding: .2rem .7rem;
+    border-radius: 20px;
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+}
+
+.badge-green {
+    background: #e0f5e0;
+    color: #1a6b1a;
+}
+
+.badge-amber {
+    background: #fff3cc;
+    color: #7a5c00;
+}
+
+.badge-red {
+    background: #fde8e8;
+    color: #8b0000;
+}
+
+/* ── Form fields ────────────────────────────────────────────────────────────── */
+.field-row {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    margin-bottom: 1rem;
+}
+
+.field-label {
+    font-size: .78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #555;
+}
+
+.field-select, .field-input {
+    padding: .65rem .9rem;
+    border: 1.5px solid #ddd;
+    border-radius: 8px;
+    font-size: .9rem;
+    font-family: inherit;
+    color: #111;
+    transition: border-color .2s;
+}
+
+    .field-select:focus, .field-input:focus {
+        outline: none;
+        border-color: #e6b000;
+        box-shadow: 0 0 0 3px rgba(230,176,0,.15);
+    }
+
+.field-hint {
+    font-size: .75rem;
+    color: #999;
+}
+
+/* ── Info grid (Step 2 config) ──────────────────────────────────────────────── */
+.info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .8rem;
+    margin-bottom: 1rem;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+}
+
+    .info-item.span-2 {
+        grid-column: 1 / -1;
+    }
+
+.info-label {
+    font-size: .7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #888;
+}
+
+.info-value {
+    font-size: .9rem;
+    font-weight: 600;
+    color: #111;
+}
+
+.table-name {
+    font-family: 'Courier New', monospace;
+    font-size: .85rem;
+    background: #f5f5f5;
+    padding: .3rem .6rem;
+    border-radius: 4px;
+    border: 1px solid #e0e0e0;
+    color: #b38a00;
+}
+
+.server-badge {
+    font-size: .65rem;
+    font-weight: 700;
+    background: #111;
+    color: #e6b000;
+    padding: .15rem .5rem;
+    border-radius: 4px;
+    margin-left: .5rem;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+}
+
+/* ── Progress bar ───────────────────────────────────────────────────────────── */
+.progress-bar-outer {
+    width: 100%;
+    height: 10px;
+    background: #e8e8e8;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: .5rem;
+}
+
+.progress-bar-inner {
+    height: 100%;
+    background: linear-gradient(90deg, #e6b000, #c49800);
+    border-radius: 10px;
+    transition: width .4s ease;
+}
+
+.progress-label {
+    font-size: .8rem;
+    color: #666;
+    margin-bottom: 1.2rem;
+}
+
+/* ── Step list ──────────────────────────────────────────────────────────────── */
+.step-list {
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+}
+
+.step-item {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .6rem .9rem;
+    border-radius: 8px;
+    background: #fafafa;
+    border: 1px solid #ececec;
+    font-size: .85rem;
+    transition: background .2s;
+}
+
+.step-status {
+    font-size: 1rem;
+    flex-shrink: 0;
+    width: 20px;
+    text-align: center;
+}
+
+.step-text {
+    flex: 1;
+}
+
+.step-rows {
+    font-size: .75rem;
+    color: #999;
+    font-style: italic;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────────── */
+.btn-gold {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .75rem 1.6rem;
+    background: #e6b000;
+    color: #111;
+    font-size: .9rem;
+    font-weight: 700;
+    border: 2px solid #c49800;
+    border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background .2s;
+}
+
+    .btn-gold:hover {
+        background: #d4a000;
+    }
+
+    .btn-gold:disabled {
+        opacity: .5;
+        cursor: not-allowed;
+    }
+
+.btn-outline {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .65rem 1.2rem;
+    background: transparent;
+    color: #111;
+    font-size: .85rem;
+    font-weight: 600;
+    border: 1.5px solid #ccc;
+    border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: border-color .2s;
+}
+
+    .btn-outline:hover {
+        border-color: #999;
+    }
+
+/* ── Step 2: Sticky Print Notices footer bar ─────────────────────────────── */
+.sn-footer-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 100;
+    background: #1a1a1a;
+    border-top: 3px solid #e6b000;
+    padding: .9rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 2rem;
+}
+
+.footer-table-status {
+    font-size: .82rem;
+    font-weight: 600;
+    color: #aaa;
+}
+
+    .footer-table-status.exists {
+        color: #6fcf97;
+    }
+    /* green — table found */
+    .footer-table-status.missing {
+        color: #f2994a;
+    }
+/* amber — not yet created */
+
+/* Enabled state */
+.btn-print-notices {
+    background: linear-gradient(135deg, #c49800, #e6b000);
+    color: #111;
+    font-weight: 700;
+    font-size: .95rem;
+    border: none;
+    border-radius: 10px;
+    padding: .85rem 2rem;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    box-shadow: 0 3px 12px rgba(230,176,0,.4);
+    transition: transform .15s, box-shadow .15s, opacity .2s;
+}
+
+    .btn-print-notices:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 5px 18px rgba(230,176,0,.55);
+    }
+
+    /* Disabled state — aria-disabled="true" */
+    .btn-print-notices[aria-disabled="true"] {
+        opacity: .4;
+        cursor: not-allowed;
+        pointer-events: none;
+        box-shadow: none;
+        transform: none;
+    }

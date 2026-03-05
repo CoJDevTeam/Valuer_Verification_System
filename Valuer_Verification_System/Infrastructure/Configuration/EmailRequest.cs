@@ -3,19 +3,17 @@
     public sealed class EmailRequest
     {
         public List<string>? To { get; set; }
-
         public string Subject { get; set; } = "";
         public string BodyText { get; set; } = "";
         public string? BodyHtml { get; set; }
-
         public List<string> Cc { get; set; } = new();
         public List<string> Bcc { get; set; } = new();
-
-        // optional: attachments later if you want
+        public string? ReplyTo { get; set; }   // ← added for notice emails
+        public string? FromAddress { get; set; }   // ← override From per-email
+        public string? FromDisplay { get; set; }   // ← override display name per-email
         public List<EmailAttachment> Attachments { get; set; } = new();
-
-
     }
+
     public sealed class EmailSendResult
     {
         public bool Sent { get; set; }

@@ -24,8 +24,8 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Send Notices – Step 2</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-
     <link href="~/css/noticesent/noticesentcss.css" rel="stylesheet" />
+    <link href="~/css/noticesent/NoticeSentStep2Css.css" rel="stylesheet" />
 </head>
 <body>
     <div class="sn-wrapper">
@@ -144,9 +144,6 @@
                             has been created on the 118 server (SECTION_78_NOTICE).
                         </div>
                         <div style="margin-top:1.2rem; display:flex; gap:1rem;">
-                            <a href="#" class="btn-gold" id="btnStep3">
-                                🖨 Proceed to Print Notices →
-                            </a>
                             <button onclick="location.reload()" class="btn-outline">
                                 Run Again
                             </button>
@@ -157,126 +154,268 @@
             </div>
 
         </div>
-    </div>
+
+        <!-- ── PERSISTENT PRINT BUTTON ──────────────────────────────────────────── -->
+        <div class="sn-footer-bar" id="printFooter">
+            <div class="sn-footer-left">
+                <span id="printTableStatus" class="footer-table-status"></span>
+            </div>
+            <div class="sn-footer-right">
+                <a id="btnPrintNotices"
+                   href="#"
+                   class="btn-gold btn-print-notices"
+                   aria-disabled="true"
+                   onclick="return handlePrintClick(event)">
+                    🖨 Proceed to Print Notices →
+                </a>
+            </div>
+        </div>
+
+    </div><!-- /sn-footer-bar -->
+    </div><!-- /sn-wrapper -->
+
+    <style>
+        /* ── Sticky print footer ──────────────────────────────────────────────── */
+        .sn-footer-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border-top: 2px solid #e8e0cc;
+            padding: .85rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 -4px 18px rgba(0,0,0,.08);
+            z-index: 100;
+        }
+
+        .footer-table-status {
+            font-size: .82rem;
+            color: #666;
+        }
+
+            .footer-table-status.exists {
+                color: #1a8a4a;
+                font-weight: 600;
+            }
+
+            .footer-table-status.missing {
+                color: #a05a00;
+            }
+
+        .btn-print-notices {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            padding: .75rem 1.8rem;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: .95rem;
+            text-decoration: none;
+            transition: .2s;
+        }
+
+            .btn-print-notices[aria-disabled="false"] {
+                background: linear-gradient(135deg, #c99b00, #e6b000);
+                color: #111;
+                box-shadow: 0 3px 12px rgba(230,176,0,.4);
+                cursor: pointer;
+            }
+
+                .btn-print-notices[aria-disabled="false"]:hover {
+                    transform: translateY(-1px);
+                    box-shadow: 0 5px 18px rgba(230,176,0,.55);
+                }
+
+            .btn-print-notices[aria-disabled="true"] {
+                background: #e8e0cc;
+                color: #aaa;
+                cursor: not-allowed;
+                box-shadow: none;
+            }
+        /* Push page content above fixed footer */
+        .sn-wrapper {
+            padding-bottom: 5rem;
+        }
+    </style>
 
     <script>
         const EXTRACTION_DATE = "@Model.ExtractionDate.ToString("yyyy-MM-dd")";
-        const BATCH_ID = @Model.BatchId;
-        const WEEK_TABLE = "@Model.WeekTableName";
+        const BATCH_ID        = @Model.BatchId;
+        const WEEK_TABLE      = "@Model.WeekTableName";
 
         const STEPS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-                        steps.Select(s => s.Key).ToArray()
-                        ));
+                    steps.Select(s => s.Key).ToArray()
+                ));
+
+        // ── Check table existence and update button state ──────────────────────
+        async function checkTableExists() {
+          const statusEl = document.getElementById('printTableStatus');
+          const btnEl    = document.getElementById('btnPrintNotices');
+
+          statusEl.textContent = '⏳ Checking for week table…';
+          statusEl.className   = 'footer-table-status';
+
+          try {
+            const res  = await fetch(`/DataTeam/SendNotice/WeekTableExists?weekTableName=${encodeURIComponent(WEEK_TABLE)}`);
+            const data = await res.json();
+
+            if (data.exists) {
+              enablePrintButton();
+            } else {
+              disablePrintButton();
+            }
+          } catch {
+            disablePrintButton('⚠ Could not check table status');
+          }
+        }
+
+        function enablePrintButton() {
+          const statusEl = document.getElementById('printTableStatus');
+          const btnEl    = document.getElementById('btnPrintNotices');
+
+          statusEl.textContent = `✅ Table ${WEEK_TABLE} is ready`;
+          statusEl.className   = 'footer-table-status exists';
+          btnEl.setAttribute('aria-disabled', 'false');
+          btnEl.href = `/DataTeam/SendNotice/Step3/${BATCH_ID}`;
+        }
+
+        function disablePrintButton(msg) {
+          const statusEl = document.getElementById('printTableStatus');
+          const btnEl    = document.getElementById('btnPrintNotices');
+
+          statusEl.textContent = msg || `⚠ Run cleaning first — table ${WEEK_TABLE} not found`;
+          statusEl.className   = 'footer-table-status missing';
+          btnEl.setAttribute('aria-disabled', 'true');
+          btnEl.href = '#';
+        }
+
+        function handlePrintClick(e) {
+          const btn = document.getElementById('btnPrintNotices');
+          if (btn.getAttribute('aria-disabled') === 'true') {
+            e.preventDefault();
+            return false;
+          }
+          return true;
+        }
 
         async function startCleaning() {
-            const lis = document.getElementById('lisMasterTable').value.trim();
-            const sap = document.getElementById('sapTable').value.trim();
+          const lis = document.getElementById('lisMasterTable').value.trim();
+          const sap = document.getElementById('sapTable').value.trim();
 
-            if (!lis || !sap) {
-                alert('Please fill in both table names before cleaning.');
-                return;
-            }
+          if (!lis || !sap) {
+            alert('Please fill in both table names before cleaning.');
+            return;
+          }
 
-            document.getElementById('configCard').style.opacity = '0.4';
-            document.getElementById('btnStartCleaning').disabled = true;
-            document.getElementById('progressCard').style.display = '';
-            document.getElementById('weekTableLabel').textContent = WEEK_TABLE;
-            document.getElementById('doneTableName').textContent = WEEK_TABLE;
+          document.getElementById('configCard').style.opacity = '0.4';
+          document.getElementById('btnStartCleaning').disabled = true;
+          document.getElementById('progressCard').style.display = '';
+          document.getElementById('weekTableLabel').textContent = WEEK_TABLE;
+          document.getElementById('doneTableName').textContent  = WEEK_TABLE;
 
-            const total = STEPS.length + 1; // +1 for CreateWeekTable
-            let done = 0;
-            let hadError = false;
+          const total = STEPS.length + 1; // +1 for CreateWeekTable
+          let   done  = 0;
+          let   hadError = false;
 
-            function updateBar(n) {
-                const pct = Math.round(n / total * 100);
-                document.getElementById('overallBar').style.width = pct + '%';
-            }
+          function updateBar(n) {
+            const pct = Math.round(n / total * 100);
+            document.getElementById('overallBar').style.width = pct + '%';
+          }
 
-            function setStatus(key, icon, rowsText) {
-                document.getElementById('status-' + key).textContent = icon;
-                if (rowsText !== undefined)
-                    document.getElementById('rows-' + key).textContent = rowsText;
-            }
+          function setStatus(key, icon, rowsText) {
+            document.getElementById('status-' + key).textContent = icon;
+            if (rowsText !== undefined)
+              document.getElementById('rows-' + key).textContent = rowsText;
+          }
 
-            // ── Run each cleaning step ─────────────────────────────────────────────
-            for (const step of STEPS) {
-                document.getElementById('progressLabel').textContent = 'Running: ' + step + '...';
-                document.getElementById('step-' + step)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                setStatus(step, '🔄');
+          // ── Run each cleaning step ─────────────────────────────────────────────
+          for (const step of STEPS) {
+            document.getElementById('progressLabel').textContent = 'Running: ' + step + '...';
+            document.getElementById('step-' + step)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            setStatus(step, '🔄');
 
-                const res = await fetchStep('/DataTeam/SendNotice/RunCleanStep', {
-                    stepName: step,
-                    extractionDate: EXTRACTION_DATE,
-                    lisMasterTable: lis,
-                    sapTable: sap
-                });
-
-                if (res.success) {
-                    setStatus(step, '✅', res.rowsAffected + ' rows');
-                    done++;
-                    updateBar(done);
-                } else {
-                    setStatus(step, '❌');
-                    showError('Step ' + step + ' failed: ' + res.error);
-                    hadError = true;
-                    break;
-                }
-            }
-
-            if (hadError) return;
-
-            // ── Create Week Table (final step) ────────────────────────────────────
-            document.getElementById('progressLabel').textContent = 'Creating week table on 118 server (SECTION_78_NOTICE)...';
-            setStatus('CreateWeekTable', '🔄');
-
-            const tableRes = await fetchStep('/DataTeam/SendNotice/CreateWeekTable', {
-                weekTableName: WEEK_TABLE,
-                extractionDate: EXTRACTION_DATE
+            const res = await fetchStep('/DataTeam/SendNotice/RunCleanStep', {
+              stepName:       step,
+              extractionDate: EXTRACTION_DATE,
+              lisMasterTable: lis,
+              sapTable:       sap
             });
 
-            if (tableRes.success) {
-                setStatus('CreateWeekTable', '✅', tableRes.rowsAffected + ' rows');
-                done++;
-                updateBar(done);
-
-                document.getElementById('progressIcon').textContent = '✅';
-                document.getElementById('progressTitle').textContent = 'Cleaning Complete';
-                document.getElementById('progressBadge').textContent = 'Done';
-                document.getElementById('progressBadge').className = 'badge badge-green';
-                document.getElementById('progressLabel').textContent = 'All steps completed successfully.';
-                document.getElementById('btnStep3').href = '/DataTeam/SendNotice/Step3/' + BATCH_ID;
-                document.getElementById('donePanel').style.display = '';
+            if (res.success) {
+              setStatus(step, '✅', res.rowsAffected + ' rows');
+              done++;
+              updateBar(done);
             } else {
-                setStatus('CreateWeekTable', '❌');
-                showError('Create Week Table failed: ' + tableRes.error);
+              setStatus(step, '❌');
+              showError('Step ' + step + ' failed: ' + res.error);
+              hadError = true;
+              break;
             }
+          }
+
+          if (hadError) return;
+
+          // ── Create Week Table (final step) ────────────────────────────────────
+          document.getElementById('progressLabel').textContent = 'Creating week table on 118 server (SECTION_78_NOTICE)...';
+          setStatus('CreateWeekTable', '🔄');
+
+          const tableRes = await fetchStep('/DataTeam/SendNotice/CreateWeekTable', {
+            batchId:        BATCH_ID,
+            weekTableName:  WEEK_TABLE,
+            extractionDate: EXTRACTION_DATE
+          });
+
+          if (tableRes.success) {
+            setStatus('CreateWeekTable', '✅', tableRes.rowsAffected + ' rows');
+            done++;
+            updateBar(done);
+
+            document.getElementById('progressIcon').textContent    = '✅';
+            document.getElementById('progressTitle').textContent   = 'Cleaning Complete';
+            document.getElementById('progressBadge').textContent   = 'Done';
+            document.getElementById('progressBadge').className     = 'badge badge-green';
+            document.getElementById('progressLabel').textContent   = 'All steps completed successfully.';
+            document.getElementById('donePanel').style.display     = '';
+
+            // Table now exists — enable the print button immediately
+            enablePrintButton();
+          } else {
+            setStatus('CreateWeekTable', '❌');
+            showError('Create Week Table failed: ' + tableRes.error);
+          }
         }
 
         async function fetchStep(url, body) {
-            try {
-                const resp = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? ''
-                    },
-                    body: JSON.stringify(body)
-                });
-                return await resp.json();
-            } catch (e) {
-                return { success: false, error: e.message };
-            }
+          try {
+            const resp = await fetch(url, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? ''
+              },
+              body: JSON.stringify(body)
+            });
+            return await resp.json();
+          } catch (e) {
+            return { success: false, error: e.message };
+          }
         }
 
         function showError(msg) {
-            const box = document.getElementById('errorBox');
-            box.textContent = '❌ ' + msg;
-            box.style.display = '';
-            document.getElementById('progressIcon').textContent = '❌';
-            document.getElementById('progressTitle').textContent = 'Error — Cleaning Stopped';
-            document.getElementById('progressBadge').textContent = 'Failed';
-            document.getElementById('progressBadge').className = 'badge badge-red';
+          const box = document.getElementById('errorBox');
+          box.textContent = '❌ ' + msg;
+          box.style.display = '';
+          document.getElementById('progressIcon').textContent  = '❌';
+          document.getElementById('progressTitle').textContent = 'Error — Cleaning Stopped';
+          document.getElementById('progressBadge').textContent = 'Failed';
+          document.getElementById('progressBadge').className   = 'badge badge-red';
         }
+
+        // ── On page load: check immediately ─────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', checkTableExists);
     </script>
 
     @Html.AntiForgeryToken()

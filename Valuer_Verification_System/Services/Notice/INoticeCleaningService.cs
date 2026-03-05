@@ -26,5 +26,10 @@ namespace Valuer_Verification_System.Services.Notice
 
         /// <summary>All step names in execution order.</summary>
         IReadOnlyList<string> StepNames { get; }
+
+
+        Task<bool> WeekTableExistsAsync(string weekTableName, CancellationToken ct);
+
+
     }
 }

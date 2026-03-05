@@ -34,7 +34,8 @@ namespace Valuer_Verification_System.Models.Data
         InVerification = 1,
         ReadyToSend = 2,
         Sent = 3,
-        Cancelled = 4
+        Cancelled = 4,
+        PrintedEmailPending=5
     }
 
     public enum VerificationDecision
