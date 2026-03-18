@@ -24,8 +24,9 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Send Notices – Step 2</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="~/css/DataTeam/SendNotice.css" rel="stylesheet" />
+    <link href="~/css/noticesent/noticesentstep2css.css" rel="stylesheet" />
     <link href="~/css/noticesent/noticesentcss.css" rel="stylesheet" />
-    <link href="~/css/noticesent/NoticeSentStep2Css.css" rel="stylesheet" />
 </head>
 <body>
     <div class="sn-wrapper">
@@ -78,18 +79,24 @@
 
                     <div class="field-row" style="margin-top:1.2rem;">
                         <label class="field-label" for="lisMasterTable">LIS Master Table</label>
-                        <input id="lisMasterTable" type="text" class="field-input"
-                               value="@Model.LisMasterTable"
-                               placeholder="e.g. LIS_2025_09_16" />
-                        <span class="field-hint">Table name only — lives in Valuer_Verification_DB on 118 server</span>
+                        <div class="select-wrapper" id="lisWrapper">
+                            <select id="lisMasterTable" class="field-input field-select">
+                                <option value="">⏳ Loading LIS tables…</option>
+                            </select>
+                            <span class="select-badge select-badge--lis">LIS</span>
+                        </div>
+                        <span class="field-hint">Tables matching <code>%LIS%</code> in Valuer_Verification_DB · 118 server</span>
                     </div>
 
                     <div class="field-row">
                         <label class="field-label" for="sapTable">SAP Statements Table</label>
-                        <input id="sapTable" type="text" class="field-input"
-                               value="@Model.SapTable"
-                               placeholder="e.g. SAP_STATEMENT_RECORDS_2026_01" />
-                        <span class="field-hint">Table name only — lives in Valuer_Verification_DB on 118 server</span>
+                        <div class="select-wrapper" id="sapWrapper">
+                            <select id="sapTable" class="field-input field-select">
+                                <option value="">⏳ Loading SAP tables…</option>
+                            </select>
+                            <span class="select-badge select-badge--sap">SAP</span>
+                        </div>
+                        <span class="field-hint">Tables matching <code>%SAP%</code> in Valuer_Verification_DB · 118 server</span>
                     </div>
 
                     <button id="btnStartCleaning" class="btn-gold" onclick="startCleaning()">
@@ -177,68 +184,85 @@
     <style>
         /* ── Sticky print footer ──────────────────────────────────────────────── */
         .sn-footer-bar {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: #fff;
-            border-top: 2px solid #e8e0cc;
-            padding: .85rem 2rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: 0 -4px 18px rgba(0,0,0,.08);
-            z-index: 100;
+          position: fixed;
+          bottom: 0; left: 0; right: 0;
+          background: #fff;
+          border-top: 2px solid #e8e0cc;
+          padding: .85rem 2rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          box-shadow: 0 -4px 18px rgba(0,0,0,.08);
+          z-index: 100;
         }
-
         .footer-table-status {
-            font-size: .82rem;
-            color: #666;
+          font-size: .82rem;
+          color: #666;
         }
-
-            .footer-table-status.exists {
-                color: #1a8a4a;
-                font-weight: 600;
-            }
-
-            .footer-table-status.missing {
-                color: #a05a00;
-            }
+        .footer-table-status.exists   { color: #1a8a4a; font-weight: 600; }
+        .footer-table-status.missing  { color: #a05a00; }
 
         .btn-print-notices {
-            display: inline-flex;
-            align-items: center;
-            gap: .4rem;
-            padding: .75rem 1.8rem;
-            border-radius: 10px;
-            font-weight: 700;
-            font-size: .95rem;
-            text-decoration: none;
-            transition: .2s;
+          display: inline-flex;
+          align-items: center;
+          gap: .4rem;
+          padding: .75rem 1.8rem;
+          border-radius: 10px;
+          font-weight: 700;
+          font-size: .95rem;
+          text-decoration: none;
+          transition: .2s;
         }
-
-            .btn-print-notices[aria-disabled="false"] {
-                background: linear-gradient(135deg, #c99b00, #e6b000);
-                color: #111;
-                box-shadow: 0 3px 12px rgba(230,176,0,.4);
-                cursor: pointer;
-            }
-
-                .btn-print-notices[aria-disabled="false"]:hover {
-                    transform: translateY(-1px);
-                    box-shadow: 0 5px 18px rgba(230,176,0,.55);
-                }
-
-            .btn-print-notices[aria-disabled="true"] {
-                background: #e8e0cc;
-                color: #aaa;
-                cursor: not-allowed;
-                box-shadow: none;
-            }
+        .btn-print-notices[aria-disabled="false"] {
+          background: linear-gradient(135deg, #c99b00, #e6b000);
+          color: #111;
+          box-shadow: 0 3px 12px rgba(230,176,0,.4);
+          cursor: pointer;
+        }
+        .btn-print-notices[aria-disabled="false"]:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 5px 18px rgba(230,176,0,.55);
+        }
+        .btn-print-notices[aria-disabled="true"] {
+          background: #e8e0cc;
+          color: #aaa;
+          cursor: not-allowed;
+          box-shadow: none;
+        }
         /* Push page content above fixed footer */
-        .sn-wrapper {
-            padding-bottom: 5rem;
+        .sn-wrapper { padding-bottom: 5rem; }
+
+        /* ── LIS / SAP dropdown ─────────────────────────────────────────────── */
+        .select-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
         }
+        .field-select {
+          appearance: auto;
+          -webkit-appearance: auto;
+          padding-right: 4rem;   /* room for badge */
+          cursor: pointer;
+          background: #fff;
+        }
+        .field-select:focus {
+          border-color: #e6b000;
+          box-shadow: 0 0 0 3px rgba(230,176,0,.2);
+          outline: none;
+        }
+        .field-select option:disabled { color: #aaa; }
+        .select-badge {
+          position: absolute;
+          right: .6rem;
+          font-size: .6rem;
+          font-weight: 800;
+          letter-spacing: .06em;
+          padding: .15rem .45rem;
+          border-radius: 10px;
+          pointer-events: none;
+        }
+        .select-badge--lis { background: #e6f0ff; color: #1a5fa8; border: 1px solid #90b8e8; }
+        .select-badge--sap { background: #fff0e0; color: #a85a00; border: 1px solid #e8b870; }
     </style>
 
     <script>
@@ -415,7 +439,48 @@
         }
 
         // ── On page load: check immediately ─────────────────────────────────────
-        document.addEventListener('DOMContentLoaded', checkTableExists);
+        // ── Populate LIS / SAP dropdowns ────────────────────────────────────────
+        async function loadTableDropdown(selectId, pattern, preselect) {
+          const sel = document.getElementById(selectId);
+          try {
+            const r = await fetch(`/DataTeam/SendNotice/ListTables?pattern=${encodeURIComponent(pattern)}`);
+            const tables = await r.json();
+
+            sel.innerHTML = '';   // clear loading placeholder
+
+            if (!tables.length) {
+              const o = document.createElement('option');
+              o.value = ''; o.textContent = `⚠ No ${pattern} tables found`; o.disabled = true;
+              sel.appendChild(o);
+              return;
+            }
+
+            // Blank "please select" option
+            const blank = document.createElement('option');
+            blank.value = ''; blank.textContent = `— select ${pattern} table —`; blank.disabled = true;
+            sel.appendChild(blank);
+
+            tables.forEach(name => {
+              const o = document.createElement('option');
+              o.value = name; o.textContent = name;
+              if (preselect && name === preselect) o.selected = true;
+              sel.appendChild(o);
+            });
+
+            // If nothing matched preselect, mark the first real table selected
+            if (!preselect || !tables.includes(preselect)) sel.value = tables[0];
+
+          } catch(e) {
+            sel.innerHTML = `<option value="" disabled>⚠ Could not load tables</option>`;
+            console.error('loadTableDropdown error:', e);
+          }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+          checkTableExists();
+          loadTableDropdown('lisMasterTable', 'LIS', '@Model.LisMasterTable');
+          loadTableDropdown('sapTable',       'SAP', '@Model.SapTable');
+        });
     </script>
 
     @Html.AntiForgeryToken()

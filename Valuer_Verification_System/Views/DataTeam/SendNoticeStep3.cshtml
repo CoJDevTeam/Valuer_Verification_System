@@ -306,10 +306,11 @@ async function startPrint(){
     if(!d.success){ appendErrors(d.errors); setText('progBadge','❌ Error'); break; }
 
     done   += d.printed;
-    offset += d.printed + (d.errors?.length ?? 0);
+    offset += CHUNK;   // always advance by chunk size — server uses Skip(offset) absolutely
     const total = d.total || TOTAL;
     setProgress(done, total, d.currentProperty);
     if(d.errors?.length) appendErrors(d.errors);
+    // done when server says so, or we've sent past the total
     if(d.done || offset >= total){ showDone(done, total); break; }
     await new Promise(r=>setTimeout(r,60));
   }

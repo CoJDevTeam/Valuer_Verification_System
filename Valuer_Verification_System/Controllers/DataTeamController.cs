@@ -377,6 +377,37 @@ namespace Valuer_Verification_System.Controllers
         }
 
         // ═════════════════════════════════════════════════════════════════════
+        // AJAX: list LIS / SAP table names from Valuer_Verification_DB
+        // ═════════════════════════════════════════════════════════════════════
+
+        [HttpGet("/DataTeam/SendNotice/ListTables")]
+        public async Task<IActionResult> ListTables([FromQuery] string pattern, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(pattern)) return Json(new List<string>());
+
+            // Query INFORMATION_SCHEMA.TABLES on the same DB as EF (Valuer_Verification_DB)
+            var cs = _db.Database.GetConnectionString();
+            var tables = new List<string>();
+
+            await using var conn = new Microsoft.Data.SqlClient.SqlConnection(cs);
+            await conn.OpenAsync(ct);
+
+            var sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES " +
+                      "WHERE TABLE_TYPE = 'BASE TABLE' " +
+                      "  AND TABLE_NAME LIKE @pattern " +
+                      "ORDER BY TABLE_NAME DESC";
+
+            await using var cmd = new Microsoft.Data.SqlClient.SqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@pattern", $"%{pattern.Trim()}%");
+
+            await using var rdr = await cmd.ExecuteReaderAsync(ct);
+            while (await rdr.ReadAsync(ct))
+                tables.Add(rdr.GetString(0));
+
+            return Json(tables);
+        }
+
+        // ═════════════════════════════════════════════════════════════════════
         // Helpers
         // ═════════════════════════════════════════════════════════════════════
 

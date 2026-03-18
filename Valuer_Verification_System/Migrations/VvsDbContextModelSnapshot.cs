@@ -442,6 +442,7 @@ namespace Valuer_Verification_System.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("RateableArea")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Re")
@@ -475,6 +476,7 @@ namespace Valuer_Verification_System.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("RightsPremiseSize")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("RightsStatus")
@@ -574,7 +576,7 @@ namespace Valuer_Verification_System.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ValuationSplitNo")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ValuationType")
                         .HasColumnType("nvarchar(max)");
@@ -588,11 +590,16 @@ namespace Valuer_Verification_System.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BatchId", "ValuationKey")
-                        .IsUnique();
+                        .HasDatabaseName("IX_ExtractRows_BatchId_ValuationKey");
 
                     b.HasIndex("BatchId", "Valuer");
 
                     b.HasIndex("BatchId", "Sector", "Decision");
+
+                    b.HasIndex("BatchId", "ValuationKey", "ValuationSplitNo")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ExtractRows_BatchId_ValuationKey_SplitNo")
+                        .HasFilter("[ValuationSplitNo] IS NOT NULL");
 
                     b.ToTable("ExtractRows");
                 });

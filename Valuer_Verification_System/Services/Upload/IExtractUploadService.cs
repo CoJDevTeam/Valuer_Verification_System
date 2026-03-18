@@ -2,7 +2,6 @@
 using Valuer_Verification_System.Data;
 using Valuer_Verification_System.Infrastructure.Configuration;
 using Valuer_Verification_System.Infrastructure.Configuration.Email;
-
 using Valuer_Verification_System.Infrastructure.Storage;
 using Valuer_Verification_System.Models.Data;
 
@@ -99,8 +98,19 @@ namespace Valuer_Verification_System.Services.Upload
             await _db.SaveChangesAsync(ct);
 
             // 6) Create valuer assignments from VALUER column
+            // For split properties (same ValuationKey, SplitInd = P/Y),
+            // assign only the PARENT row (SplitInd = 'P') or the first row
+            // per ValuationKey — one assignment per property, not per split line.
             var assignments = rows
                 .Where(r => !string.IsNullOrWhiteSpace(r.Valuer))
+                .GroupBy(r => r.ValuationKey)
+                .Select(g =>
+                    // Prefer the parent row (SplitInd = 'P' or null/empty), else first
+                    g.FirstOrDefault(r =>
+                        string.IsNullOrWhiteSpace(r.ValuationSplitInd) ||
+                        r.ValuationSplitInd.Trim().Equals("P", StringComparison.OrdinalIgnoreCase))
+                    ?? g.First())
+                .Where(r => r.Id > 0)   // must be saved (has PK)
                 .Select(r => new Assignment
                 {
                     ExtractRowId = r.Id,

@@ -144,6 +144,25 @@ namespace Valuer_Verification_System.Services.Notice
                     if (!groups.TryGetValue(key, out var group)) continue;
 
                     var mainRow = group[0];
+
+                    // ── Safety net: if address is still missing after cleaning,
+                    //    apply the same fallback the SP would have used.
+                    //    This ensures every property prints regardless of data quality.
+                    if (string.IsNullOrWhiteSpace(mainRow.Addr1))
+                    {
+                        mainRow.Addr1 = "TO THE REGISTERED OWNER OF:";
+                        mainRow.Addr2 = !string.IsNullOrWhiteSpace(mainRow.PropertyDesc)
+                            ? mainRow.PropertyDesc
+                            : !string.IsNullOrWhiteSpace(mainRow.PropertyDescription)
+                                ? mainRow.PropertyDescription
+                                : key;
+                        mainRow.Addr3 = !string.IsNullOrWhiteSpace(mainRow.TownNameDesc)
+                            ? mainRow.TownNameDesc
+                            : "GAUTENG";
+                        mainRow.Addr4 = "GAUTENG";
+                        mainRow.Addr5 = "2000";
+                    }
+
                     bool isMulti = group.Count > 1 ||
                         group.Any(r =>
                             string.Equals(r.CatDesc, "Multipurpose", StringComparison.OrdinalIgnoreCase) &&
@@ -155,7 +174,9 @@ namespace Valuer_Verification_System.Services.Notice
                     {
                         var pdfBytes = _pdf.GenerateNotice(mainRow, ctx, splitRows);
 
-                        var propDesc = mainRow.PropertyDesc ?? mainRow.ValuationKey;
+                        var propDesc = !string.IsNullOrWhiteSpace(mainRow.PropertyDesc)
+                            ? mainRow.PropertyDesc
+                            : key;
                         var filePath = Path.Combine(folder, Sanitize(propDesc) + ".pdf");
 
                         await File.WriteAllBytesAsync(filePath, pdfBytes, ct);
@@ -167,7 +188,10 @@ namespace Valuer_Verification_System.Services.Notice
 
                 result.Success = true;
                 result.Printed = printed;
-                result.Done = (offset + chunkKeys.Count) >= result.Total;
+                // Done when the next chunk would start beyond the total
+                // Use offset + chunkSize (not chunkKeys.Count) — matches JS which
+                // always advances by CHUNK so both sides stay in sync
+                result.Done = (offset + chunkSize) >= result.Total;
 
                 // On the final chunk, mark the batch as printed and awaiting email send
                 if (result.Done)
