@@ -19,6 +19,7 @@
         BatchStatus.Uploaded => "bs-uploaded",
         BatchStatus.InVerification => "bs-inverification",
         BatchStatus.ReadyToSend => "bs-readytosend",
+        BatchStatus.PrintedEmailPending => "bs-emailpending",
         BatchStatus.Sent => "bs-sent",
         BatchStatus.Cancelled => "bs-cancelled",
         _ => "bs-uploaded"
@@ -29,6 +30,7 @@
         BatchStatus.Uploaded => "Uploaded",
         BatchStatus.InVerification => "In Verification",
         BatchStatus.ReadyToSend => "Ready to Send",
+        BatchStatus.PrintedEmailPending => "Send Email Pending",
         BatchStatus.Sent => "Sent",
         BatchStatus.Cancelled => "Cancelled",
         _ => s.ToString()
@@ -52,6 +54,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Data Team Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="~/css/Home/IndexCss.css" rel="stylesheet" />
     <link href="~/css/Home/IndexCss1.css" rel="stylesheet" />
 </head>
 <body>
@@ -84,6 +87,7 @@
                     <span>＋</span> New Weekly Process
                 </a>
                 <a class="btn btn-outline-white" href="/WeekWindows">Week Windows</a>
+                <a class="btn btn-outline-white" asp-controller="Section78Stats" asp-action="Index" >📊 Section 78 Stats</a>
             </div>
         </div>
 

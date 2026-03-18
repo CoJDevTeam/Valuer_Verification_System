@@ -70,6 +70,10 @@ builder.Services.AddScoped<Valuer_Verification_System.Services.Notice.INoticeGua
 builder.Services.AddScoped<INoticeCleaningService, NoticeCleaningService>();
 builder.Services.AddScoped<INoticePdfService, NoticePdfService>();
 builder.Services.AddScoped<INoticePrintService, NoticePrintService>();
+builder.Services.AddScoped<Valuer_Verification_System.Services.Stats.ISection78StatsService,
+    Valuer_Verification_System.Services.Stats.Section78StatsService>();
+builder.Services.AddScoped<Valuer_Verification_System.Services.Stats.ISection78StatsService,
+    Valuer_Verification_System.Services.Stats.Section78StatsService>();
 builder.Services.AddScoped<Valuer_Verification_System.Services.Notice.INoticeSendService,
     Valuer_Verification_System.Services.Notice.NoticeSendService>();
 

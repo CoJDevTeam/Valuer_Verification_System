@@ -1,0 +1,324 @@
+﻿@model Valuer_Verification_System.Models.ViewModels.Section78StatsVm
+@{
+    ViewData["Title"] = "Section 78 Statistics";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Section 78 Statistics</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <link href="~/css/Home/statsindex.css" rel="stylesheet" />
+</head>
+<body>
+<div class="page">
+
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <div>
+      <div class="eyebrow">Valuer Verification System · Data Team</div>
+      <div class="page-title">Section 78 <span>Statistics</span></div>
+      <div class="page-sub">Review summary stats per week — update dates, reviews received, and download to Excel.</div>
+    </div>
+    <div class="top-actions">
+      <!-- FY tabs -->
+      <div class="fy-tabs">
+        @foreach (var fy in Model.FinancialYears)
+        {
+          <a href="/DataTeam/Stats?fy=@fy"
+             class="fy-tab @(fy == Model.FinancialYear ? "active" : "")">
+            @fy.Replace("_","/")
+          </a>
+        }
+      </div>
+      <a href="/DataTeam/Stats/Download?fy=@Model.FinancialYear" class="btn btn-green">
+        ⬇ Download Excel
+      </a>
+      <a href="/" class="btn btn-outline">← Dashboard</a>
+    </div>
+  </div>
+
+  <!-- MINI STAT CARDS -->
+  @{
+    var totalEntries = Model.Rows.Sum(r => r.TotalSvEntries);
+    var totalSuitable= Model.Rows.Sum(r => r.NoticesSuitableForPosting);
+    var totalEmail   = Model.Rows.Sum(r => r.SuitableForEmailing);
+    var totalReviews = Model.Rows.Sum(r => r.ReviewsReceived ?? 0);
+  }
+  <div class="mini-stats">
+    <div class="mini-card gold">
+      <div class="mini-card__lbl">Total SV Entries</div>
+      <div class="mini-card__val">@totalEntries.ToString("N0")</div>
+      <div class="mini-card__sub">all weeks @Model.FinancialYear.Replace("_","/")</div>
+    </div>
+    <div class="mini-card">
+      <div class="mini-card__lbl">Suitable for Posting</div>
+      <div class="mini-card__val">@totalSuitable.ToString("N0")</div>
+      <div class="mini-card__sub">postal notices</div>
+    </div>
+    <div class="mini-card blue">
+      <div class="mini-card__lbl">Suitable for Email</div>
+      <div class="mini-card__val">@totalEmail.ToString("N0")</div>
+      <div class="mini-card__sub">email notices</div>
+    </div>
+    <div class="mini-card green">
+      <div class="mini-card__lbl">Reviews Received</div>
+      <div class="mini-card__val">@totalReviews.ToString("N0")</div>
+      <div class="mini-card__sub">objections lodged</div>
+    </div>
+  </div>
+
+  <!-- AUTO-POPULATE BAR -->
+  <div class="populate-bar">
+    <span>📊</span>
+    <label>Auto-populate from batch:</label>
+    <select id="batchSel">
+      <option value="">— select batch —</option>
+      @foreach (var b in Model.AvailableBatches)
+      {
+        <option value="@b.Id" data-table="@b.WeekTable">
+          @b.BatchName (@b.BatchDate.ToString("dd MMM yyyy")) — @b.WeekTable
+          @(b.HasStats ? " ✓" : "")
+        </option>
+      }
+    </select>
+    <button class="btn btn-blue" onclick="autoPopulate()">⚡ Populate</button>
+    <span id="populateMsg" style="font-size:.78rem;color:var(--green);display:none;">✅ Done — refresh page to see updated row</span>
+  </div>
+
+  <!-- MONTHLY SUMMARY TABLE (matching the email screenshot) -->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-hd__ico">📋</span>
+      <span class="card-hd__ttl">Monthly Summary — @Model.FinancialYear.Replace("_","/")</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="summary-table">
+        <thead>
+          <tr>
+            <th>Period</th>
+            <th>Week Table</th>
+            <th>Open Y/N</th>
+            <th class="num">Total Entries</th>
+            <th>Review Period Open</th>
+            <th>Review Period Closed</th>
+            <th class="num">Reviews Received</th>
+            <th>Closed</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (!Model.MonthlySummary.Any())
+          {
+            <tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--ink3);">
+              No data yet — auto-populate a batch first. Each week table will appear
+              as its own row with its actual row count from SECTION_78_NOTICE.
+            </td></tr>
+          }
+          @{
+            string? lastPeriod = null;
+            int periodRowCount = Model.MonthlySummary.Count(x => x.Period == Model.MonthlySummary.FirstOrDefault()?.Period);
+          }
+          @foreach (var m in Model.MonthlySummary)
+          {
+            var isNewPeriod  = m.Period != lastPeriod;
+            var rowsInPeriod = Model.MonthlySummary.Count(x => x.Period == m.Period);
+            lastPeriod = m.Period;
+            <tr @(isNewPeriod ? "style=border-top:2px solid var(--gold-bd);" : "")>
+              @if (isNewPeriod)
+              {
+                <td rowspan="@rowsInPeriod" style="font-weight:800;vertical-align:top;padding-top:.75rem;">
+                  @m.Period
+                </td>
+              }
+              <td><span class="week-tag">@m.WeekTableName</span></td>
+              <td><span class="badge badge-y">@m.OpenYN</span></td>
+              <td class="num"><strong>@m.TotalEntries.ToString("N0")</strong></td>
+              <td>@(m.ReviewPeriodOpen.HasValue ? m.ReviewPeriodOpen.Value.ToString("yyyy/MM/dd") : "—")</td>
+              <td>@(m.ReviewPeriodClosed.HasValue ? m.ReviewPeriodClosed.Value.ToString("yyyy/MM/dd") : "—")</td>
+              <td class="num">@m.ReviewsReceived</td>
+              <td>
+                @if (m.Closed == "Y")
+                { <span class="badge badge-y">Y</span> }
+                else if (m.Closed == "N")
+                { <span class="badge badge-n">N</span> }
+                else
+                { <span class="badge badge-pending">—</span> }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- DETAILED WEEKLY ROWS (editable) -->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-hd__ico">✏️</span>
+      <span class="card-hd__ttl">Weekly Detail — Edit Dates, Reviews &amp; Closed Status</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="detail-table">
+        <thead>
+          <tr>
+            <th>Week Table</th>
+            <th>Period</th>
+            <th>Capture Period</th>
+            <th class="num">Total</th>
+            <th class="num">Ordinary</th>
+            <th class="num">Splits</th>
+            <th class="num">Leases</th>
+            <th class="num">Suitable Post</th>
+            <th class="num">Suitable Email</th>
+            <th class="num">Not Suitable</th>
+            <th class="num">COJ Owned</th>
+            <th>Review Open</th>
+            <th>Review Closed</th>
+            <th class="num">Reviews Rec.</th>
+            <th>Closed</th>
+            <th>Compiled By</th>
+            <th>Save</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (!Model.Rows.Any())
+          {
+            <tr><td colspan="17" style="text-align:center;padding:2rem;color:var(--ink3);">
+              No weekly entries yet.
+            </td></tr>
+          }
+          @foreach (var r in Model.Rows)
+          {
+            <tr data-id="@r.Id">
+              <td><span class="week-tag">@r.WeekTableName</span></td>
+              <td>@r.Period</td>
+              <td style="font-size:.7rem;color:var(--ink3);">@r.SvCapturePeriod</td>
+              <td class="num"><strong>@r.TotalSvEntries</strong></td>
+              <td class="num">@r.OrdinaryEntries</td>
+              <td class="num">@r.SplitValuesEntries</td>
+              <td class="num">@r.Leases</td>
+              <td class="num">@r.NoticesSuitableForPosting</td>
+              <td class="num">@r.SuitableForEmailing</td>
+              <td class="num">@r.NoticesNotSuitable</td>
+              <td class="num">@r.MunicipalOwnedProperties</td>
+              <td>
+                <input type="date" class="date-input" data-field="reviewOpen"
+                       value="@(r.ReviewPeriodOpen.HasValue ? r.ReviewPeriodOpen.Value.ToString("yyyy-MM-dd") : "")" />
+              </td>
+              <td>
+                <input type="date" class="date-input" data-field="reviewClosed"
+                       value="@(r.ReviewPeriodClosed.HasValue ? r.ReviewPeriodClosed.Value.ToString("yyyy-MM-dd") : "")" />
+              </td>
+              <td>
+                <input type="number" class="num-input" data-field="reviews"
+                       value="@(r.ReviewsReceived ?? 0)" min="0" />
+                           </td>
+
+                                <td>
+                                    <select class="closed-sel" data-field="closed">
+
+                                        <option value="" selected="@(r.Closed == null)">—</option>
+
+                                        <option value="Y" selected="@(r.Closed == "Y")">Y</option>
+
+                                        <option value="N" selected="@(r.Closed == "N")">N</option>
+
+                                    </select>
+                                </td>
+              <td style="font-size:.72rem;color:var(--ink3);">@r.CompiledBy</td>
+              <td>
+                <button class="save-row-btn" onclick="saveRow(this)">Save</button>
+                <span class="saved-tick">✓</span>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<div id="toast"></div>
+
+<script>
+// ── Auto-populate ─────────────────────────────────────────────────────────────
+async function autoPopulate() {
+  const sel = document.getElementById('batchSel');
+  const batchId = sel.value;
+  if (!batchId) { showToast('Select a batch first', 'error'); return; }
+
+  const btn = sel.nextElementSibling;
+  btn.disabled = true;
+  btn.textContent = '⏳ Populating…';
+
+  try {
+    const r = await fetch(`/DataTeam/Stats/AutoPopulate/${batchId}`, { method: 'POST' });
+    const d = await r.json();
+    if (d.success) {
+      document.getElementById('populateMsg').style.display = 'inline';
+      showToast('Stats populated — refresh to see the new row', 'success');
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      showToast(d.msg || 'Failed', 'error');
+    }
+  } catch(e) {
+    showToast('Network error: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⚡ Populate';
+  }
+}
+
+// ── Save row ──────────────────────────────────────────────────────────────────
+async function saveRow(btn) {
+  const tr   = btn.closest('tr');
+  const id   = parseInt(tr.dataset.id);
+  const tick = tr.querySelector('.saved-tick');
+
+  const getVal = field => tr.querySelector(`[data-field="${field}"]`)?.value || null;
+
+  const payload = {
+    id,
+    reviewPeriodOpen  : getVal('reviewOpen')   || null,
+    reviewPeriodClosed: getVal('reviewClosed') || null,
+    reviewsReceived   : parseInt(getVal('reviews')) || 0,
+    closed            : getVal('closed') || null
+  };
+
+  btn.classList.add('saving');
+  btn.textContent = '…';
+
+  try {
+    const r = await fetch('/DataTeam/Stats/Save', {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify(payload)
+    });
+    const d = await r.json();
+    if (d.success) {
+      tick.classList.add('show');
+      showToast('Saved ✓', 'success');
+      setTimeout(() => tick.classList.remove('show'), 3000);
+    } else {
+      showToast(d.msg || 'Save failed', 'error');
+    }
+  } catch(e) {
+    showToast('Save error: ' + e.message, 'error');
+  } finally {
+    btn.classList.remove('saving');
+    btn.textContent = 'Save';
+  }
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  setTimeout(() => t.className = '', 3000);
+}
+</script>
+</body>
+</html>

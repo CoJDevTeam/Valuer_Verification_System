@@ -17,6 +17,7 @@ namespace Valuer_Verification_System.Data
         public DbSet<StatsFile> StatsFiles => Set<StatsFile>();
         public DbSet<Notification> Notifications => Set<Notification>();
         public DbSet<SectorManager> SectorManagers => Set<SectorManager>();
+        public DbSet<Section78StatEntry> Section78Stats => Set<Section78StatEntry>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -103,6 +104,14 @@ namespace Valuer_Verification_System.Data
             modelBuilder.Entity<StatsFile>()
                 .HasIndex(x => new { x.BatchId, x.Kind, x.GeneratedAtUtc });
 
+            // ── Section78StatEntry ───────────────────────────────────────────────
+            modelBuilder.Entity<Section78StatEntry>()
+                .HasIndex(x => new { x.FinancialYear, x.WeekTableName })
+                .HasDatabaseName("IX_Section78Stats_FY_WeekTable");
+
+            modelBuilder.Entity<Section78StatEntry>()
+                .HasIndex(x => new { x.FinancialYear, x.Period });
+
             // ── Notification ──────────────────────────────────────────────────
             modelBuilder.Entity<Notification>()
                 .HasIndex(x => new { x.Audience, x.TargetKey, x.DedupKey })
@@ -110,6 +119,26 @@ namespace Valuer_Verification_System.Data
 
             modelBuilder.Entity<Notification>()
                 .HasIndex(x => new { x.Audience, x.TargetKey, x.IsRead, x.CreatedAtUtc });
+
+            // ── Section78StatEntry ────────────────────────────────────────────
+            modelBuilder.Entity<Section78StatEntry>()
+                .HasIndex(x => new { x.FinancialYear, x.WeekTableName })
+                .HasDatabaseName("IX_Section78Stats_FY_WeekTable");
+
+            modelBuilder.Entity<Section78StatEntry>()
+                .HasIndex(x => new { x.FinancialYear, x.Period })
+                .HasDatabaseName("IX_Section78Stats_FY_Period");
+
+            modelBuilder.Entity<Section78StatEntry>()
+                .Property(x => x.FinancialYear)
+                .HasDefaultValue("2025_26");
+
+            modelBuilder.Entity<Section78StatEntry>()
+                .Property(x => x.OpenYN)
+                .HasDefaultValue("Y");
+
+            modelBuilder.Entity<Section78StatEntry>()
+                .ToTable("Section78Stats");
         }
     }
 }

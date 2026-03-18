@@ -15,7 +15,7 @@ namespace Valuer_Verification_System.Services.Manager
     public sealed class ManagerDashboardService : IManagerDashboardService
     {
         private readonly VvsDbContext _db;
-
+        
         public ManagerDashboardService(VvsDbContext db)
         {
             _db = db;

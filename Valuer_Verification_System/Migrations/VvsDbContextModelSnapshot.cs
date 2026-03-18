@@ -661,6 +661,125 @@ namespace Valuer_Verification_System.Migrations
                     b.ToTable("Notifications");
                 });
 
+            modelBuilder.Entity("Valuer_Verification_System.Models.Data.Section78StatEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BatchId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Closed")
+                        .HasMaxLength(5)
+                        .HasColumnType("nvarchar(5)");
+
+                    b.Property<string>("CompiledBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<int>("EntriesWithZeroExtent")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly?>("ExtractionDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("FinancialYear")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasDefaultValue("2025_26");
+
+                    b.Property<int>("Leases")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MunicipalOwnedProperties")
+                        .HasColumnType("int");
+
+                    b.Property<int>("NoticesNotSuitable")
+                        .HasColumnType("int");
+
+                    b.Property<int>("NoticesSuitableForPosting")
+                        .HasColumnType("int");
+
+                    b.Property<string>("OpenYN")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(5)
+                        .HasColumnType("nvarchar(5)")
+                        .HasDefaultValue("Y");
+
+                    b.Property<int>("OrdinaryEntries")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Period")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("RemovedEntries")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly?>("ReviewPeriodClosed")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("ReviewPeriodOpen")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("ReviewsReceived")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SentByEmailNoPostal")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SplitValuesEntries")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SuitableForEmailing")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SvCapturePeriod")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("TotalSvEntries")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("WeekTableName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FinancialYear", "Period")
+                        .HasDatabaseName("IX_Section78Stats_FY_Period");
+
+                    b.HasIndex("FinancialYear", "WeekTableName")
+                        .HasDatabaseName("IX_Section78Stats_FY_WeekTable");
+
+                    b.ToTable("Section78Stats", (string)null);
+                });
+
             modelBuilder.Entity("Valuer_Verification_System.Models.Data.SectorManager", b =>
                 {
                     b.Property<int>("Id")
