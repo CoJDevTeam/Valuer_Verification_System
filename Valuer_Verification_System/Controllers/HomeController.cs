@@ -46,6 +46,13 @@ namespace Valuer_Verification_System.Controllers
             return View();
         }
 
+
+        [HttpGet("/Privacy")]
+        public async Task<IActionResult> Privacy(CancellationToken ct)
+        {
+            await SetUserContextAsync(ct);
+            return View();
+        }
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()
         {

@@ -12,7 +12,7 @@ using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Model;
 namespace Valuer_Verification_System.Infrastructure.Configuration.Email
 {
     /// <summary>
-    /// All outgoing email templates for the Valuer Verification System.
+    /// All outgoing email templates for the Valuation Verification System.
     /// Colours: Gold #e6b000 | Dark #1a1a1a | Text #111111
     /// </summary>
     public static class EmailTemplates
@@ -35,7 +35,7 @@ namespace Valuer_Verification_System.Infrastructure.Configuration.Email
             var html = $@"<!DOCTYPE html>
 <html lang=""en"">
 <head><meta charset=""utf-8""/><meta name=""viewport"" content=""width=device-width,initial-scale=1""/>
-<title>Valuer Verification – Extract Uploaded</title></head>
+<title>Valuation Verification – Extract Uploaded</title></head>
 <body style=""margin:0;padding:0;background:#f4f4f4;font-family:'Segoe UI',Arial,sans-serif;"">
 <table width=""100%"" cellpadding=""0"" cellspacing=""0"" border=""0"" style=""background:#f4f4f4;"">
 <tr><td align=""center"" style=""padding:32px 16px;"">
@@ -49,7 +49,7 @@ namespace Valuer_Verification_System.Infrastructure.Configuration.Email
 <tr><td style=""padding:32px 28px 24px;"">
   <p style=""margin:0 0 20px;font-size:15px;color:#111;font-weight:600;"">Good day,</p>
   <p style=""margin:0 0 24px;font-size:14px;color:#333;line-height:1.6;"">
-    A new <strong>Valuer Verification extract</strong> has been uploaded and is ready for verification.</p>
+    A new <strong>Valuation Verification extract</strong> has been uploaded and is ready for verification.</p>
   <table width=""100%"" cellpadding=""0"" cellspacing=""0"" border=""0""
     style=""background:#fafafa;border:1px solid #e8e8e8;border-radius:6px;margin-bottom:24px;"">
     <tr><td colspan=""2"" style=""background:#e6b000;padding:10px 18px;border-radius:6px 6px 0 0;"">
@@ -88,10 +88,10 @@ namespace Valuer_Verification_System.Infrastructure.Configuration.Email
 </table></td></tr></table>
 </body></html>";
 
-            var text = $@"CITY OF JOHANNESBURG – VALUER VERIFICATION SYSTEM
+            var text = $@"CITY OF JOHANNESBURG – Valuation Verification System
 ==================================================
 Good day,
-A new Valuer Verification extract has been uploaded and is ready for verification.
+A new Valuation Verification extract has been uploaded and is ready for verification.
 
 BATCH DETAILS
   Batch Reference : {batchName}

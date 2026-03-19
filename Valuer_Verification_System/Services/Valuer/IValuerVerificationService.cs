@@ -25,7 +25,6 @@ namespace Valuer_Verification_System.Services.Valuer
         Task MarkAllNotificationsReadAsync(string valuer, CancellationToken ct);
 
         Task<ValuerRowDetailsVm?> GetRowDetailsAsync(int extractRowId, string valuer, CancellationToken ct);
-
     }
 
     public sealed class ValuerVerificationService : IValuerVerificationService
@@ -39,6 +38,7 @@ namespace Valuer_Verification_System.Services.Valuer
             _notif = notif;
         }
 
+        // ── Inbox ─────────────────────────────────────────────────────────────
         public async Task<(List<Batch> batches, List<ExtractRow> rows, int unreadNotifications, List<Notification> notifications)> GetInboxAsync(
             string valuer,
             int? batchId,
@@ -49,7 +49,6 @@ namespace Valuer_Verification_System.Services.Valuer
             if (string.IsNullOrWhiteSpace(valuer))
                 throw new InvalidOperationException("Valuer is required.");
 
-            // Batches where this valuer has assignments (so dropdown only shows relevant batches)
             var batches = await _db.Batches
                 .Include(b => b.WeekWindow)
                 .Where(b => _db.Assignments.Any(a =>
@@ -69,7 +68,6 @@ namespace Valuer_Verification_System.Services.Valuer
                 q = q.Where(r => r.BatchId == batchId.Value);
 
             filter = (filter ?? "Pending").Trim();
-
             q = filter switch
             {
                 "Yes" => q.Where(r => r.Decision == VerificationDecision.Yes),
@@ -84,13 +82,13 @@ namespace Valuer_Verification_System.Services.Valuer
                 .Take(5000)
                 .ToListAsync(ct);
 
-            // ✅ Notifications
             var unread = await _notif.GetUnreadCountForValuerAsync(valuer, ct);
             var latest = await _notif.GetLatestForValuerAsync(valuer, top: 8, ct);
 
             return (batches, rows, unread, latest);
         }
 
+        // ── Verify ────────────────────────────────────────────────────────────
         public async Task VerifyAsync(
             int extractRowId,
             string valuer,
@@ -105,7 +103,6 @@ namespace Valuer_Verification_System.Services.Valuer
             if (string.IsNullOrWhiteSpace(valuer))
                 throw new InvalidOperationException("Valuer is required.");
 
-            // Ensure this row belongs to this valuer (security)
             var assigned = await _db.Assignments
                 .AsNoTracking()
                 .AnyAsync(a => a.ExtractRowId == extractRowId && a.AssignedToValuer == valuer, ct);
@@ -122,10 +119,7 @@ namespace Valuer_Verification_System.Services.Valuer
 
             row.Decision = decision;
             row.DecisionAtUtc = DateTime.UtcNow;
-
-            // Save comment only when No; clear it if Yes
             row.DecisionComment = decision == VerificationDecision.No ? comment?.Trim() : null;
-
             row.UpdatedAt = DateTime.UtcNow;
             row.UpdatedBy = valuer;
 
@@ -138,45 +132,160 @@ namespace Valuer_Verification_System.Services.Valuer
         public Task MarkAllNotificationsReadAsync(string valuer, CancellationToken ct)
             => _notif.MarkAllReadAsync((valuer ?? "").Trim(), ct);
 
-        public async Task<ValuerRowDetailsVm?> GetRowDetailsAsync(int extractRowId, string valuer, CancellationToken ct)
+        // ── Row Details — full field mapping ─────────────────────────────────
+        public async Task<ValuerRowDetailsVm?> GetRowDetailsAsync(
+            int extractRowId, string valuer, CancellationToken ct)
         {
-            // Security: only rows assigned to this valuer
-            var row = await _db.Assignments
-                .AsNoTracking()
-                .Where(a => a.ExtractRowId == extractRowId && a.AssignedToValuer == valuer)
-                .Select(a => new
-                {
-                    a.AssignedToValuer,
-                    Row = a.ExtractRow,
-                    Batch = a.ExtractRow.Batch,
-                    Week = a.ExtractRow.Batch.WeekWindow
-                })
-                .FirstOrDefaultAsync(ct);
+            valuer = (valuer ?? "").Trim();
 
-            if (row == null) return null;
+            // Security: only rows assigned to this valuer
+            var assigned = await _db.Assignments
+                .AsNoTracking()
+                .AnyAsync(a => a.ExtractRowId == extractRowId
+                            && a.AssignedToValuer == valuer, ct);
+
+            if (!assigned) return null;
+
+            // Load the full row with batch + siblings
+            var row = await _db.ExtractRows
+                .AsNoTracking()
+                .Include(r => r.Batch)
+                    .ThenInclude(b => b.WeekWindow)
+                .Include(r => r.Assignment)
+                .FirstOrDefaultAsync(r => r.Id == extractRowId, ct);
+
+            if (row is null) return null;
+
+            // All rows sharing the same ValuationKey in the same batch (for split/multipurpose)
+            var siblings = await _db.ExtractRows
+                .AsNoTracking()
+                .Where(r => r.BatchId == row.BatchId
+                         && r.ValuationKey == row.ValuationKey)
+                .OrderBy(r => r.ValuationSplitNo)
+                .ToListAsync(ct);
+
+            bool isMulti = siblings.Count > 1 ||
+                siblings.Any(r =>
+                    !string.IsNullOrWhiteSpace(r.ValuationSplitInd) &&
+                    r.ValuationSplitInd.Trim().ToUpper() is "Y" or "P");
 
             return new ValuerRowDetailsVm
             {
-                ExtractRowId = row.Row.Id,
-                ValuationKey = row.Row.ValuationKey ?? "",
-                Sector = row.Row.Sector ?? "",
-                PropertyDescription = row.Row.PropertyDescription ?? "",
-                MarketValue = row.Row.MarketValue,
-                PropertyCategory = row.Row.Category ?? "",
-                PropertyType = row.Row.PropertyType ?? "",
+                // ── Identity ─────────────────────────────────────────────────
+                ExtractRowId = row.Id,
+                ValuationKey = row.ValuationKey,
+                BatchId = row.BatchId,
+                BatchName = row.Batch?.BatchName ?? "",
 
-                AssignedToValuer = row.AssignedToValuer ?? "",
-                Decision = row.Row.Decision,
-                DecisionAtUtc = row.Row.DecisionAtUtc,
-                DecisionComment = row.Row.DecisionComment,
+                // ── Property identification ───────────────────────────────────
+                PropertyDesc = row.PropertyDesc,
+                PropertyDescription = row.PropertyDescription,
+                TownNameDesc = row.TownNameDesc,
+                StandNo = row.StandNo,
+                PremiseId = row.PremiseId,
+                SgId = row.SgId,
+                PropertyId = row.PropertyId,
+                Erf = row.Erf,
+                Ptn = row.Ptn,
+                Re = row.Re,
 
-                BatchName = row.Batch.BatchName ?? "",
-                BatchDate = row.Batch.BatchDate,
+                // ── Category ─────────────────────────────────────────────────
+                CatCode = row.CatCode,
+                CatDesc = row.CatDesc,
+                PropertyCategory = row.PropertyCategory,
+                StatusSubtype = row.StatusSubtype,
+                StatusCode = row.StatusCode,
 
-                WeekStart = row.Week.WeekStart,
-                WeekEnd = row.Week.WeekEnd,
-                NoticeSendDate = row.Week.NoticeSendDate
+                // ── Valuation figures ─────────────────────────────────────────
+                MarketValue = row.MarketValue,
+                RateableArea = row.RateableArea,
+                LegalArea = CleanDecimalString(row.LegalArea),
+                Extent = row.Extent,
+                ValuationDate = row.ValuationDate,
+                WefDate = row.WefDate,
+                ValuationType = row.ValuationType,
+                ValuationRollKey = row.ValuationRollKey,
+
+                // ── Split ─────────────────────────────────────────────────────
+                ValuationSplitNo = row.ValuationSplitNo,
+                ValuationSplitInd = row.ValuationSplitInd,
+                IsMultipurpose = isMulti,
+
+                // ── Unit / rights ─────────────────────────────────────────────
+                UnitKey = row.UnitKey,
+                UnitType = row.UnitType,
+                UnitNo = row.UnitNo,
+                UnitRightsKey = row.UnitRightsKey,
+                RightsPremise = row.RightsPremise,
+                RightsPremiseSize = row.RightsPremiseSize,
+                RightsStatus = row.RightsStatus,
+                RightDescription = row.RightDescription,
+
+                // ── Address ───────────────────────────────────────────────────
+                OwnerName = row.OwnerName,
+                Addr1 = row.Addr1,
+                Addr2 = row.Addr2,
+                Addr3 = row.Addr3,
+                Addr4 = row.Addr4,
+                Addr5 = row.Addr5,
+                PhysicalAddress = row.PhysicalAddress,
+                PremiseAddress = row.PremiseAddress,
+                EmailAddr = row.EmailAddr,
+                EmailInd = row.EmailInd,
+
+                // ── Flags ─────────────────────────────────────────────────────
+                SendNotice = row.SendNotice,
+                CojOwned = row.CojOwned,
+                Usable = row.Usable,
+                SapData = row.SapData,
+                RemarkDesc = row.RemarkDesc,
+                Remarks = row.Remarks,
+
+                // ── Dates ─────────────────────────────────────────────────────
+                ExtractionDate = row.ExtractionDate,
+                ReviewOpenDate = row.ReviewOpenDate,
+                ReviewCloseDate = row.ReviewCloseDate,
+                SvCapturePeriod = row.ExtractPeriod,
+
+                // ── Valuer & Sector ───────────────────────────────────────────
+                Valuer = row.Valuer,
+                Sector = row.Sector,
+
+                // ── Workflow ──────────────────────────────────────────────────
+                Decision = row.Decision,
+                DecisionComment = row.DecisionComment,
+                DecisionAtUtc = row.DecisionAtUtc,
+                AssignedTo = row.Assignment?.AssignedToValuer,
+
+                // ── Split siblings ────────────────────────────────────────────
+                SplitRows = siblings.Select(s => new ValuerRowDetailsVm.SplitRowVm
+                {
+                    ExtractRowId = s.Id,
+                    ValuationSplitNo = s.ValuationSplitNo,
+                    ValuationSplitInd = s.ValuationSplitInd,
+                    CatCode = s.CatCode,
+                    CatDesc = s.CatDesc,
+                    MarketValue = s.MarketValue,
+                    LegalArea = s.LegalArea,
+                    Extent = s.Extent,
+                    ValuationDate = s.ValuationDate
+                }).ToList()
             };
+        }
+        // ── Strip trailing decimal zeros from string decimal fields ─────────
+        private static string? CleanDecimalString(string? s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return s;
+            if (decimal.TryParse(s.Trim(),
+                    System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var d))
+                return $"{d:N0}";                 // e.g. "1107.00000000" → "1 107"
+            // fallback: trim trailing zeros manually
+            var t = s.Trim();
+            if (t.Contains('.'))
+                t = t.TrimEnd('0').TrimEnd('.');
+            return t;
         }
     }
 }

@@ -69,7 +69,7 @@ namespace Valuer_Verification_System.Services.Valuer
                 // ── Valuation figures ────────────────────────────────────────
                 MarketValue = row.MarketValue,
                 RateableArea = row.RateableArea,
-                LegalArea = row.LegalArea,
+                LegalArea = CleanDecimal(row.LegalArea),
                 Extent = row.Extent,
                 ValuationDate = row.ValuationDate,
                 WefDate = row.WefDate,
@@ -141,6 +141,18 @@ namespace Valuer_Verification_System.Services.Valuer
                     ValuationDate = s.ValuationDate
                 }).ToList()
             };
+        }
+        private static string? CleanDecimal(string? s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return s;
+            if (decimal.TryParse(s.Trim(),
+                    System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var d))
+                return $"{d:N0}";
+            var t = s.Trim();
+            if (t.Contains('.')) t = t.TrimEnd('0').TrimEnd('.');
+            return t;
         }
     }
 }

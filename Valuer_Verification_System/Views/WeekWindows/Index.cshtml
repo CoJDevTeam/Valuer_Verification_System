@@ -1,6 +1,8 @@
-﻿@model List<Valuer_Verification_System.Models.Data.WeekWindow>
+﻿@using DocumentFormat.OpenXml.Drawing.Charts
+@model List<Valuer_Verification_System.Models.Data.WeekWindow>
 @{
     ViewData["Title"] = "Week Windows";
+
 }
 
 <!DOCTYPE html>
@@ -17,7 +19,7 @@
 
         <header class="page-header">
             <div>
-                <div class="page-eyebrow">Valuer Verification System</div>
+                <div class="page-eyebrow">Valuation Verification System</div>
                 <h1 class="page-title">Week <span>Windows</span></h1>
             </div>
             <a class="btn btn-gold" href="/WeekWindows/Create">Create</a>

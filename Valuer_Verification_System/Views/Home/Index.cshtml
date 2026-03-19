@@ -1,49 +1,46 @@
 ﻿@model Valuer_Verification_System.Models.ViewModels.DataTeamDashboardVm
 @using Valuer_Verification_System.Models.Data
 @using Valuer_Verification_System.Models.SLA
+
 @{
     ViewData["Title"] = "Data Team Dashboard";
 }
 @functions {
-    string SlaClass(SlaStatus s) => s switch
-    {
+    string SlaClass(SlaStatus s) => s switch {
         SlaStatus.Completed => "sla-completed",
-        SlaStatus.OnTrack => "sla-ontrack",
-        SlaStatus.AtRisk => "sla-atrisk",
-        SlaStatus.Overdue => "sla-overdue",
-        _ => "sla-default"
+        SlaStatus.OnTrack   => "sla-ontrack",
+        SlaStatus.AtRisk    => "sla-atrisk",
+        SlaStatus.Overdue   => "sla-overdue",
+        _                   => "sla-default"
     };
 
-    string BatchStatusClass(BatchStatus s) => s switch
-    {
-        BatchStatus.Uploaded => "bs-uploaded",
-        BatchStatus.InVerification => "bs-inverification",
-        BatchStatus.ReadyToSend => "bs-readytosend",
-        BatchStatus.PrintedEmailPending => "bs-emailpending",
-        BatchStatus.Sent => "bs-sent",
-        BatchStatus.Cancelled => "bs-cancelled",
-        _ => "bs-uploaded"
+    string BatchStatusClass(BatchStatus s) => s switch {
+        BatchStatus.Uploaded             => "bs-uploaded",
+        BatchStatus.InVerification       => "bs-inverification",
+        BatchStatus.ReadyToSend          => "bs-readytosend",
+        BatchStatus.PrintedEmailPending  => "bs-emailpending",
+        BatchStatus.Sent                 => "bs-sent",
+        BatchStatus.Cancelled            => "bs-cancelled",
+        _                           => "bs-uploaded"
     };
 
-    string BatchStatusLabel(BatchStatus s) => s switch
-    {
-        BatchStatus.Uploaded => "Uploaded",
-        BatchStatus.InVerification => "In Verification",
-        BatchStatus.ReadyToSend => "Ready to Send",
-        BatchStatus.PrintedEmailPending => "Send Email Pending",
-        BatchStatus.Sent => "Sent",
-        BatchStatus.Cancelled => "Cancelled",
-        _ => s.ToString()
+    string BatchStatusLabel(BatchStatus s) => s switch {
+        BatchStatus.Uploaded             => "Uploaded",
+        BatchStatus.InVerification       => "In Verification",
+        BatchStatus.ReadyToSend          => "Ready to Send",
+        BatchStatus.PrintedEmailPending  => "Send Email Pending",
+        BatchStatus.Sent                 => "Sent",
+        BatchStatus.Cancelled            => "Cancelled",
+        _                           => s.ToString()
     };
 
-    string ActionIcon(string title) => title switch
-    {
+    string ActionIcon(string title) => title switch {
         "Ready to Send Notices" => "📬",
-        "Notices Sent" => "✅",
-        "Notify Managers" => "📧",
+        "Notices Sent"          => "✅",
+        "Notify Managers"       => "📧",
         "Verification In Progress" => "🔍",
-        "Upload Extract" => "📤",
-        _ => "⚡"
+        "Upload Extract"        => "📤",
+        _                       => "⚡"
     };
 }
 
@@ -54,244 +51,539 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Data Team Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link href="~/css/Home/IndexCss.css" rel="stylesheet" />
-    <link href="~/css/Home/IndexCss1.css" rel="stylesheet" />
+    <link href="~/css/Home/IndexCss11.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
 <body>
 
-    <div class="dash-wrapper">
+<div class="dash-wrapper">
 
-        <!-- ─── PAGE HEADER ─────────────────────────────── -->
-        <header class="page-header">
-            <div class="page-header-left">
-                <div class="page-eyebrow">Valuer Verification System</div>
-                <h1 class="page-title">Data Team <span>Dashboard</span></h1>
-                <div class="page-timestamp" id="live-time"></div>
-            </div>
-        </header>
+    <!-- ─── PAGE HEADER ─────────────────────────────── -->
+    <header class="page-header">
+        <div class="page-header-left">
+            <div class="page-eyebrow">Valuation Verification System</div>
+            <h1 class="page-title">Data Team <span>Dashboard</span></h1>
+            <div class="page-timestamp" id="live-time"></div>
+        </div>
+    </header>
 
-        <!-- ─── NEXT ACTION HERO ─────────────────────────── -->
-        <div class="action-hero @(Model.NextActionTitle == "Ready to Send Notices" ? "action-hero--notices" : "")">
-            <div class="action-icon">@ActionIcon(Model.NextActionTitle)</div>
-            <div class="action-text">
-                <div class="action-label">Next Action Required</div>
-                <div class="action-title">@Model.NextActionTitle</div>
-                <div class="action-hint">@Model.NextActionHint</div>
-            </div>
-            <div class="action-buttons">
-                <a class="btn @(Model.NextActionTitle == "Ready to Send Notices" ? "btn-send-notices" : "btn-gold")"
-                   href="@Model.NextActionUrl">
-                    <span>▶</span> @Model.NextActionButton
-                </a>
-                <a class="btn btn-outline-white" href="/WeekWindows/Create">
-                    <span>＋</span> New Weekly Process
-                </a>
-                <a class="btn btn-outline-white" href="/WeekWindows">Week Windows</a>
-                <a class="btn btn-outline-white" asp-controller="Section78Stats" asp-action="Index">📊 Section 78 Stats</a>
+    <!-- ─── NEXT ACTION HERO ─────────────────────────── -->
+    <div class="action-hero @(Model.NextActionTitle == "Ready to Send Notices" ? "action-hero--notices" : "")">
+        <div class="action-icon">@ActionIcon(Model.NextActionTitle)</div>
+        <div class="action-text">
+            <div class="action-label">Next Action Required</div>
+            <div class="action-title">@Model.NextActionTitle</div>
+            <div class="action-hint">@Model.NextActionHint</div>
+        </div>
+        <div class="action-buttons">
+            <a class="btn @(Model.NextActionTitle == "Ready to Send Notices" ? "btn-send-notices" : "btn-gold")"
+               href="@Model.NextActionUrl">
+                <span>▶</span> @Model.NextActionButton
+            </a>
+            <a class="btn btn-outline-white" href="/WeekWindows/Create">
+                <span>＋</span> New Weekly Process
+            </a>
+            <a class="btn btn-outline-white" href="/WeekWindows">Week Windows</a>
+            <a class="btn btn-outline-white" asp-controller="Section78Stats" asp-action="Index">📊 Section 78 Stats</a>
+        </div>
+    </div>
+
+    <!-- ─── KPI STAT CARDS ───────────────────────────── -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">🗓</div>
+            <div class="stat-label">Active Week Windows</div>
+            <div class="stat-value">@Model.ActiveWeekWindows</div>
+            <div class="stat-sub">Currently tracked</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <div class="stat-label">Batches — Last 30 Days</div>
+            <div class="stat-value">@Model.TotalBatchesLast30</div>
+            <div class="stat-sub">Recent upload activity</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🔍</div>
+            <div class="stat-label">Batches In Verification</div>
+            <div class="stat-value">@Model.BatchesInVerification</div>
+            <div class="stat-sub">Currently under review</div>
+        </div>
+        <div class="stat-card stat-card--notices @(Model.BatchesReadyToSend > 0 ? "stat-card--notices-active" : "")">
+            <div class="stat-icon">📬</div>
+            <div class="stat-label">Batches Ready to Send</div>
+            <div class="stat-value">@Model.BatchesReadyToSend</div>
+            <div class="stat-sub">
+                @if (Model.BatchesReadyToSend > 0)
+                {
+                    <a href="/DataTeam/SendNotice" class="stat-link">Send notices now →</a>
+                }
+                else
+                {
+                    <span>No notices pending</span>
+                }
             </div>
         </div>
+    </div>
 
-        <!-- ─── KPI STAT CARDS ───────────────────────────── -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon">🗓</div>
-                <div class="stat-label">Active Week Windows</div>
-                <div class="stat-value">@Model.ActiveWeekWindows</div>
-                <div class="stat-sub">Currently tracked</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon">📦</div>
-                <div class="stat-label">Batches — Last 30 Days</div>
-                <div class="stat-value">@Model.TotalBatchesLast30</div>
-                <div class="stat-sub">Recent upload activity</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon">🔍</div>
-                <div class="stat-label">Batches In Verification</div>
-                <div class="stat-value">@Model.BatchesInVerification</div>
-                <div class="stat-sub">Currently under review</div>
-            </div>
-            <div class="stat-card stat-card--notices @(Model.BatchesReadyToSend > 0 ? "stat-card--notices-active" : "")">
-                <div class="stat-icon">📬</div>
-                <div class="stat-label">Batches Ready to Send</div>
-                <div class="stat-value">@Model.BatchesReadyToSend</div>
-                <div class="stat-sub">
-                    @if (Model.BatchesReadyToSend > 0)
-                    {
-                        <a href="/DataTeam/SendNotice" class="stat-link">Send notices now →</a>
-                    }
-                    else
-                    {
-                        <span>No notices pending</span>
-                    }
+    <!-- ─── MAIN CONTENT PANELS ──────────────────────── -->
+    <div class="content-grid">
+
+        <!-- ── WEEK WINDOWS PANEL ── -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title-wrap">
+                    <div class="panel-dot"></div>
+                    <div class="panel-title">Latest Week Windows</div>
                 </div>
+                <span class="panel-count">@Model.WeekWindows.Count entries</span>
             </div>
-        </div>
-
-        <!-- ─── MAIN CONTENT PANELS ──────────────────────── -->
-        <div class="content-grid">
-
-            <!-- ── WEEK WINDOWS PANEL ── -->
-            <div class="panel">
-                <div class="panel-header">
-                    <div class="panel-title-wrap">
-                        <div class="panel-dot"></div>
-                        <div class="panel-title">Latest Week Windows</div>
-                    </div>
-                    <span class="panel-count">@Model.WeekWindows.Count entries</span>
-                </div>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Week Period</th>
+                            <th>Notice Date</th>
+                            <th>Review Open</th>
+                            <th>Review Close</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var w in Model.WeekWindows)
+                        {
                             <tr>
-                                <th>Week Period</th>
-                                <th>Notice Date</th>
-                                <th>Review Open</th>
-                                <th>Review Close</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var w in Model.WeekWindows)
-                            {
-                                <tr>
-                                    <td>
-                                        <span class="week-range">
-                                            @w.WeekStart.ToString("dd MMM")
-                                            <span class="week-arrow">→</span>
-                                            @w.WeekEnd.ToString("dd MMM yyyy")
-                                        </span>
-                                    </td>
-                                    <td><span class="date-chip date-chip--gold">@w.NoticeSendDate.ToString("dd MMM yyyy")</span></td>
-                                    <td><span class="date-chip">@w.ReviewOpenDate.ToString("dd MMM yyyy")</span></td>
-                                    <td><span class="date-chip">@w.ReviewCloseDate.ToString("dd MMM yyyy")</span></td>
-                                    <td><span class="status-badge badge-week">@w.Status</span></td>
-                                    <td>
-                                        <div class="action-cell">
-                                            <a class="btn btn-sm btn-primary-sm" href="/WeekWindows/Details/@w.Id">Details</a>
-                                            <a class="btn btn-sm btn-secondary-sm" href="/Upload">Upload</a>
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
-                            @if (!Model.WeekWindows.Any())
-                            {
-                                <tr class="empty-row"><td colspan="6">No week windows yet. <a href="/WeekWindows/Create">Create one →</a></td></tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- ── RECENT BATCHES PANEL ── -->
-            <div class="panel">
-                <div class="panel-header">
-                    <div class="panel-title-wrap">
-                        <div class="panel-dot"></div>
-                        <div class="panel-title">Recent Batches</div>
-                    </div>
-                    <span class="panel-count">@Model.RecentBatches.Count entries</span>
-                </div>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Batch</th>
-                                <th>Week</th>
-                                <th>Total</th>
-                                <th>Pending</th>
-                                <th>SLA</th>
-                                <th>Progress</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var b in Model.RecentBatches)
-                            {
-                                <tr class="@(b.NoticesCanBeSent ? "row-highlight-notices" : b.NoticesSent ? "row-highlight-sent" : "")">
-                                    <td>
-                                        <div class="batch-name">@b.BatchName</div>
-                                        <div class="batch-date">@b.BatchDate.ToString("dd MMM yyyy")</div>
-                                    </td>
-                                    <td class="no-wrap-sm">
-                                        @b.WeekStart.ToString("dd MMM")
+                                <td>
+                                    <span class="week-range">
+                                        @w.WeekStart.ToString("dd MMM")
                                         <span class="week-arrow">→</span>
-                                        @b.WeekEnd.ToString("dd MMM")
-                                    </td>
-                                    <td><span class="total-txt">@b.Total.ToString("N0")</span></td>
-                                    <td>
-                                        <span class="pending-pill @(b.Pending == 0 ? "pending-pill--zero" : "")">
-                                            @b.Pending
+                                        @w.WeekEnd.ToString("dd MMM yyyy")
+                                    </span>
+                                </td>
+                                <td><span class="date-chip date-chip--gold">@w.NoticeSendDate.ToString("dd MMM yyyy")</span></td>
+                                <td><span class="date-chip">@w.ReviewOpenDate.ToString("dd MMM yyyy")</span></td>
+                                <td><span class="date-chip">@w.ReviewCloseDate.ToString("dd MMM yyyy")</span></td>
+                                <td><span class="status-badge badge-week">@w.Status</span></td>
+                                <td>
+                                    <div class="action-cell">
+                                        <a class="btn btn-sm btn-primary-sm" href="/WeekWindows/Details/@w.Id">Details</a>
+                                        <a class="btn btn-sm btn-secondary-sm" href="/Upload">Upload</a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        @if (!Model.WeekWindows.Any())
+                        {
+                            <tr class="empty-row"><td colspan="6">No week windows yet. <a href="/WeekWindows/Create">Create one →</a></td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ── RECENT BATCHES PANEL ── -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title-wrap">
+                    <div class="panel-dot"></div>
+                    <div class="panel-title">Recent Batches</div>
+                </div>
+                <span class="panel-count">@Model.RecentBatches.Count entries</span>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Batch</th>
+                            <th>Week</th>
+                            <th>Total</th>
+                            <th>Pending</th>
+                            <th>SLA</th>
+                            <th>Progress</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var b in Model.RecentBatches)
+                        {
+                            <tr class="@(b.NoticesCanBeSent ? "row-highlight-notices" : b.NoticesSent ? "row-highlight-sent" : "")">
+                                <td>
+                                    <div class="batch-name">@b.BatchName</div>
+                                    <div class="batch-date">@b.BatchDate.ToString("dd MMM yyyy")</div>
+                                </td>
+                                <td class="no-wrap-sm">
+                                    @b.WeekStart.ToString("dd MMM")
+                                    <span class="week-arrow">→</span>
+                                    @b.WeekEnd.ToString("dd MMM")
+                                </td>
+                                <td><span class="total-txt">@b.Total.ToString("N0")</span></td>
+                                <td>
+                                    <span class="pending-pill @(b.Pending == 0 ? "pending-pill--zero" : "")">
+                                        @b.Pending
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="sla-badge @SlaClass(b.SlaStatus)" title="@b.SlaLabel">@b.SlaStatus</span>
+                                    <div class="sla-label">@b.SlaLabel</div>
+                                </td>
+                                <td>
+                                    <div class="progress-bar-wrap">
+                                        <div class="progress-bar-fill" style="width:@(b.ProgressPercent)%"></div>
+                                    </div>
+                                    <span class="pct-text">@b.ProgressPercent%</span>
+                                </td>
+                                <td>
+                                    @if (b.NoticesSent)
+                                    {
+                                        <span class="status-badge bs-sent" title="Sent by @b.NoticesSentBy on @b.NoticesSentAtUtc?.ToString("dd MMM yyyy HH:mm")">
+                                            ✓ Sent
                                         </span>
-                                    </td>
-                                    <td>
-                                        <span class="sla-badge @SlaClass(b.SlaStatus)" title="@b.SlaLabel">@b.SlaStatus</span>
-                                        <div class="sla-label">@b.SlaLabel</div>
-                                    </td>
-                                    <td>
-                                        <div class="progress-bar-wrap">
-                                            <div class="progress-bar-fill" style="width:@(b.ProgressPercent)%"></div>
-                                        </div>
-                                        <span class="pct-text">@b.ProgressPercent%</span>
-                                    </td>
-                                    <td>
-                                        @if (b.NoticesSent)
+                                    }
+                                    else
+                                    {
+                                        <span class="status-badge @BatchStatusClass(b.Status)">
+                                            @BatchStatusLabel(b.Status)
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="action-cell">
+                                        @if (b.NoticesCanBeSent)
                                         {
-                                            <span class="status-badge bs-sent" title="Sent by @b.NoticesSentBy on @b.NoticesSentAtUtc?.ToString("dd MMM yyyy HH:mm")">
-                                                ✓ Sent
-                                            </span>
+                                            <a class="btn btn-sm btn-send-notices-sm" href="/DataTeam/SendNotice">
+                                                📬 Send Notices
+                                            </a>
                                         }
                                         else
                                         {
-                                            <span class="status-badge @BatchStatusClass(b.Status)">
-                                                @BatchStatusLabel(b.Status)
-                                            </span>
+                                            <a class="btn btn-sm btn-manager" href="/Manager/Dashboard?batchId=@b.Id">Manager</a>
+                                            <a class="btn btn-sm btn-stats" href="/Manager/Stats/Download?batchId=@b.Id">Stats</a>
                                         }
-                                    </td>
-                                    <td>
-                                        <div class="action-cell">
-                                            @if (b.NoticesCanBeSent)
-                                            {
-                                                <a class="btn btn-sm btn-send-notices-sm" href="/DataTeam/SendNotice">
-                                                    📬 Send Notices
-                                                </a>
-                                            }
-                                            else
-                                            {
-                                                <a class="btn btn-sm btn-manager" href="/Manager/Dashboard?batchId=@b.Id">Manager</a>
-                                                <a class="btn btn-sm btn-stats" href="/Manager/Stats/Download?batchId=@b.Id">Stats</a>
-                                            }
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
-                            @if (!Model.RecentBatches.Any())
-                            {
-                                <tr class="empty-row"><td colspan="8">No batches yet.</td></tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        @if (!Model.RecentBatches.Any())
+                        {
+                            <tr class="empty-row"><td colspan="8">No batches yet.</td></tr>
+                        }
+                    </tbody>
+                </table>
             </div>
+        </div>
 
-        </div><!-- /content-grid -->
-    </div><!-- /dash-wrapper -->
+    </div><!-- /content-grid -->
 
-    <script>
-        (function () {
-            const el = document.getElementById('live-time');
-            if (!el) return;
-            const fmt = () => {
-                const d = new Date();
-                el.textContent = d.toLocaleDateString('en-ZA', {
-                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-                }) + ' \u00b7 ' + d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
-            };
-            fmt(); setInterval(fmt, 30000);
-        })();
-    </script>
+    <!-- ─── SECTION 78 STATISTICS ───────────────────── -->
+    @if (Model.Stats != null && (Model.Stats.MonthlySummary.Any() || Model.Stats.Rows.Any()))
+    {
+    <div class="stats-panel">
+
+        <!-- Panel header + tabs -->
+        <div class="panel-header" style="border-bottom:none;padding-bottom:0;">
+            <div class="panel-title-wrap">
+                <div class="panel-dot" style="background:#e6b000;"></div>
+                <div class="panel-title">Section 78 Statistics — 2025/26</div>
+            </div>
+            <div class="tab-bar">
+                <button class="tab-btn active" data-tab="table"  onclick="switchTab('table')">📋 Table</button>
+                <button class="tab-btn"         data-tab="charts" onclick="switchTab('charts')">📊 Charts</button>
+            </div>
+        </div>
+
+        <!-- ── TAB: TABLE ── -->
+        <div id="tab-table" class="tab-pane">
+            <div class="table-wrap" style="margin-top:.75rem;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Period</th>
+                            <th>Week Table</th>
+                            <th style="text-align:right;">Total Entries</th>
+                            <th>Review Open</th>
+                            <th>Review Closed</th>
+                            <th style="text-align:right;">Reviews Rec.</th>
+                            <th>Closed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @{
+                        var grpd = Model.Stats.MonthlySummary
+                            .GroupBy(r => r.Period)
+                            .OrderBy(g => g.First().WeekTableName)
+                            .ToList();
+                    }
+                    @foreach (var grp in grpd)
+                    {
+                        var pTotal = grp.Sum(r => r.TotalEntries);
+                        int ri = 0;
+                        foreach (var m in grp.OrderBy(r => r.WeekTableName))
+                        {
+                            ri++;
+                            <tr>
+                                @if (ri == 1)
+                                {
+                                    <td rowspan="@(grp.Count() + 1)" style="font-weight:700;vertical-align:top;padding-top:.6rem;">
+                                        @m.Period
+                                    </td>
+                                }
+                                <td><span class="date-chip" style="font-family:monospace;font-size:.68rem;">@m.WeekTableName</span></td>
+                                <td style="text-align:right;font-variant-numeric:tabular-nums;">@m.TotalEntries.ToString("N0")</td>
+                                <td><span class="date-chip">@(m.ReviewPeriodOpen.HasValue ? m.ReviewPeriodOpen.Value.ToString("dd MMM yyyy") : "—")</span></td>
+                                <td><span class="date-chip">@(m.ReviewPeriodClosed.HasValue ? m.ReviewPeriodClosed.Value.ToString("dd MMM yyyy") : "—")</span></td>
+                                <td style="text-align:right;">@m.ReviewsReceived</td>
+                                <td>
+                                    @if (m.Closed == "Y") { <span class="status-badge bs-sent">Y</span> }
+                                    else if (m.Closed == "N") { <span class="status-badge bs-inverification">N</span> }
+                                    else { <span style="color:#aaa;">—</span> }
+                                </td>
+                            </tr>
+                        }
+                        <!-- Monthly total row -->
+                        <tr style="background:#fffbe6;border-top:2px solid #f0d060;">
+                            <td colspan="2" style="font-weight:800;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#c49800;">
+                                @grp.Key — Total (@grp.Count() week@(grp.Count()==1?"":"s"))
+                            </td>
+                            <td style="text-align:right;font-weight:900;font-size:.95rem;color:#c49800;">@pTotal.ToString("N0")</td>
+                            <td colspan="4"></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ── TAB: CHARTS ── -->
+        <div id="tab-charts" class="tab-pane" style="display:none;">
+            <div class="charts-grid">
+
+                <!-- Chart 1: Monthly Total Entries (bar) -->
+                <div class="chart-card">
+                    <div class="chart-title">📦 Total Entries per Month</div>
+                    <div class="chart-sub">All week tables combined per month</div>
+                    <canvas id="chartMonthly" height="200"></canvas>
+                </div>
+
+                <!-- Chart 2: Reviews Received (line) -->
+                <div class="chart-card">
+                    <div class="chart-title">📝 Reviews Received</div>
+                    <div class="chart-sub">Objections lodged per month</div>
+                    <canvas id="chartReviews" height="200"></canvas>
+                </div>
+
+                <!-- Chart 3: Notice Distribution (doughnut) -->
+                <div class="chart-card">
+                    <div class="chart-title">📬 Notice Distribution</div>
+                    <div class="chart-sub">Suitable post vs email vs not suitable</div>
+                    <canvas id="chartNotices" height="200"></canvas>
+                </div>
+
+                <!-- Chart 4: Batch Verification Progress (stacked bar) -->
+                <div class="chart-card">
+                    <div class="chart-title">🔍 Verification Progress</div>
+                    <div class="chart-sub">Yes / No / Pending per recent batch</div>
+                    <canvas id="chartVerif" height="200"></canvas>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+    }
+
+</div><!-- /dash-wrapper -->
+
+
+
+<script>
+    (function () {
+        const el = document.getElementById('live-time');
+        if (!el) return;
+        const fmt = () => {
+            const d = new Date();
+            el.textContent = d.toLocaleDateString('en-ZA', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+            }) + ' \u00b7 ' + d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+        };
+        fmt(); setInterval(fmt, 30000);
+    })();
+})();
+
+(function buildCharts() {
+    // ── Raw data from server ──────────────────────────────────────────────────
+    const monthlyRaw = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+        Model.Stats.MonthlySummary
+            .GroupBy(r => r.Period)
+            .OrderBy(g => g.First().WeekTableName)
+            .Select(g => new {
+                period   = g.Key,
+                total    = g.Sum(r => r.TotalEntries),
+                reviews  = g.Sum(r => r.ReviewsReceived)
+            })
+            .ToList()
+    ));
+
+    const noticeRaw = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new {
+        suitable    = Model.Stats.Rows.Sum(r => r.NoticesSuitableForPosting),
+        email       = Model.Stats.Rows.Sum(r => r.SuitableForEmailing),
+        notSuitable = Model.Stats.Rows.Sum(r => r.NoticesNotSuitable),
+        coj         = Model.Stats.Rows.Sum(r => r.MunicipalOwnedProperties)
+    }));
+
+    const batchRaw = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+        Model.RecentBatches
+            .Take(8)
+            .Select(b => new {
+                name    = b.BatchName,
+                yes     = b.Yes,
+                no      = b.No,
+                pending = b.Pending
+            })
+            .ToList()
+    ));
+
+    // ── Colour palette ────────────────────────────────────────────────────────
+    const gold    = '#e6b000';
+    const goldD   = '#c49800';
+    const goldPale= 'rgba(230,176,0,.15)';
+    const green   = '#1a8a4a';
+    const red     = '#c0272d';
+    const blue    = '#1a5fa8';
+    const grey    = '#ccc';
+
+    // ── Tab switch ────────────────────────────────────────────────────────────
+    let chartsBuilt = false;
+    window.switchTab = function(tab) {
+        // Show/hide panes
+        document.getElementById('tab-table').style.display  = (tab === 'table')  ? 'block' : 'none';
+        document.getElementById('tab-charts').style.display = (tab === 'charts') ? 'block' : 'none';
+
+        // Update active button — scope to stats-panel only
+        document.querySelectorAll('.stats-panel .tab-btn').forEach(function(btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
+        });
+
+        // Build charts only once, on first click
+        if (tab === 'charts' && !chartsBuilt) { buildAllCharts(); chartsBuilt = true; }
+    };
+
+    function buildAllCharts() {
+
+        // ── Chart 1: Monthly Total Entries — bar ──────────────────────────────
+        new Chart(document.getElementById('chartMonthly'), {
+            type: 'bar',
+            data: {
+                labels: monthlyRaw.map(r => r.period),
+                datasets: [{
+                    label: 'Total Entries',
+                    data:  monthlyRaw.map(r => r.total),
+                    backgroundColor: gold,
+                    borderColor:     goldD,
+                    borderWidth: 1.5,
+                    borderRadius: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: ctx => ' ' + ctx.parsed.y.toLocaleString() + ' entries' }}
+                },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#f0ece4' },
+                         ticks: { font: { size: 10 } } },
+                    x: { grid: { display: false },
+                         ticks: { font: { size: 10 }, maxRotation: 30 } }
+                }
+            }
+        });
+
+        // ── Chart 2: Reviews Received — line ──────────────────────────────────
+        new Chart(document.getElementById('chartReviews'), {
+            type: 'line',
+            data: {
+                labels: monthlyRaw.map(r => r.period),
+                datasets: [{
+                    label: 'Reviews Received',
+                    data:  monthlyRaw.map(r => r.reviews),
+                    borderColor:     green,
+                    backgroundColor: 'rgba(26,138,74,.1)',
+                    borderWidth: 2.5,
+                    pointBackgroundColor: green,
+                    pointRadius: 5,
+                    tension: 0.35,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: ctx => ' ' + ctx.parsed.y + ' reviews' }}
+                },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#f0ece4' },
+                         ticks: { font: { size: 10 } } },
+                    x: { grid: { display: false },
+                         ticks: { font: { size: 10 }, maxRotation: 30 } }
+                }
+            }
+        });
+
+        // ── Chart 3: Notice Distribution — doughnut ───────────────────────────
+        const hasNotice = noticeRaw.suitable + noticeRaw.email + noticeRaw.notSuitable + noticeRaw.coj > 0;
+        new Chart(document.getElementById('chartNotices'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Suitable for Post','Suitable Email','Not Suitable','COJ Owned'],
+                datasets: [{
+                    data:            [noticeRaw.suitable, noticeRaw.email, noticeRaw.notSuitable, noticeRaw.coj],
+                    backgroundColor: [gold, blue, red, '#8b5cf6'],
+                    borderWidth: 2,
+                    borderColor: '#fff',
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                cutout: '62%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { font: { size: 10 }, padding: 10 }},
+                    tooltip: { callbacks: {
+                        label: ctx => ' ' + ctx.label + ': ' + ctx.parsed.toLocaleString()
+                    }}
+                }
+            }
+        });
+
+        // ── Chart 4: Verification Progress — stacked horizontal bar ───────────
+        new Chart(document.getElementById('chartVerif'), {
+            type: 'bar',
+            data: {
+                labels: batchRaw.map(b => b.name),
+                datasets: [
+                    { label: 'Approved',  data: batchRaw.map(b => b.yes),     backgroundColor: green,  borderRadius: 3 },
+                    { label: 'Rejected',  data: batchRaw.map(b => b.no),      backgroundColor: red,    borderRadius: 3 },
+                    { label: 'Pending',   data: batchRaw.map(b => b.pending), backgroundColor: '#f59e0b', borderRadius: 3 }
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom', labels: { font: { size: 10 }, padding: 10 }},
+                    tooltip: { mode: 'index' }
+                },
+                scales: {
+                    x: { stacked: true, grid: { color: '#f0ece4' }, ticks: { font: { size: 10 }}},
+                    y: { stacked: true, grid: { display: false },   ticks: { font: { size: 10 }}}
+                }
+            }
+        });
+    }
+})();
+</script>
 
 </body>
 </html>

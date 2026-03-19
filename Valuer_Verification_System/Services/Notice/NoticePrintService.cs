@@ -102,7 +102,7 @@ namespace Valuer_Verification_System.Services.Notice
 
                 // All distinct ValuationKeys for this batch (ordered for stable paging)
                 // Notice printing is driven by SendNotice == "Y" only.
-                // Decision is for the valuer verification workflow — separate flow.
+                // Decision is for the Valuation Verification workflow — separate flow.
                 var allKeys = await _db.ExtractRows
                     .AsNoTracking()
                     .Where(r => r.BatchId == batchId

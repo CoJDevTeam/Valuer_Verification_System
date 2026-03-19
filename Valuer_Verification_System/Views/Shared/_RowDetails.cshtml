@@ -36,7 +36,7 @@
     @* ── Top highlight fields: Valuation Key, Premise ID, Town, Valuer/Sector ── *@
     <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem;margin-bottom:.65rem;">
       @KFHighlight("🔑 Valuation Key",   Model.ValuationKey,                "key")
-      @KFHighlight("📍 Premise ID",      Model.PremiseId,                   "key")
+      @* @KFHighlight("📍 Premise ID",      Model.PremiseId,                   "key") *@
       @KFHighlight("🏙 Town / Area",      Model.TownNameDesc,                "")
       @KFHighlight("👤 Valuer",           Model.Valuer ?? Model.AssignedTo,  "")
     </div>
@@ -53,10 +53,10 @@
 
     @* ── All 9 requested fields ── *@
     <div class="rd-keygrid">
-      @KF("Property Description", Model.PropertyDesc ?? Model.PropertyDescription)
-      @KF("Stand No",             Model.StandNo)
+    @*   @KF("Property Description", Model.PropertyDesc ?? Model.PropertyDescription)
+      @KF("Stand No",             Model.StandNo) *@
       @KFMoney("Market Value",    Model.MarketValue)
-      @KFMoney("Rateable Area",   Model.RateableArea, " m²")
+            @KF("Rateable Area", Model.RateableArea.HasValue ? $"{Model.RateableArea.Value:N0} m²" : null)
       @KF("Legal Area",           Model.LegalArea)
       @KF("Valuation Date",       Model.ValuationDate?.ToString("yyyy/MM/dd"))
       @KF("WEF Date",             Model.WefDate?.ToString("yyyy/MM/dd"))
@@ -102,7 +102,7 @@
             <td style="font-weight:700;color:#1a8a4a;">
               @(s.MarketValue.HasValue ? $"R {s.MarketValue.Value:N0}" : "—")
             </td>
-            <td>@(s.Extent ?? s.LegalArea ?? "—")</td>
+                        <td>@CleanArea(s.Extent ?? s.LegalArea)</td>
             <td style="font-size:.75rem;">@(s.ValuationDate?.ToString("yyyy/MM/dd") ?? "—")</td>
           </tr>
         }
@@ -248,4 +248,14 @@
     return new HtmlString(
       $@"<span class=""flag-chip {cls}"">{ico} {System.Web.HttpUtility.HtmlEncode(label)}</span>");
   }
+    string CleanArea(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return "—";
+        if (decimal.TryParse(s.Trim(),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var d))
+            return $"{d:N0}";
+        var t = s.Trim();
+        return t.Contains('.') ? t.TrimEnd('0').TrimEnd('.') : t;
+    }
 }
