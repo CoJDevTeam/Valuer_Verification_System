@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Valuer_Verification_System.Data;
 using Valuer_Verification_System.Models.Data;
 using Valuer_Verification_System.Models.ViewModels;
+using Valuer_Verification_System.Services.Home;
 using Valuer_Verification_System.Services.Notice;
 using Valuer_Verification_System.Services.Stats;
 
@@ -11,25 +12,29 @@ namespace Valuer_Verification_System.Controllers
     public sealed class Section78StatsController : Controller
     {
         private readonly ISection78StatsService _stats;
+        private readonly IDataTeamDashboardService _dashboard;
         private readonly VvsDbContext _db;
-        private readonly INoticeCleaningService _cleaning;
 
         public Section78StatsController(
             ISection78StatsService stats,
-            VvsDbContext db,
-            INoticeCleaningService cleaning)
+            IDataTeamDashboardService dashboard,
+            VvsDbContext db)
         {
             _stats = stats;
+            _dashboard = dashboard;
             _db = db;
-            _cleaning = cleaning;
         }
 
-        // ── Main stats page ───────────────────────────────────────────────────
+        // ── Main stats page — returns full DataTeamDashboardVm ────────────────
         [HttpGet("/DataTeam/Stats")]
         public async Task<IActionResult> Index(
             [FromQuery] string fy = "2025_26", CancellationToken ct = default)
         {
-            var vm = await _stats.BuildVmAsync(fy, ct);
+            // Build the full dashboard VM (which now includes Stats inside it)
+            var vm = await _dashboard.BuildAsync(ct);
+
+            // Override stats for the requested financial year
+            vm.Stats = await _stats.BuildVmAsync(fy, ct);
 
             // Load available batches for the auto-populate dropdown
             var batches = await _db.Batches
@@ -45,7 +50,7 @@ namespace Valuer_Verification_System.Controllers
                 .Select(s => s.BatchId!.Value)
                 .ToHashSetAsync(ct);
 
-            vm.AvailableBatches = batches.Select(b =>
+            vm.Stats.AvailableBatches = batches.Select(b =>
             {
                 var exDate = b.BatchDate;
                 var wn = (int)Math.Ceiling(exDate.Day / 7.0);

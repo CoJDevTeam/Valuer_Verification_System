@@ -1,6 +1,10 @@
-﻿@model Valuer_Verification_System.Models.ViewModels.Section78StatsVm
+﻿@model Valuer_Verification_System.Models.ViewModels.DataTeamDashboardVm
 @{
     ViewData["Title"] = "Section 78 Statistics";
+    Layout = null;
+}
+@{
+    var Model2 = Model.Stats;
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -24,15 +28,15 @@
     <div class="top-actions">
       <!-- FY tabs -->
       <div class="fy-tabs">
-        @foreach (var fy in Model.FinancialYears)
+        @foreach (var fy in Model2.FinancialYears)
         {
           <a href="/DataTeam/Stats?fy=@fy"
-             class="fy-tab @(fy == Model.FinancialYear ? "active" : "")">
+             class="fy-tab @(fy == Model2.FinancialYear ? "active" : "")">
             @fy.Replace("_","/")
           </a>
         }
       </div>
-      <a href="/DataTeam/Stats/Download?fy=@Model.FinancialYear" class="btn btn-green">
+      <a href="/DataTeam/Stats/Download?fy=@Model2.FinancialYear" class="btn btn-green">
         ⬇ Download Excel
       </a>
       <a href="/" class="btn btn-outline">← Dashboard</a>
@@ -41,16 +45,16 @@
 
   <!-- MINI STAT CARDS -->
   @{
-    var totalEntries = Model.Rows.Sum(r => r.TotalSvEntries);
-    var totalSuitable= Model.Rows.Sum(r => r.NoticesSuitableForPosting);
-    var totalEmail   = Model.Rows.Sum(r => r.SuitableForEmailing);
-    var totalReviews = Model.Rows.Sum(r => r.ReviewsReceived ?? 0);
+    var totalEntries = Model2.Rows.Sum(r => r.TotalSvEntries);
+    var totalSuitable= Model2.Rows.Sum(r => r.NoticesSuitableForPosting);
+    var totalEmail   = Model2.Rows.Sum(r => r.SuitableForEmailing);
+    var totalReviews = Model2.Rows.Sum(r => r.ReviewsReceived ?? 0);
   }
   <div class="mini-stats">
     <div class="mini-card gold">
       <div class="mini-card__lbl">Total SV Entries</div>
       <div class="mini-card__val">@totalEntries.ToString("N0")</div>
-      <div class="mini-card__sub">all weeks @Model.FinancialYear.Replace("_","/")</div>
+      <div class="mini-card__sub">all weeks @Model2.FinancialYear.Replace("_","/")</div>
     </div>
     <div class="mini-card">
       <div class="mini-card__lbl">Suitable for Posting</div>
@@ -75,7 +79,7 @@
     <label>Auto-populate from batch:</label>
     <select id="batchSel">
       <option value="">— select batch —</option>
-      @foreach (var b in Model.AvailableBatches)
+      @foreach (var b in Model2.AvailableBatches)
       {
         <option value="@b.Id" data-table="@b.WeekTable">
           @b.BatchName (@b.BatchDate.ToString("dd MMM yyyy")) — @b.WeekTable
@@ -91,7 +95,7 @@
   <div class="card">
     <div class="card-hd">
       <span class="card-hd__ico">📋</span>
-      <span class="card-hd__ttl">Monthly Summary — @Model.FinancialYear.Replace("_","/")</span>
+      <span class="card-hd__ttl">Monthly Summary — @Model2.FinancialYear.Replace("_","/")</span>
     </div>
     <div style="overflow-x:auto;">
       <table class="summary-table">
@@ -108,7 +112,7 @@
           </tr>
         </thead>
         <tbody>
-          @if (!Model.MonthlySummary.Any())
+          @if (!Model2.MonthlySummary.Any())
           {
             <tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--ink3);">
               No data yet — auto-populate a batch first. Each week table will appear
@@ -117,12 +121,12 @@
           }
           @{
             string? lastPeriod = null;
-            int periodRowCount = Model.MonthlySummary.Count(x => x.Period == Model.MonthlySummary.FirstOrDefault()?.Period);
+            int periodRowCount = Model2.MonthlySummary.Count(x => x.Period == Model2.MonthlySummary.FirstOrDefault()?.Period);
           }
-          @foreach (var m in Model.MonthlySummary)
+          @foreach (var m in Model2.MonthlySummary)
           {
             var isNewPeriod  = m.Period != lastPeriod;
-            var rowsInPeriod = Model.MonthlySummary.Count(x => x.Period == m.Period);
+            var rowsInPeriod = Model2.MonthlySummary.Count(x => x.Period == m.Period);
             lastPeriod = m.Period;
             <tr @(isNewPeriod ? "style=border-top:2px solid var(--gold-bd);" : "")>
               @if (isNewPeriod)
@@ -182,13 +186,13 @@
           </tr>
         </thead>
         <tbody>
-          @if (!Model.Rows.Any())
+          @if (!Model2.Rows.Any())
           {
             <tr><td colspan="17" style="text-align:center;padding:2rem;color:var(--ink3);">
               No weekly entries yet.
             </td></tr>
           }
-          @foreach (var r in Model.Rows)
+          @foreach (var r in Model2.Rows)
           {
             <tr data-id="@r.Id">
               <td><span class="week-tag">@r.WeekTableName</span></td>
@@ -213,8 +217,7 @@
               <td>
                 <input type="number" class="num-input" data-field="reviews"
                        value="@(r.ReviewsReceived ?? 0)" min="0" />
-                           </td>
-
+              </td>
                                 <td>
                                     <select class="closed-sel" data-field="closed">
 

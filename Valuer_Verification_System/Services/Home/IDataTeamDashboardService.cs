@@ -3,6 +3,7 @@ using Valuer_Verification_System.Data;
 using Valuer_Verification_System.Models.Data;
 using Valuer_Verification_System.Models.SLA;
 using Valuer_Verification_System.Models.ViewModels;
+using Valuer_Verification_System.Services.Stats;
 
 
 namespace Valuer_Verification_System.Services.Home
@@ -15,10 +16,12 @@ namespace Valuer_Verification_System.Services.Home
     public sealed class DataTeamDashboardService : IDataTeamDashboardService
     {
         private readonly VvsDbContext _db;
+        private readonly ISection78StatsService _stats;
 
-        public DataTeamDashboardService(VvsDbContext db)
+        public DataTeamDashboardService(VvsDbContext db, ISection78StatsService stats)
         {
             _db = db;
+            _stats = stats;
         }
 
         public async Task<DataTeamDashboardVm> BuildAsync(CancellationToken ct)
@@ -124,7 +127,9 @@ namespace Valuer_Verification_System.Services.Home
             var from30 = DateTime.UtcNow.AddDays(-30);
             var totalBatchesLast30 = await _db.Batches.AsNoTracking().CountAsync(b => b.CreatedAt >= from30, ct);
             var batchesInVerification = await _db.Batches.AsNoTracking().CountAsync(b => b.Status == BatchStatus.InVerification, ct);
-            var batchesReadyToSend = await _db.Batches.AsNoTracking().CountAsync(b => b.Status == BatchStatus.ReadyToSend && !b.NoticesSent, ct);
+            var batchesReadyToSend = await _db.Batches.AsNoTracking().CountAsync(b =>
+                (b.Status == BatchStatus.ReadyToSend || b.Status == BatchStatus.PrintedEmailPending)
+                && !b.NoticesSent, ct);
 
             var vm = new DataTeamDashboardVm
             {
@@ -188,6 +193,16 @@ namespace Valuer_Verification_System.Services.Home
                 vm.NextActionHint = "Create the next Week Window or upload a new extract.";
                 vm.NextActionUrl = "/WeekWindows";
                 vm.NextActionButton = "Week Windows";
+            }
+
+            // ── Section 78 Stats (current financial year) ─────────────────────
+            try
+            {
+                vm.Stats = await _stats.BuildVmAsync("2025_26", ct);
+            }
+            catch
+            {
+                vm.Stats = new Section78StatsVm(); // don't crash dashboard if stats fail
             }
 
             return vm;

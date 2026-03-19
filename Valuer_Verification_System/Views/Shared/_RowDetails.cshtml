@@ -1,371 +1,251 @@
 ﻿@model Valuer_Verification_System.Models.ViewModels.ValuerRowDetailsVm
 @using Valuer_Verification_System.Models.Data
-
-<!-- marker for JS to read the valuation key -->
-<span id="rowDetailsValuationKey" data-vkey="@Model.ValuationKey" style="display:none;"></span>
-
-<style>
-    /* ── scoped styles for the partial ── */
-    .rd-wrap {
-        font-family: 'Poppins', sans-serif;
-        padding: 22px 24px;
-    }
-
-    /* top hero strip */
-    .rd-hero {
-        background: #0d0d0d;
-        border-radius: 12px;
-        padding: 18px 20px;
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        margin-bottom: 20px;
-        position: relative;
-        overflow: hidden;
-    }
-
-        .rd-hero::before {
-            content: '';
-            position: absolute;
-            top: -40px;
-            right: -40px;
-            width: 150px;
-            height: 150px;
-            background: radial-gradient(circle, rgba(230,176,0,.22) 0%, transparent 70%);
-            border-radius: 50%;
-        }
-
-    .rd-hero-icon {
-        width: 44px;
-        height: 44px;
-        border-radius: 12px;
-        flex-shrink: 0;
-        background: linear-gradient(135deg, #f5cd4a, #b88a00);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 20px;
-        box-shadow: 0 3px 14px rgba(230,176,0,.45);
-        position: relative;
-        z-index: 1;
-    }
-
-    .rd-hero-body {
-        flex: 1;
-        position: relative;
-        z-index: 1;
-    }
-
-    .rd-hero-label {
-        font-size: .65rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: .1em;
-        color: rgba(255,255,255,.42);
-        margin-bottom: 3px;
-    }
-
-    .rd-hero-key {
-        font-size: 1.1rem;
-        font-weight: 800;
-        color: #fff;
-        letter-spacing: -.01em;
-    }
-
-    .rd-hero-desc {
-        font-size: .74rem;
-        color: rgba(255,255,255,.5);
-        margin-top: 3px;
-    }
-
-    /* status badge hero */
-    .rd-hero-status {
-        position: relative;
-        z-index: 1;
-    }
-
-    /* section blocks */
-    .rd-section {
-        margin-bottom: 18px;
-    }
-
-    .rd-section-title {
-        font-size: .65rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: .1em;
-        color: #b88a00;
-        margin-bottom: 10px;
-        padding-bottom: 6px;
-        border-bottom: 1px solid #f0f0f0;
-        display: flex;
-        align-items: center;
-        gap: 7px;
-    }
-
-        .rd-section-title::before {
-            content: '';
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            background: #e6b000;
-            border-radius: 2px;
-            flex-shrink: 0;
-        }
-
-    /* fields grid */
-    .rd-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-        gap: 12px;
-    }
-
-        .rd-grid.cols-2 {
-            grid-template-columns: 1fr 1fr;
-        }
-
-        .rd-grid.cols-3 {
-            grid-template-columns: 1fr 1fr 1fr;
-        }
-
-    .rd-field {
-    }
-
-    .rd-field-label {
-        font-size: .64rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: .08em;
-        color: #9a9a9a;
-        margin-bottom: 3px;
-    }
-
-    .rd-field-val {
-        font-size: .85rem;
-        font-weight: 600;
-        color: #0d0d0d;
-    }
-
-        .rd-field-val.large {
-            font-size: 1rem;
-            font-weight: 800;
-            color: #0d0d0d;
-        }
-
-        .rd-field-val.mono {
-            font-family: 'Courier New', monospace;
-            font-size: .82rem;
-        }
-
-    /* batch card */
-    .rd-batch-card {
-        background: #f9f9f9;
-        border: 1px solid #e2e2e2;
-        border-radius: 10px;
-        padding: 13px 16px;
-    }
-
-    .rd-batch-name {
-        font-size: .88rem;
-        font-weight: 700;
-        color: #0d0d0d;
-        margin-bottom: 3px;
-    }
-
-    .rd-batch-date {
-        font-size: .74rem;
-        color: #9a9a9a;
-    }
-
-    .rd-batch-week {
-        font-size: .74rem;
-        color: #4a4a4a;
-        margin-top: 2px;
-    }
-
-    /* decision row */
-    .rd-decision-row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
-    }
-
-    .rd-decision-comment {
-        font-size: .79rem;
-        color: #4a4a4a;
-        background: #f9f9f9;
-        border: 1px solid #e2e2e2;
-        border-left: 3px solid #e6b000;
-        border-radius: 8px;
-        padding: 9px 12px;
-        margin-top: 8px;
-        font-style: italic;
-    }
-
-    .rd-decision-time {
-        font-size: .71rem;
-        color: #9a9a9a;
-    }
-
-    /* decision badges */
-    .rd-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        padding: 5px 13px;
-        border-radius: 20px;
-        font-size: .75rem;
-        font-weight: 700;
-    }
-
-        .rd-badge::before {
-            content: '';
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: currentColor;
-            flex-shrink: 0;
-        }
-
-    .rd-badge-pending {
-        background: #fff3d6;
-        color: #b06800;
-        border: 1px solid #f0d078;
-    }
-
-    .rd-badge-yes {
-        background: #e8f8ef;
-        color: #1a8a4a;
-        border: 1px solid #b2dfcc;
-    }
-
-    .rd-badge-no {
-        background: #fdeaea;
-        color: #c0272d;
-        border: 1px solid #f5b4b6;
-    }
-
-    /* mv highlight */
-    .rd-mv {
-        background: rgba(230,176,0,.09);
-        border: 1px solid rgba(230,176,0,.28);
-        border-radius: 8px;
-        padding: 10px 14px;
-        display: inline-block;
-    }
-
-        .rd-mv .rd-field-label {
-            color: #b88a00;
-        }
-
-        .rd-mv .rd-field-val {
-            font-size: 1.05rem;
-            font-weight: 800;
-            color: #0d0d0d;
-        }
-</style>
+@using Microsoft.AspNetCore.Html
+@using System.Text.Encodings.Web
+<link href="~/css/valuer/rowdetailscss.css" rel="stylesheet" />
 
 <div class="rd-wrap">
 
-    <!-- HERO -->
-    <div class="rd-hero">
-        <div class="rd-hero-icon">🏠</div>
-        <div class="rd-hero-body">
-            <div class="rd-hero-label">Valuation Key</div>
-            <div class="rd-hero-key">@Model.ValuationKey</div>
-            <div class="rd-hero-desc">@Model.PropertyDescription</div>
-        </div>
-        <div class="rd-hero-status">
-            @if (Model.Decision == VerificationDecision.Pending)
-            {
-                <span class="rd-badge rd-badge-pending">⏳ Pending</span>
-            }
-            else if (Model.Decision == VerificationDecision.Yes)
-            {
-                <span class="rd-badge rd-badge-yes">✔ Verified</span>
-            }
-            else
-            {
-                <span class="rd-badge rd-badge-no">✕ Rejected</span>
-            }
-        </div>
+  @* Hidden span — JS reads this to populate the modal header *@
+  <span id="rowDetailsValuationKey" data-vkey="@Model.ValuationKey" style="display:none;">@Model.ValuationKey</span>
+
+  @* ── Valuation Key + Decision ── *@
+  <div class="rd-vkey">@Model.ValuationKey</div>
+
+  <div style="margin-bottom:.85rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">
+    @if (Model.Decision == VerificationDecision.Pending)
+    { <span class="rd-decision rd-d-pending">⏳ Pending</span> }
+    else if (Model.Decision == VerificationDecision.Yes)
+    { <span class="rd-decision rd-d-yes">✓ Verified — Yes</span> }
+    else
+    { <span class="rd-decision rd-d-no">✕ Rejected — No</span> }
+
+    @if (!string.IsNullOrWhiteSpace(Model.DecisionComment))
+    { <span style="font-size:.75rem;color:#666;">@Model.DecisionComment</span> }
+
+    @if (Model.DecisionAtUtc.HasValue)
+    { <span style="font-size:.7rem;color:#aaa;">@Model.DecisionAtUtc.Value.ToString("yyyy-MM-dd HH:mm") UTC</span> }
+  </div>
+
+  @* ════════════════════════════════════════════════════════
+     KEY DETAILS — highlighted box with the most important fields
+     ════════════════════════════════════════════════════════ *@
+  <div class="rd-keybox">
+    <div class="rd-keybox-title">📋 Key Property Details</div>
+
+    @* ── Top highlight fields: Valuation Key, Premise ID, Town, Valuer/Sector ── *@
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem;margin-bottom:.65rem;">
+      @KFHighlight("🔑 Valuation Key",   Model.ValuationKey,                "key")
+      @KFHighlight("📍 Premise ID",      Model.PremiseId,                   "key")
+      @KFHighlight("🏙 Town / Area",      Model.TownNameDesc,                "")
+      @KFHighlight("👤 Valuer",           Model.Valuer ?? Model.AssignedTo,  "")
     </div>
 
-    <!-- PROPERTY DETAILS -->
-    <div class="rd-section">
-        <div class="rd-section-title">Property Details</div>
-        <div class="rd-grid cols-3" style="margin-bottom:12px;">
-            <div class="rd-field">
-                <div class="rd-field-label">Sector</div>
-                <div class="rd-field-val">@(Model.Sector ?? "—")</div>
-            </div>
-            <div class="rd-field">
-                <div class="rd-field-label">Category</div>
-                <div class="rd-field-val">@(Model.Category ?? "—")</div>
-            </div>
-            <div class="rd-field">
-                <div class="rd-field-label">Property Type</div>
-                <div class="rd-field-val">@(Model.PropertyType ?? "—")</div>
-            </div>
-        </div>
-        <div style="margin-bottom:12px;">
-            <div class="rd-mv">
-                <div class="rd-field-label">Market Value</div>
-                <div class="rd-field-val">
-                    @(Model.MarketValue.HasValue ? $"R {Model.MarketValue.Value:N2}" : "—")
-                </div>
-            </div>
-        </div>
-        <div class="rd-field">
-            <div class="rd-field-label">Assigned Valuer</div>
-            <div class="rd-field-val">@(Model.AssignedToValuer ?? "—")</div>
-        </div>
+    @* ── Second row: Sector + Category (all splits joined) ── *@
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem;margin-bottom:.65rem;">
+      @KFHighlight("🗂 Sector", Model.Sector, "")
+      @KFHighlight("🏷 Category",
+        Model.IsMultipurpose && Model.SplitRows.Any()
+          ? string.Join(" / ", Model.SplitRows.Select(s => s.CatDesc ?? s.CatCode ?? "—").Distinct())
+          : (Model.CatDesc ?? Model.PropertyCategory ?? "—"),
+        "")
     </div>
 
-    <!-- BATCH INFO -->
-    <div class="rd-section">
-        <div class="rd-section-title">Batch Information</div>
-        <div class="rd-batch-card">
-            <div class="rd-batch-name">@Model.BatchName</div>
-            <div class="rd-batch-date">Batch date: @Model.BatchDate.ToString("dd MMM yyyy")</div>
-            <div class="rd-batch-week">
-                Week: @Model.WeekStart.ToString("dd MMM yyyy") → @Model.WeekEnd.ToString("dd MMM yyyy")
-                &nbsp;|&nbsp; Notice send: @Model.NoticeSendDate.ToString("dd MMM yyyy")
-            </div>
-        </div>
+    @* ── All 9 requested fields ── *@
+    <div class="rd-keygrid">
+      @KF("Property Description", Model.PropertyDesc ?? Model.PropertyDescription)
+      @KF("Stand No",             Model.StandNo)
+      @KFMoney("Market Value",    Model.MarketValue)
+      @KFMoney("Rateable Area",   Model.RateableArea, " m²")
+      @KF("Legal Area",           Model.LegalArea)
+      @KF("Valuation Date",       Model.ValuationDate?.ToString("yyyy/MM/dd"))
+      @KF("WEF Date",             Model.WefDate?.ToString("yyyy/MM/dd"))
+      @KF("Unit Key",             Model.UnitKey,      "key")
     </div>
+  </div>
 
-    <!-- CURRENT DECISION -->
-    <div class="rd-section">
-        <div class="rd-section-title">Current Decision</div>
-        <div class="rd-decision-row">
-            @if (Model.Decision == VerificationDecision.Pending)
-            {
-                <span class="rd-badge rd-badge-pending">⏳ Pending</span>
-                <span class="rd-decision-time">No decision recorded yet</span>
-            }
-            else if (Model.Decision == VerificationDecision.Yes)
-            {
-                <span class="rd-badge rd-badge-yes">✔ Yes — Verified</span>
-                @if (Model.DecisionAtUtc.HasValue)
-                {
-                    <span class="rd-decision-time">@Model.DecisionAtUtc.Value.ToString("dd MMM yyyy HH:mm") UTC</span>
-                }
-            }
-            else
-            {
-                <span class="rd-badge rd-badge-no">✕ No — Rejected</span>
-                @if (Model.DecisionAtUtc.HasValue)
-                {
-                    <span class="rd-decision-time">@Model.DecisionAtUtc.Value.ToString("dd MMM yyyy HH:mm") UTC</span>
-                }
-            }
-        </div>
-        @if (!string.IsNullOrWhiteSpace(Model.DecisionComment))
+  @* ════════════════════════════════════════════════════════
+     SPLIT / MULTIPURPOSE ROWS  (shown right after key details)
+     ════════════════════════════════════════════════════════ *@
+  @if (Model.IsMultipurpose && Model.SplitRows.Any())
+  {
+    <div class="rd-section">⚡ Split / Multipurpose Rows (@Model.SplitRows.Count)</div>
+    <table class="split-table">
+      <thead>
+        <tr>
+          <th>Split No</th>
+          <th>Ind</th>
+          <th>Cat Code</th>
+          <th>Category (CatDesc)</th>
+          <th>Market Value</th>
+          <th>Legal Area / Extent</th>
+          <th>Valuation Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (var s in Model.SplitRows)
         {
-            <div class="rd-decision-comment">"@Model.DecisionComment"</div>
+          var isCurrent = s.ExtractRowId == Model.ExtractRowId;
+          var ind = s.ValuationSplitInd?.Trim().ToUpper();
+          <tr class="@(isCurrent ? "current-row" : "")">
+            <td style="font-family:monospace;font-size:.75rem;">@(s.ValuationSplitNo ?? "—")</td>
+            <td>
+              @if (ind == "P")
+              { <span class="split-ind si-p">P</span> }
+              else if (ind == "Y")
+              { <span class="split-ind si-y">Y</span> }
+              else
+              { <span class="split-ind si-none">—</span> }
+            </td>
+            <td><span style="font-family:monospace;font-size:.75rem;">@(s.CatCode ?? "—")</span></td>
+            <td>@(s.CatDesc ?? "—")</td>
+            <td style="font-weight:700;color:#1a8a4a;">
+              @(s.MarketValue.HasValue ? $"R {s.MarketValue.Value:N0}" : "—")
+            </td>
+            <td>@(s.Extent ?? s.LegalArea ?? "—")</td>
+            <td style="font-size:.75rem;">@(s.ValuationDate?.ToString("yyyy/MM/dd") ?? "—")</td>
+          </tr>
         }
+      </tbody>
+    </table>
+  
+      var splitTotal = Model.SplitRows.Sum(s => s.MarketValue ?? 0);
+    
+    <div class="split-total">Total Market Value: R @splitTotal.ToString("N0")</div>
+  }
+
+  @* ── PROPERTY IDENTIFICATION ── *@
+  <div class="rd-section">🏠 Property Identification</div>
+  <div class="rd-grid">
+    @F("Valuation Roll Key",  Model.ValuationRollKey)
+    @F("SG ID",               Model.SgId,             "key")
+    @F("Property ID",         Model.PropertyId,       "key")
+    @F("Erf",                 Model.Erf)
+    @F("Portion",             Model.Ptn)
+    @F("RE",                  Model.Re)
+    @F("Valuation Type",      Model.ValuationType)
+    @F("Status Subtype",      Model.StatusSubtype)
+    @F("Status Code",         Model.StatusCode)
+  </div>
+
+  @* ── UNIT & RIGHTS ── *@
+  <div class="rd-section">🔑 Unit &amp; Rights</div>
+  <div class="rd-grid">
+    @F("Unit Type",           Model.UnitType)
+    @F("Unit No",             Model.UnitNo)
+    @F("Unit Rights Key",     Model.UnitRightsKey,      "key")
+    @F("Rights Premise",      Model.RightsPremise)
+    @F("Rights Premise Size", Model.RightsPremiseSize?.ToString("N0"))
+    @F("Rights Status",       Model.RightsStatus)
+    @F("Right Description",   Model.RightDescription)
+  </div>
+
+  @* ── OWNER & ADDRESS ── *@
+  <div class="rd-section">📬 Owner &amp; Address</div>
+  <div class="rd-grid">
+    @F("Owner Name",          Model.OwnerName)
+    @F("Physical Address",    Model.PhysicalAddress ?? Model.PremiseAddress)
+    @F("Addr 1",              Model.Addr1)
+    @F("Addr 2",              Model.Addr2)
+    @F("Addr 3",              Model.Addr3)
+    @F("Addr 4",              Model.Addr4)
+    @F("Addr 5",              Model.Addr5)
+    @F("Email Address",       Model.EmailAddr)
+    @F("Email Indicator",     Model.EmailInd)
+  </div>
+
+  @* ── FLAGS & REMARKS ── *@
+  <div class="rd-section">🚩 Flags &amp; Remarks</div>
+  <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.65rem;">
+    @Flag("Send Notice", Model.SendNotice)
+    @Flag("COJ Owned",   Model.CojOwned)
+    @Flag("Usable",      Model.Usable)
+    @Flag("SAP Data",    Model.SapData)
+  </div>
+  @if (!string.IsNullOrWhiteSpace(Model.RemarkDesc ?? Model.Remarks))
+  {
+    <div class="rd-field">
+      <div class="rd-label">Remarks</div>
+      <div class="rd-value">@(Model.RemarkDesc ?? Model.Remarks)</div>
     </div>
+  }
+
+  @* ── DATES ── *@
+  <div class="rd-section">📅 Dates</div>
+  <div class="rd-grid">
+    @F("Extraction Date",  Model.ExtractionDate?.ToString("yyyy/MM/dd"))
+    @F("Capture Period",   Model.SvCapturePeriod)
+    @F("Review Opens",     Model.ReviewOpenDate?.ToString("yyyy/MM/dd"))
+    @F("Review Closes",    Model.ReviewCloseDate?.ToString("yyyy/MM/dd"))
+  </div>
+
+  @* ── ASSIGNMENT & BATCH ── *@
+  <div class="rd-section">👤 Assignment &amp; Valuer</div>
+  <div class="rd-grid">
+    @F("Batch",         Model.BatchName)
+    @F("Sector",        Model.Sector)
+    @F("Valuer (LIS)",  Model.Valuer)
+    @F("Assigned To",   Model.AssignedTo ?? "Unassigned")
+  </div>
 
 </div>
+
+@functions {
+  @* HIGHLIGHT field — larger, used for the top-4 prominent fields *@
+  IHtmlContent KFHighlight(string label, string? value, string? extra = null)
+  {
+    var cls     = string.IsNullOrWhiteSpace(value) ? "empty" : (extra ?? "");
+    var display = string.IsNullOrWhiteSpace(value) ? "—" : value;
+    return new HtmlString($@"
+      <div class=""rd-highlight-field"">
+        <div class=""rd-keylbl"">{label}</div>
+        <div class=""rd-highlight-val {cls}"">{System.Web.HttpUtility.HtmlEncode(display)}</div>
+      </div>");
+  }
+
+  @* Standard field chip *@
+  IHtmlContent F(string label, string? value, string? extra = null)
+  {
+    var cls     = string.IsNullOrWhiteSpace(value) ? "empty" : (extra ?? "");
+    var display = string.IsNullOrWhiteSpace(value) ? "—" : value;
+    return new HtmlString($@"
+      <div class=""rd-field"">
+        <div class=""rd-label"">{label}</div>
+        <div class=""rd-value {cls}"">{System.Web.HttpUtility.HtmlEncode(display)}</div>
+      </div>");
+  }
+
+  @* KEY BOX field chip *@
+  IHtmlContent KF(string label, string? value, string? extra = null)
+  {
+    var cls     = string.IsNullOrWhiteSpace(value) ? "empty" : (extra ?? "");
+    var display = string.IsNullOrWhiteSpace(value) ? "—" : value;
+    return new HtmlString($@"
+      <div class=""rd-keyfield"">
+        <div class=""rd-keylbl"">{label}</div>
+        <div class=""rd-keyval {cls}"">{System.Web.HttpUtility.HtmlEncode(display)}</div>
+      </div>");
+  }
+
+  @* KEY BOX money field *@
+  IHtmlContent KFMoney(string label, decimal? value, string suffix = "")
+  {
+    var cls     = value.HasValue ? "money" : "empty";
+    var display = value.HasValue ? $"R {value.Value:N0}{suffix}" : "—";
+    return new HtmlString($@"
+      <div class=""rd-keyfield"">
+        <div class=""rd-keylbl"">{label}</div>
+        <div class=""rd-keyval {cls}"">{System.Web.HttpUtility.HtmlEncode(display)}</div>
+      </div>");
+  }
+
+  @* Flag chip *@
+  IHtmlContent Flag(string label, string? value)
+  {
+    var v   = value?.Trim().ToUpper();
+    var cls = v == "Y" ? "flag-y" : v == "N" ? "flag-n" : "flag-x";
+    var ico = v == "Y" ? "✓" : v == "N" ? "✕" : "—";
+    return new HtmlString(
+      $@"<span class=""flag-chip {cls}"">{ico} {System.Web.HttpUtility.HtmlEncode(label)}</span>");
+  }
+}

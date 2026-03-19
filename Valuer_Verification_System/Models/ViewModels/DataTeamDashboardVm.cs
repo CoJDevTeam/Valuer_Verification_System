@@ -5,6 +5,8 @@ namespace Valuer_Verification_System.Models.ViewModels
 {
     public sealed class DataTeamDashboardVm
     {
+        // ── Section 78 Stats (embedded in dashboard) ──────────────────────────
+        public Section78StatsVm Stats { get; set; } = new();
         // Next action hero card
         public string NextActionTitle { get; set; } = "";
         public string NextActionHint { get; set; } = "";
@@ -64,7 +66,8 @@ namespace Valuer_Verification_System.Models.ViewModels
             public bool NoticesCanBeSent => ReadyForNotices
                                          && ManagersNotified
                                          && !NoticesSent
-                                         && Status == BatchStatus.ReadyToSend;
+                                         && (Status == BatchStatus.ReadyToSend
+                                          || Status == BatchStatus.PrintedEmailPending);
         }
     }
 }

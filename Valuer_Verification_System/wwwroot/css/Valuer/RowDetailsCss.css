@@ -1,0 +1,305 @@
+﻿
+.rd-wrap {
+    font-family: 'Poppins',sans-serif;
+    font-size: .84rem;
+    color: #111;
+    padding: 0;
+}
+
+/* ── Valuation key pill ── */
+.rd-vkey {
+    font-family: monospace;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #e6b000;
+    background: #1c1c1c;
+    padding: .3rem .9rem;
+    border-radius: 6px;
+    display: inline-block;
+    margin-bottom: .75rem;
+}
+
+/* ── Decision badge ── */
+.rd-decision {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .28rem .85rem;
+    border-radius: 20px;
+    font-size: .73rem;
+    font-weight: 700;
+}
+
+.rd-d-pending {
+    background: #fffbe6;
+    color: #c49800;
+    border: 1.5px solid #f0d060;
+}
+
+.rd-d-yes {
+    background: #f0faf4;
+    color: #1a8a4a;
+    border: 1.5px solid #7ecba0;
+}
+
+.rd-d-no {
+    background: #fff0f0;
+    color: #c0272d;
+    border: 1.5px solid #fcc;
+}
+
+/* ── KEY DETAILS highlight box ── */
+.rd-keybox {
+    background: #f7f4ee;
+    border: 1.5px solid #e0d9ce;
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+    margin: .75rem 0 1rem;
+}
+
+.rd-keybox-title {
+    font-size: .62rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: #aaa;
+    margin-bottom: .6rem;
+}
+
+.rd-keygrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill,minmax(180px,1fr));
+    gap: .5rem;
+}
+
+.rd-keyfield {
+    background: #fff;
+    border: 1px solid #ede9df;
+    border-radius: 7px;
+    padding: .5rem .75rem;
+}
+
+.rd-keylbl {
+    font-size: .58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #bbb;
+    margin-bottom: .12rem;
+}
+
+.rd-keyval {
+    font-size: .83rem;
+    font-weight: 700;
+    color: #111;
+    word-break: break-word;
+}
+
+    .rd-keyval.money {
+        color: #1a8a4a;
+    }
+
+    .rd-keyval.key {
+        font-family: monospace;
+        color: #555;
+        font-size: .78rem;
+    }
+
+    .rd-keyval.empty {
+        color: #ccc;
+        font-style: italic;
+        font-weight: 400;
+    }
+
+/* ── Section headers ── */
+.rd-section {
+    margin: 1rem 0 .45rem;
+    border-bottom: 2px solid #f0ece4;
+    padding-bottom: .25rem;
+    font-size: .65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: #bbb;
+}
+
+/* ── Standard field grid ── */
+.rd-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill,minmax(190px,1fr));
+    gap: .45rem;
+}
+
+.rd-field {
+    background: #fafaf8;
+    border: 1px solid #ede9df;
+    border-radius: 7px;
+    padding: .45rem .75rem;
+}
+
+.rd-label {
+    font-size: .58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #bbb;
+    margin-bottom: .1rem;
+}
+
+.rd-value {
+    font-size: .8rem;
+    font-weight: 600;
+    color: #111;
+    word-break: break-word;
+}
+
+    .rd-value.empty {
+        color: #ccc;
+        font-style: italic;
+        font-weight: 400;
+    }
+
+    .rd-value.money {
+        color: #1a8a4a;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .rd-value.key {
+        font-family: monospace;
+        color: #555;
+        font-size: .76rem;
+    }
+
+/* ── Highlight field (top-4 prominent) ── */
+.rd-highlight-field {
+    background: #1c1c1c;
+    border-radius: 9px;
+    padding: .6rem .9rem;
+}
+
+    .rd-highlight-field .rd-keylbl {
+        color: rgba(255,255,255,.5);
+        margin-bottom: .2rem;
+    }
+
+.rd-highlight-val {
+    font-size: .92rem;
+    font-weight: 800;
+    color: #e6b000;
+    word-break: break-word;
+}
+
+    .rd-highlight-val.key {
+        font-family: monospace;
+        color: #e6b000;
+    }
+
+    .rd-highlight-val.empty {
+        color: rgba(255,255,255,.3);
+        font-style: italic;
+        font-weight: 400;
+    }
+
+/* ── Flag chips ── */
+.flag-chip {
+    display: inline-block;
+    padding: .12rem .5rem;
+    border-radius: 8px;
+    font-size: .65rem;
+    font-weight: 700;
+    margin: .1rem;
+}
+
+.flag-y {
+    background: #f0faf4;
+    color: #1a8a4a;
+    border: 1px solid #7ecba0;
+}
+
+.flag-n {
+    background: #fff0f0;
+    color: #c0272d;
+    border: 1px solid #fcc;
+}
+
+.flag-x {
+    background: #f5f5f5;
+    color: #888;
+    border: 1px solid #ddd;
+}
+
+/* ── Split table ── */
+.split-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .78rem;
+    margin-top: .5rem;
+}
+
+    .split-table th {
+        background: linear-gradient(135deg,#1c1c1c,#2e2200);
+        color: rgba(255,255,255,.85);
+        padding: .5rem .7rem;
+        font-size: .63rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        text-align: left;
+        white-space: nowrap;
+    }
+
+    .split-table td {
+        padding: .45rem .7rem;
+        border-bottom: 1px solid #f0ece4;
+        vertical-align: middle;
+    }
+
+    .split-table tr:hover td {
+        background: #fafaf6;
+    }
+
+    .split-table tr.current-row td {
+        background: #fffbe6;
+    }
+
+.split-ind {
+    display: inline-block;
+    padding: .1rem .45rem;
+    border-radius: 10px;
+    font-size: .65rem;
+    font-weight: 800;
+}
+
+.si-p {
+    background: #fffbe6;
+    color: #c49800;
+    border: 1px solid #f0d060;
+}
+
+.si-y {
+    background: #f0f6ff;
+    color: #1a5fa8;
+    border: 1px solid #90b8e8;
+}
+
+.si-none {
+    background: #f5f5f5;
+    color: #888;
+    border: 1px solid #ddd;
+}
+
+.split-total {
+    text-align: right;
+    font-size: .8rem;
+    font-weight: 800;
+    color: #1a8a4a;
+    padding: .4rem .7rem 0;
+}
+
+@keyframes ldSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+

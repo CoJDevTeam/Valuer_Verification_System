@@ -162,7 +162,7 @@ namespace Valuer_Verification_System.Services.Valuer
                 Sector = row.Row.Sector ?? "",
                 PropertyDescription = row.Row.PropertyDescription ?? "",
                 MarketValue = row.Row.MarketValue,
-                Category = row.Row.Category ?? "",
+                PropertyCategory = row.Row.Category ?? "",
                 PropertyType = row.Row.PropertyType ?? "",
 
                 AssignedToValuer = row.AssignedToValuer ?? "",
