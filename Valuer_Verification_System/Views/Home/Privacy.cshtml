@@ -1,6 +1,507 @@
 ﻿@{
     ViewData["Title"] = "Privacy Policy";
 }
-<h1>@ViewData["Title"]</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Privacy Policy — VVS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --gold: #e6b000;
+            --gold-d: #c49800;
+            --ink: #111;
+            --ink2: #444;
+            --ink3: #777;
+            --bg: #f2f0eb;
+            --surface: #fff;
+            --border: #e0d9ce;
+            --r: 12px;
+        }
 
-<p>Use this page to detail your site's privacy policy.</p>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg);
+            font-family: 'Poppins',sans-serif;
+            color: var(--ink);
+            font-size: 15px;
+            line-height: 1.7;
+        }
+
+        a {
+            color: var(--gold-d);
+            text-decoration: none;
+        }
+
+            a:hover {
+                text-decoration: underline;
+            }
+
+        /* ── Header bar ── */
+        .top-bar {
+            background: linear-gradient(135deg,#1c1c1c 0%,#2e2200 100%);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .top-bar__brand {
+            font-size: 1rem;
+            font-weight: 800;
+            color: var(--gold);
+            letter-spacing: .04em;
+        }
+
+        .top-bar__sub {
+            font-size: .7rem;
+            color: rgba(255,255,255,.5);
+            letter-spacing: .1em;
+            text-transform: uppercase;
+        }
+
+        .top-bar__back {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            padding: .45rem 1rem;
+            border-radius: 8px;
+            background: rgba(255,255,255,.08);
+            border: 1px solid rgba(255,255,255,.15);
+            color: rgba(255,255,255,.8);
+            font-size: .78rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: .15s;
+        }
+
+            .top-bar__back:hover {
+                background: rgba(255,255,255,.15);
+                text-decoration: none;
+            }
+
+        /* ── Page wrapper ── */
+        .page {
+            max-width: 860px;
+            margin: 2.5rem auto;
+            padding: 0 1.5rem 5rem;
+        }
+
+        /* ── Hero ── */
+        .hero {
+            background: var(--surface);
+            border-radius: var(--r);
+            border: 1.5px solid var(--border);
+            padding: 2.5rem 2.5rem 2rem;
+            margin-bottom: 1.5rem;
+            border-top: 4px solid var(--gold);
+        }
+
+        .hero__eyebrow {
+            font-size: .65rem;
+            font-weight: 700;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            color: var(--gold-d);
+            margin-bottom: .4rem;
+        }
+
+        .hero__title {
+            font-size: 1.9rem;
+            font-weight: 900;
+            line-height: 1.15;
+            margin-bottom: .5rem;
+        }
+
+        .hero__meta {
+            font-size: .78rem;
+            color: var(--ink3);
+        }
+
+        .hero__badge {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            background: #f0faf4;
+            color: #1a8a4a;
+            border: 1px solid #7ecba0;
+            padding: .25rem .75rem;
+            border-radius: 20px;
+            font-size: .72rem;
+            font-weight: 700;
+            margin-top: .75rem;
+        }
+
+        /* ── Cards ── */
+        .card {
+            background: var(--surface);
+            border-radius: var(--r);
+            border: 1.5px solid var(--border);
+            padding: 1.75rem 2rem;
+            margin-bottom: 1.2rem;
+        }
+
+        .card__number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            background: var(--gold);
+            color: var(--ink);
+            font-size: .75rem;
+            font-weight: 800;
+            margin-bottom: .75rem;
+        }
+
+        .card__title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: .6rem;
+            color: var(--ink);
+        }
+
+        .card__body {
+            font-size: .875rem;
+            color: var(--ink2);
+            line-height: 1.75;
+        }
+
+            .card__body p {
+                margin-bottom: .6rem;
+            }
+
+                .card__body p:last-child {
+                    margin-bottom: 0;
+                }
+
+        /* ── Highlight boxes ── */
+        .highlight {
+            background: #fffbe6;
+            border-left: 3px solid var(--gold);
+            border-radius: 0 8px 8px 0;
+            padding: .75rem 1rem;
+            margin: .75rem 0;
+            font-size: .84rem;
+            color: var(--ink2);
+        }
+
+            .highlight strong {
+                color: var(--ink);
+            }
+
+        /* ── Contact card ── */
+        .contact-card {
+            background: linear-gradient(135deg,#1c1c1c,#2e2200);
+            border-radius: var(--r);
+            padding: 1.75rem 2rem;
+            margin-bottom: 1.2rem;
+            color: #fff;
+        }
+
+        .contact-card__title {
+            font-size: .95rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: var(--gold);
+        }
+
+        .contact-row {
+            display: flex;
+            gap: .6rem;
+            align-items: flex-start;
+            margin-bottom: .6rem;
+            font-size: .84rem;
+        }
+
+            .contact-row:last-child {
+                margin-bottom: 0;
+            }
+
+        .contact-ico {
+            font-size: .9rem;
+            flex-shrink: 0;
+            margin-top: .05rem;
+        }
+
+        .contact-lbl {
+            color: rgba(255,255,255,.55);
+            font-size: .72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            display: block;
+            margin-bottom: .1rem;
+        }
+
+        .contact-val {
+            color: #fff;
+            font-weight: 500;
+        }
+
+        /* ── Footer ── */
+        .privacy-footer {
+            text-align: center;
+            font-size: .75rem;
+            color: var(--ink3);
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top navigation bar -->
+    <div class="top-bar">
+        <div>
+            <div class="top-bar__brand">Valuation VS</div>
+            <div class="top-bar__sub">Verification System</div>
+        </div>
+        <a class="top-bar__back" href="/">← Back to Dashboard</a>
+    </div>
+
+    <div class="page">
+
+        <!-- Hero -->
+        <div class="hero">
+            <div class="hero__eyebrow">City of Johannesburg · Valuation Services</div>
+            <div class="hero__title">Privacy Policy</div>
+            <div class="hero__meta">Valuer Verification System (VVS) &nbsp;·&nbsp; Finance: Valuation Services</div>
+            <div class="hero__badge">✓ Internal Use Only — City of Johannesburg Staff</div>
+        </div>
+
+        <!-- 1. Introduction -->
+        <div class="card">
+            <div class="card__number">1</div>
+            <div class="card__title">Introduction</div>
+            <div class="card__body">
+                <p>
+                    The Valuer Verification System (VVS) is an internal application operated by the
+                    City of Johannesburg, Finance: Valuation Services department. This policy explains
+                    how personal and property information is collected, stored, and used within the system.
+                </p>
+                <p>
+                    Use of this system is restricted to authorised City of Johannesburg employees and
+                    constitutes acceptance of this policy.
+                </p>
+            </div>
+        </div>
+
+        <!-- 2. Information Collected -->
+        <div class="card">
+            <div class="card__number">2</div>
+            <div class="card__title">Information Collected</div>
+            <div class="card__body">
+                <p>The VVS collects and processes the following categories of information:</p>
+                <div class="highlight">
+                    <strong>Property Data</strong> — Valuation keys, property descriptions, market values,
+                    legal areas, category codes, erf/portion numbers, and supplementary valuation details
+                    sourced from the LIS extract files.
+                </div>
+                <div class="highlight">
+                    <strong>Owner / Ratepayer Data</strong> — Owner names, postal addresses, physical
+                    addresses, and email addresses as provided in the GV23 LIS extract.
+                </div>
+                <div class="highlight">
+                    <strong>Staff Identity</strong> — Windows Active Directory usernames (e.g. JOBURG\10112533)
+                    and full names from the UserManagement system, used for audit trails, assignments,
+                    and notice compilation records.
+                </div>
+                <div class="highlight">
+                    <strong>Verification Decisions</strong> — Yes/No decisions, comments, and timestamps
+                    recorded by valuers during the verification workflow.
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. How Information Is Used -->
+        <div class="card">
+            <div class="card__number">3</div>
+            <div class="card__title">How Information Is Used</div>
+            <div class="card__body">
+                <p>Information processed in the VVS is used exclusively for the following purposes:</p>
+                <p>
+                    <strong>Valuation verification</strong> — enabling valuers and sector managers to review,
+                    approve, or reject supplementary valuation entries before Section 78 notices are dispatched.
+                </p>
+                <p>
+                    <strong>Notice generation and dispatch</strong> — producing Section 78 PDF notices and
+                    delivering them to property owners via post or email as required by the
+                    Local Government: Municipal Property Rates Act No. 6 of 2004.
+                </p>
+                <p>
+                    <strong>Statistical reporting</strong> — compiling monthly Section 78 statistics
+                    for management reporting to the Municipal Valuer and sector managers.
+                </p>
+                <p>
+                    <strong>Audit and accountability</strong> — recording who uploaded extracts, verified
+                    records, compiled notices, and dispatched communications, with timestamps.
+                </p>
+            </div>
+        </div>
+
+        <!-- 4. Legal Basis -->
+        <div class="card">
+            <div class="card__number">4</div>
+            <div class="card__title">Legal Basis for Processing</div>
+            <div class="card__body">
+                <p>
+                    The processing of personal information in the VVS is authorised under the following legislation:
+                </p>
+                <p>
+                    <strong>Local Government: Municipal Property Rates Act No. 6 of 2004 (MPRA)</strong> —
+                    specifically Sections 49 and 78, which require the City to notify property owners
+                    of supplementary valuations and provide an opportunity to lodge objections.
+                </p>
+                <p>
+                    <strong>Protection of Personal Information Act No. 4 of 2013 (POPIA)</strong> —
+                    personal information is processed on the basis of legal obligation and public interest,
+                    as defined in Section 11 of POPIA.
+                </p>
+                <p>
+                    <strong>Local Government: Municipal Systems Act No. 32 of 2000</strong> —
+                    authorising the City to maintain property records and communicate with ratepayers.
+                </p>
+            </div>
+        </div>
+
+        <!-- 5. Data Storage & Security -->
+        <div class="card">
+            <div class="card__number">5</div>
+            <div class="card__title">Data Storage &amp; Security</div>
+            <div class="card__body">
+                <p>
+                    All data is stored on City of Johannesburg managed SQL Server instances within the
+                    corporate network. No data is transmitted to external third-party services.
+                </p>
+                <p>
+                    Access is controlled via Windows Negotiate (Active Directory) authentication.
+                    Only confirmed users registered in the UserManagement system with an active VVS role
+                    can access the application.
+                </p>
+                <p>
+                    Notice PDFs and email archives are stored on the City's managed file server under
+                    the Property Verifications directory and are accessible only to authorised staff.
+                </p>
+                <div class="highlight">
+                    <strong>Retention:</strong> Data is retained in accordance with the City of Johannesburg's
+                    records retention schedule and the MPRA review period requirements.
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. Data Sharing -->
+        <div class="card">
+            <div class="card__number">6</div>
+            <div class="card__title">Data Sharing</div>
+            <div class="card__body">
+                <p>
+                    Property owner information (name, address, email) is used solely to generate and
+                    dispatch Section 78 notices as required by law. This information is not sold,
+                    shared with commercial third parties, or used for any purpose outside the
+                    valuation process.
+                </p>
+                <p>
+                    Internal sharing is limited to authorised Valuation Services staff — Data Team,
+                    Sector Managers, Valuers, and the Municipal Valuer — each with role-based
+                    access controls within the system.
+                </p>
+            </div>
+        </div>
+
+        <!-- 7. Rights of Data Subjects -->
+        <div class="card">
+            <div class="card__number">7</div>
+            <div class="card__title">Rights of Data Subjects</div>
+            <div class="card__body">
+                <p>
+                    Property owners whose information appears in the system have the right, under POPIA, to:
+                </p>
+                <p>
+                    <strong>Access</strong> — request confirmation of and access to their personal information
+                    held by the City.
+                </p>
+                <p>
+                    <strong>Correction</strong> — request correction of inaccurate, irrelevant, or
+                    outdated information.
+                </p>
+                <p>
+                    <strong>Objection</strong> — object to the processing of their personal information
+                    on reasonable grounds.
+                </p>
+                <p>
+                    Requests should be directed to the City of Johannesburg Information Officer via
+                    the contact details below, or through the official objection portal at
+                    <a href="https://eservices.joburg.org.za" target="_blank">eservices.joburg.org.za</a>.
+                </p>
+            </div>
+        </div>
+
+        <!-- 8. Staff Privacy -->
+        <div class="card">
+            <div class="card__number">8</div>
+            <div class="card__title">Staff Privacy</div>
+            <div class="card__body">
+                <p>
+                    Staff usernames and full names are recorded in audit logs, assignment records,
+                    and compiled-by fields within the system. This information is used exclusively
+                    for accountability and workflow management within the Valuation Services department.
+                </p>
+                <p>
+                    Staff information is not shared outside the Valuation Services department and
+                    is retained only for as long as required to support audit and accountability functions.
+                </p>
+            </div>
+        </div>
+
+        <!-- Contact -->
+        <div class="contact-card">
+            <div class="contact-card__title">📬 Contact — Valuation Services</div>
+            <div class="contact-row">
+                <span class="contact-ico">🏢</span>
+                <div>
+                    <span class="contact-lbl">Office</span>
+                    <span class="contact-val">Jorissen Place, 1st Floor, East Wing, 66 Jorissen Street, Braamfontein</span>
+                </div>
+            </div>
+            <div class="contact-row">
+                <span class="contact-ico">📞</span>
+                <div>
+                    <span class="contact-lbl">Telephone</span>
+                    <span class="contact-val">011-407-6622 &nbsp;|&nbsp; 011-407-6597</span>
+                </div>
+            </div>
+            <div class="contact-row">
+                <span class="contact-ico">✉️</span>
+                <div>
+                    <span class="contact-lbl">Email</span>
+                    <span class="contact-val">valuationenquiries@joburg.org.za</span>
+                </div>
+            </div>
+            <div class="contact-row">
+                <span class="contact-ico">🌐</span>
+                <div>
+                    <span class="contact-lbl">Website</span>
+                    <span class="contact-val"><a href="https://www.joburg.org.za" target="_blank" style="color:var(--gold);">www.joburg.org.za</a></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="privacy-footer">
+            City of Johannesburg · Finance: Valuation Services &nbsp;·&nbsp;
+            Valuer Verification System &nbsp;·&nbsp;
+            Last updated: March 2026
+        </div>
+
+    </div>
+</body>
+</html>

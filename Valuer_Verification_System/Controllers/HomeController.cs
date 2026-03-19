@@ -47,7 +47,7 @@ namespace Valuer_Verification_System.Controllers
         }
 
 
-        [HttpGet("/Privacy")]
+        [HttpGet]
         public async Task<IActionResult> Privacy(CancellationToken ct)
         {
             await SetUserContextAsync(ct);
