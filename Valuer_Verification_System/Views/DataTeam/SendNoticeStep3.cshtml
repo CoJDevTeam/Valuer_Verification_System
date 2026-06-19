@@ -197,7 +197,7 @@
 
       <div class="action-row">
         <button id="btnPrint" class="btn-print" onclick="startPrint()">🖨&nbsp; Print All Notices</button>
-        <a id="btnNext" class="btn-next" href="#">Proceed to Step 4: Confirm &amp; Send →</a>
+                    <a id="btnNext" class="btn-next" href="#">Proceed to QA Preview →</a>
       </div>
 
     </div>
@@ -335,7 +335,7 @@ function showDone(done, total){
   setText('donePath', document.getElementById('folderPath').textContent);
   setProgress(done, total, '— complete —');
   const btn = document.getElementById('btnNext');
-  btn.href = `/DataTeam/SendNotice/Step4/${BATCH_ID}?weekTableName=${encodeURIComponent(WEEK_TABLE)}`;
+              btn.href = `/DataTeam/SendNotice/QA/${BATCH_ID}?weekTableName=${encodeURIComponent(WEEK_TABLE)}`;
   btn.classList.add('show');
 }
 

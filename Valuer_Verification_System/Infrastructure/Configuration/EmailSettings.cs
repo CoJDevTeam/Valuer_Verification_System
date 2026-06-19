@@ -45,5 +45,7 @@
         /// <summary>Rates Act reference shown in notice body</summary>
         public string NoticeActReference { get; set; } =
             "Local Government: Municipal Property Rates Act, 2004 (Act No. 6 of 2004)";
+
+        public string NoticeQaManagerEmail { get; set; } = "";
     }
 }

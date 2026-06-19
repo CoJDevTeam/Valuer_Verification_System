@@ -16,11 +16,22 @@ public interface INotificationService
 public sealed class NotificationService : INotificationService
 {
     private readonly VvsDbContext _db;
-    public NotificationService(VvsDbContext db) => _db = db;
+
+    public NotificationService(VvsDbContext db)
+    {
+        _db = db;
+    }
 
     public async Task<long> TryCreateAsync(Notification n, CancellationToken ct)
     {
+        n.TargetKey = (n.TargetKey ?? "").Trim();
+        n.DedupKey = (n.DedupKey ?? "").Trim();
+
+        if (string.IsNullOrWhiteSpace(n.TargetKey))
+            return 0;
+
         _db.Notifications.Add(n);
+
         try
         {
             await _db.SaveChangesAsync(ct);
@@ -28,47 +39,70 @@ public sealed class NotificationService : INotificationService
         }
         catch (DbUpdateException)
         {
-            // Duplicate based on unique index -> ignore
+            // Duplicate based on unique index -> ignore.
             return 0;
         }
     }
 
     public Task<int> GetUnreadCountForValuerAsync(string valuerKey, CancellationToken ct)
-        => _db.Notifications.AsNoTracking()
-            .CountAsync(x => x.Audience == NotificationAudience.Valuer
-                          && x.TargetKey == valuerKey
-                          && !x.IsRead, ct);
+    {
+        valuerKey = (valuerKey ?? "").Trim();
+
+        return _db.Notifications
+            .AsNoTracking()
+            .CountAsync(x =>
+                x.Audience == NotificationAudience.Valuer &&
+                x.TargetKey == valuerKey &&
+                !x.IsRead,
+                ct);
+    }
 
     public Task<List<Notification>> GetLatestForValuerAsync(string valuerKey, int top, CancellationToken ct)
-        => _db.Notifications.AsNoTracking()
-            .Where(x => x.Audience == NotificationAudience.Valuer && x.TargetKey == valuerKey)
+    {
+        valuerKey = (valuerKey ?? "").Trim();
+
+        return _db.Notifications
+            .AsNoTracking()
+            .Where(x =>
+                x.Audience == NotificationAudience.Valuer &&
+                x.TargetKey == valuerKey)
             .OrderByDescending(x => x.CreatedAtUtc)
             .Take(top)
             .ToListAsync(ct);
+    }
 
     public async Task MarkReadAsync(long id, string valuerKey, CancellationToken ct)
     {
+        valuerKey = (valuerKey ?? "").Trim();
+
         var n = await _db.Notifications.FirstOrDefaultAsync(x =>
             x.Id == id &&
             x.Audience == NotificationAudience.Valuer &&
-            x.TargetKey == valuerKey, ct);
+            x.TargetKey == valuerKey,
+            ct);
 
-        if (n is null || n.IsRead) return;
+        if (n is null || n.IsRead)
+            return;
 
         n.IsRead = true;
         n.ReadAtUtc = DateTime.UtcNow;
+
         await _db.SaveChangesAsync(ct);
     }
 
     public async Task MarkAllReadAsync(string valuerKey, CancellationToken ct)
     {
+        valuerKey = (valuerKey ?? "").Trim();
+
         var notes = await _db.Notifications
-            .Where(x => x.Audience == NotificationAudience.Valuer
-                     && x.TargetKey == valuerKey
-                     && !x.IsRead)
+            .Where(x =>
+                x.Audience == NotificationAudience.Valuer &&
+                x.TargetKey == valuerKey &&
+                !x.IsRead)
             .ToListAsync(ct);
 
-        if (notes.Count == 0) return;
+        if (notes.Count == 0)
+            return;
 
         foreach (var n in notes)
         {

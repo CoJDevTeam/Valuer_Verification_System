@@ -19,6 +19,9 @@ namespace Valuer_Verification_System.Data
         public DbSet<SectorManager> SectorManagers => Set<SectorManager>();
         public DbSet<Section78StatEntry> Section78Stats => Set<Section78StatEntry>();
 
+        public DbSet<NoticeQaApproval> NoticeQaApprovals => Set<NoticeQaApproval>();
+        public DbSet<NoticeQaSample> NoticeQaSamples => Set<NoticeQaSample>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -139,6 +142,30 @@ namespace Valuer_Verification_System.Data
 
             modelBuilder.Entity<Section78StatEntry>()
                 .ToTable("Section78Stats");
+            // ── Notice QA Approval ─────────────────────────────────────────────────
+            modelBuilder.Entity<NoticeQaApproval>()
+                .HasIndex(x => x.BatchId)
+                .IsUnique()
+                .HasDatabaseName("IX_NoticeQaApprovals_BatchId");
+
+            modelBuilder.Entity<NoticeQaApproval>()
+                .HasOne(x => x.Batch)
+                .WithMany()
+                .HasForeignKey(x => x.BatchId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<NoticeQaSample>()
+                .HasIndex(x => new { x.BatchId, x.Category });
+
+            modelBuilder.Entity<NoticeQaSample>()
+                .HasIndex(x => new { x.NoticeQaApprovalId, x.ValuationKey });
+
+            modelBuilder.Entity<NoticeQaSample>()
+                .HasOne(x => x.NoticeQaApproval)
+                .WithMany(x => x.Samples)
+                .HasForeignKey(x => x.NoticeQaApprovalId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
+
     }
 }

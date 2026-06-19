@@ -604,6 +604,148 @@ namespace Valuer_Verification_System.Migrations
                     b.ToTable("ExtractRows");
                 });
 
+            modelBuilder.Entity("Valuer_Verification_System.Models.Data.NoticeQaApproval", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ApprovedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("ApprovedByName")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("BatchId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Comments")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime?>("DataManagerEmailSentAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsApproved")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PrintFolder")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("nvarchar(1024)");
+
+                    b.Property<int>("TotalPrintedNotices")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalSampled")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("WeekTableName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_NoticeQaApprovals_BatchId");
+
+                    b.ToTable("NoticeQaApprovals");
+                });
+
+            modelBuilder.Entity("Valuer_Verification_System.Models.Data.NoticeQaSample", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BatchId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<int>("CategorySampleSize")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CategoryTotal")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<int>("NoticeQaApprovalId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("PdfExists")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PdfPath")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("nvarchar(1024)");
+
+                    b.Property<string>("PropertyDescription")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<int>("SampleNo")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("ValuationKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId", "Category");
+
+                    b.HasIndex("NoticeQaApprovalId", "ValuationKey");
+
+                    b.ToTable("NoticeQaSamples");
+                });
+
             modelBuilder.Entity("Valuer_Verification_System.Models.Data.Notification", b =>
                 {
                     b.Property<long>("Id")
@@ -996,6 +1138,28 @@ namespace Valuer_Verification_System.Migrations
                     b.Navigation("Batch");
                 });
 
+            modelBuilder.Entity("Valuer_Verification_System.Models.Data.NoticeQaApproval", b =>
+                {
+                    b.HasOne("Valuer_Verification_System.Models.Data.Batch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+                });
+
+            modelBuilder.Entity("Valuer_Verification_System.Models.Data.NoticeQaSample", b =>
+                {
+                    b.HasOne("Valuer_Verification_System.Models.Data.NoticeQaApproval", "NoticeQaApproval")
+                        .WithMany("Samples")
+                        .HasForeignKey("NoticeQaApprovalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("NoticeQaApproval");
+                });
+
             modelBuilder.Entity("Valuer_Verification_System.Models.Data.StatsFile", b =>
                 {
                     b.HasOne("Valuer_Verification_System.Models.Data.Batch", "Batch")
@@ -1027,6 +1191,11 @@ namespace Valuer_Verification_System.Migrations
             modelBuilder.Entity("Valuer_Verification_System.Models.Data.ExtractRow", b =>
                 {
                     b.Navigation("Assignment");
+                });
+
+            modelBuilder.Entity("Valuer_Verification_System.Models.Data.NoticeQaApproval", b =>
+                {
+                    b.Navigation("Samples");
                 });
 
             modelBuilder.Entity("Valuer_Verification_System.Models.Data.WeekWindow", b =>

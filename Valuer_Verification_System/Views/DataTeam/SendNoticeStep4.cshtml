@@ -226,6 +226,27 @@ async function onBatchChange(id) {
     if (!r.ok) throw new Error(r.status);
     const d = await r.json();
 
+                if (!d.qaApproved) {
+                document.getElementById('btnSend').disabled = true;
+
+                appendErrors([
+                    'Quality assurance has not been approved. Please complete the 5% QA preview before sending.'
+                ]);
+
+                if (d.qaUrl) {
+                    const log = document.getElementById('errLog');
+                    const a = document.createElement('a');
+                    a.href = d.qaUrl;
+                    a.textContent = 'Open QA Preview';
+                    a.style.display = 'inline-block';
+                    a.style.marginTop = '10px';
+                    a.style.fontWeight = '800';
+                    log.appendChild(a);
+                }
+
+                return;
+            }
+
     WEEK_TABLE = d.weekTableName;
     TOTAL      = d.totalNotices;
 
@@ -248,7 +269,8 @@ async function onBatchChange(id) {
       document.getElementById('btnSend').disabled = true;
       document.getElementById('btnDash').classList.add('show');
     } else {
-      document.getElementById('btnSend').disabled = false;
+                     document.getElementById('btnSend').disabled = !d.qaApproved;
+      //document.getElementById('btnSend').disabled = false;
     }
 
     if (d.emailHtml) renderEmail(d.emailHtml);

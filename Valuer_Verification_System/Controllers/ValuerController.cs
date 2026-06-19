@@ -84,11 +84,12 @@ namespace Valuer_Verification_System.Controllers
                 Rows = rows.Select(r => new ValuerInboxVm.RowVm
                 {
                     ExtractRowId = r.Id,
+                    Premise_ID=r.PremiseId,
                     ValuationKey = r.ValuationKey,
                     Sector = r.Sector,
-                    PropertyDescription = r.CatDesc,
+                    PropertyDescription = r.PropertyDesc,
                     MarketValue = r.MarketValue,
-                    Category = r.Category,
+                    Category = r.CatDesc,
                     PropertyType = r.PropertyType,
                     Decision = r.Decision,
                     DecisionAtUtc = r.DecisionAtUtc,

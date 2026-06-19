@@ -1,0 +1,362 @@
+﻿@model Valuer_Verification_System.Models.ViewModels.NoticeQaVm
+
+@{
+    ViewData["Title"] = "Send Notices – Quality Assurance";
+}
+
+<link href="~/css/DataTeam/SendNotice.css" rel="stylesheet" />
+
+<style>
+    .qa-page {
+        padding: 24px;
+        font-family: Inter, Segoe UI, Arial, sans-serif;
+        background: #f5f6f8;
+        min-height: 100vh;
+    }
+
+    .qa-header {
+        background: #111827;
+        color: white;
+        padding: 22px 26px;
+        border-radius: 14px;
+        margin-bottom: 20px;
+    }
+
+    .qa-header h1 {
+        margin: 0;
+        font-size: 26px;
+        font-weight: 800;
+    }
+
+    .qa-header p {
+        margin: 8px 0 0;
+        color: #d1d5db;
+    }
+
+    .qa-alert {
+        padding: 14px 16px;
+        border-radius: 10px;
+        margin-bottom: 16px;
+        font-weight: 700;
+    }
+
+    .qa-alert.error {
+        background: #fee2e2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+    }
+
+    .qa-alert.success {
+        background: #dcfce7;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+    }
+
+    .qa-summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 20px;
+    }
+
+    .qa-stat {
+        background: white;
+        border-radius: 12px;
+        padding: 16px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .qa-stat label {
+        display: block;
+        font-size: 12px;
+        color: #6b7280;
+        text-transform: uppercase;
+        font-weight: 800;
+        letter-spacing: .05em;
+    }
+
+    .qa-stat strong {
+        display: block;
+        margin-top: 8px;
+        font-size: 22px;
+        color: #111827;
+    }
+
+    .qa-category {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        margin-bottom: 20px;
+        overflow: hidden;
+    }
+
+    .qa-category-hd {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 18px;
+        background: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .qa-category-hd h2 {
+        margin: 0;
+        font-size: 18px;
+        color: #111827;
+    }
+
+    .qa-chip {
+        background: #111827;
+        color: white;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 800;
+    }
+
+    .qa-sample {
+        padding: 18px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .qa-sample:last-child {
+        border-bottom: none;
+    }
+
+    .qa-sample-title {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .qa-sample-title strong {
+        font-size: 15px;
+        color: #111827;
+    }
+
+    .qa-sample-title span {
+        color: #6b7280;
+        font-size: 13px;
+    }
+
+    .qa-pdf-frame {
+        width: 100%;
+        height: 620px;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        background: white;
+    }
+
+    .qa-missing {
+        background: #fef2f2;
+        color: #991b1b;
+        padding: 16px;
+        border-radius: 10px;
+        font-weight: 800;
+    }
+
+    .qa-approve {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 20px;
+        margin-top: 24px;
+    }
+
+    .qa-approve textarea {
+        width: 100%;
+        min-height: 90px;
+        resize: vertical;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        padding: 12px;
+        font-family: inherit;
+    }
+
+    .qa-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 16px;
+    }
+
+    .qa-btn {
+        border: none;
+        border-radius: 10px;
+        padding: 12px 18px;
+        font-weight: 900;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .qa-btn.approve {
+        background: #16a34a;
+        color: white;
+    }
+
+    .qa-btn.next {
+        background: #111827;
+        color: white;
+    }
+
+    .qa-btn.back {
+        background: #e5e7eb;
+        color: #111827;
+    }
+
+    .qa-approved-box {
+        background: #ecfdf5;
+        border: 1px solid #bbf7d0;
+        color: #166534;
+        border-radius: 12px;
+        padding: 16px;
+        font-weight: 800;
+        margin-bottom: 20px;
+    }
+</style>
+
+<div class="qa-page">
+
+    <div class="qa-header">
+        <h1>Step 3.5: Mandatory Notice Quality Assurance</h1>
+        <p>
+            Review 5% of printed notices per available category before emails can be sent.
+            Sending is blocked until this QA is approved.
+        </p>
+    </div>
+
+    @if (TempData["QaError"] is not null)
+    {
+        <div class="qa-alert error">@TempData["QaError"]</div>
+    }
+
+    @if (TempData["QaSuccess"] is not null)
+    {
+        <div class="qa-alert success">@TempData["QaSuccess"]</div>
+    }
+
+    @if (Model.IsApproved)
+    {
+        <div class="qa-approved-box">
+            QA already approved by @Model.ApprovedByName on @Model.ApprovedAtUtc?.ToString("dd MMM yyyy HH:mm") UTC.
+        </div>
+    }
+
+    <div class="qa-summary">
+        <div class="qa-stat">
+            <label>Batch</label>
+            <strong>@Model.BatchName</strong>
+        </div>
+
+        <div class="qa-stat">
+            <label>Week Table</label>
+            <strong style="font-size:13px;word-break:break-all;">@Model.WeekTableName</strong>
+        </div>
+
+        <div class="qa-stat">
+            <label>Total Printed</label>
+            <strong>@Model.TotalPrintedNotices</strong>
+        </div>
+
+        <div class="qa-stat">
+            <label>QA Sample</label>
+            <strong>@Model.TotalSampled</strong>
+        </div>
+    </div>
+
+    <div class="qa-stat" style="margin-bottom:20px;">
+        <label>Print Folder</label>
+        <strong style="font-size:13px;word-break:break-all;">@Model.PrintFolder</strong>
+    </div>
+
+    @foreach (var cat in Model.Categories)
+    {
+        <div class="qa-category">
+            <div class="qa-category-hd">
+                <h2>@cat.Category</h2>
+                <span class="qa-chip">
+                    @cat.SampleSize sample(s) from @cat.TotalNotices notice(s)
+                </span>
+            </div>
+
+            @foreach (var sample in cat.Samples)
+            {
+                <div class="qa-sample">
+                    <div class="qa-sample-title">
+                        <div>
+                            <strong>#@sample.SampleNo — @sample.PropertyDescription</strong><br />
+                            <span>Valuation Key: @sample.ValuationKey</span>
+                        </div>
+
+                        <span>@sample.Category</span>
+                    </div>
+
+                    @if (sample.PdfExists)
+                    {
+                        <iframe class="qa-pdf-frame"
+                                src="/DataTeam/SendNotice/QaPdf/@sample.Id">
+                        </iframe>
+                    }
+                    else
+                    {
+                        <div class="qa-missing">
+                            PDF not found for this sample. Reprint the notices before approving QA.
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    <div class="qa-approve">
+        @if (!Model.IsApproved)
+        {
+            <form method="post" action="/DataTeam/SendNotice/ApproveQa">
+                @Html.AntiForgeryToken()
+
+                <input type="hidden" name="BatchId" value="@Model.BatchId" />
+                <input type="hidden" name="WeekTableName" value="@Model.WeekTableName" />
+
+                <label style="font-weight:800;display:block;margin-bottom:8px;">
+                    QA Comments
+                </label>
+
+                <textarea name="Comments"
+                          placeholder="Example: Checked 5% of printed notices by category. Layout, owner details, category, market value, extent, and effective date confirmed."></textarea>
+
+                <div style="margin-top:14px;">
+                    <label style="font-weight:800;">
+                        <input type="checkbox" required />
+                        I confirm that the sampled printed notices were checked and approved.
+                    </label>
+                </div>
+
+                <div class="qa-actions">
+                    <button type="submit" class="qa-btn approve">
+                        ✅ Approve QA and Notify Data Manager
+                    </button>
+
+                    <a class="qa-btn back"
+                           href="/DataTeam/SendNotice/Step3/@Model.BatchId">
+                        ← Back to Print Step
+                    </a>
+                </div>
+            </form>
+        }
+        else
+        {
+            <div class="qa-actions">
+                <a class="qa-btn next"
+                       href="/DataTeam/SendNotice/Step4/@Model.BatchId?weekTableName=@Uri.EscapeDataString(Model.WeekTableName)">
+                    Proceed to Step 4: Send Emails →
+                </a>
+
+                <a class="qa-btn back"
+                       href="/DataTeam/SendNotice/Step3/@Model.BatchId">
+                    ← Back to Print Step
+                </a>
+            </div>
+        }
+    </div>
+</div>

@@ -67,6 +67,8 @@ namespace Valuer_Verification_System.Models.ViewModels
             public string? DecisionComment { get; set; }
 
             public string AssignedToValuer { get; set; } = "";
+
+            public string Premise_ID { get; set; }
         }
     }
 }

@@ -24,6 +24,7 @@ namespace Valuer_Verification_System.Controllers
         private readonly INoticeSendService _send;
         private readonly IWebHostEnvironment _env;
         private readonly EmailSettings _emailCfg;
+        private readonly INoticeQaService _qa;
 
         public DataTeamController(
             VvsDbContext db,
@@ -34,7 +35,7 @@ namespace Valuer_Verification_System.Controllers
             INoticePrintService print,
             INoticeSendService send,
             IWebHostEnvironment env,
-            IOptions<EmailSettings> emailCfg)
+            IOptions<EmailSettings> emailCfg,INoticeQaService qa)
         {
             _db = db;
             _calc = calc;
@@ -45,6 +46,7 @@ namespace Valuer_Verification_System.Controllers
             _send = send;
             _env = env;
             _emailCfg = emailCfg.Value;
+            _qa = qa;
         }
 
         // ═════════════════════════════════════════════════════════════════════
@@ -237,13 +239,96 @@ namespace Valuer_Verification_System.Controllers
         }
 
         // ═════════════════════════════════════════════════════════════════════
+        // STEP 3.5 – Mandatory Notice QA
+        // ═════════════════════════════════════════════════════════════════════
+
+        [HttpGet("/DataTeam/SendNotice/QA/{batchId:int}")]
+        public async Task<IActionResult> NoticeQa(
+            int batchId,
+            [FromQuery] string? weekTableName,
+            CancellationToken ct)
+        {
+            var vm = await _qa.BuildQaAsync(batchId, weekTableName, ct);
+            return View("SendNoticeQa", vm);
+        }
+
+        [HttpGet("/DataTeam/SendNotice/QaPdf/{sampleId:int}")]
+        public async Task<IActionResult> QaPdf(int sampleId, CancellationToken ct)
+        {
+            var path = await _qa.GetSamplePdfPathAsync(sampleId, ct);
+
+            if (string.IsNullOrWhiteSpace(path))
+                return Content("PDF file not found for this QA sample.", "text/plain");
+
+            return PhysicalFile(path, "application/pdf", enableRangeProcessing: true);
+        }
+
+        [HttpPost("/DataTeam/SendNotice/ApproveQa")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ApproveQa(ApproveQaRequest req, CancellationToken ct)
+        {
+            if (req is null || req.BatchId <= 0)
+                return BadRequest();
+
+            try
+            {
+                await _qa.ApproveAsync(req.BatchId, req.Comments, ct);
+
+                TempData["QaSuccess"] = "Quality assurance approved. You may now send the notices.";
+
+                return RedirectToAction(
+                    nameof(ConfirmSendPage),
+                    new
+                    {
+                        batchId = req.BatchId,
+                        weekTableName = req.WeekTableName
+                    });
+            }
+            catch (Exception ex)
+            {
+                TempData["QaError"] = ex.Message;
+
+                return RedirectToAction(
+                    nameof(NoticeQa),
+                    new
+                    {
+                        batchId = req.BatchId,
+                        weekTableName = req.WeekTableName
+                    });
+            }
+        }
+        public sealed class ApproveQaRequest
+        {
+            public int BatchId { get; set; }
+            public string WeekTableName { get; set; } = "";
+            public string? Comments { get; set; }
+        }
+        // ═════════════════════════════════════════════════════════════════════
         // ═════════════════════════════════════════════════════════════════════
         // STEP 4 – Send Notices
         // ═════════════════════════════════════════════════════════════════════
 
         [HttpGet("/DataTeam/SendNotice/Step4/{batchId:int}")]
-        public async Task<IActionResult> ConfirmSendPage(int batchId, [FromQuery] string? weekTableName, CancellationToken ct)
+        public async Task<IActionResult> ConfirmSendPage(
+     int batchId,
+     [FromQuery] string? weekTableName,
+     CancellationToken ct)
         {
+            var qaApproved = await _qa.IsApprovedAsync(batchId, ct);
+
+            if (!qaApproved)
+            {
+                TempData["QaError"] = "Quality assurance must be approved before notices can be sent.";
+
+                return RedirectToAction(
+                    nameof(NoticeQa),
+                    new
+                    {
+                        batchId,
+                        weekTableName
+                    });
+            }
+
             var vm = await BuildSendVmAsync(batchId, ct);
             return View("SendNoticeStep4", vm);
         }
@@ -275,6 +360,9 @@ namespace Valuer_Verification_System.Controllers
                 actReference: _emailCfg.NoticeActReference,
                 subjectPrefix: _emailCfg.NoticeSubjectPrefix);
 
+            var qaApproval = await _qa.GetApprovalAsync(batchId, ct);
+
+
             return Json(new
             {
                 batchId,
@@ -291,7 +379,11 @@ namespace Valuer_Verification_System.Controllers
                 emailHtml,
                 alreadySent = batch.NoticesSent,
                 sentAt = batch.NoticesSentAtUtc?.ToString("dd MMMM yyyy HH:mm"),
-                sentBy = batch.NoticesSentBy
+                sentBy = batch.NoticesSentBy,
+                qaApproved = qaApproval?.IsApproved ?? false,
+                qaApprovedBy = qaApproval?.ApprovedByName,
+                qaApprovedAt = qaApproval?.ApprovedAtUtc?.ToString("dd MMMM yyyy HH:mm"),
+                qaUrl = Url.Action(nameof(NoticeQa), new { batchId, weekTableName = tableName }),
             });
         }
 

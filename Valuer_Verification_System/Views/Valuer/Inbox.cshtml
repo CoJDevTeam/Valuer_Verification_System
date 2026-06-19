@@ -156,12 +156,12 @@
             <table id="inboxTable" class="dataTable" style="width:100%">
                 <thead>
                     <tr>
-                        <th>Sector</th>
                         <th>Valuation Key</th>
-                        <th>Description</th>
+                        <th>Premise ID</th>
+                        <th>Property Description</th>
                         <th>Market Value</th>
                         <th>Category</th>
-                        <th>Type</th>
+                        
                         <th>Status</th>
                         <th style="width:210px;">Actions</th>
                     </tr>
@@ -170,12 +170,13 @@
                     @foreach (var r in Model.Rows)
                     {
                         <tr>
-                            <td>@r.Sector</td>
-                            <td><span class="vkey">@r.ValuationKey</span></td>
+                           @*  <td>@r.Sector</td> *@
+                            <td>@r.ValuationKey</td>
+                            <td><span class="vkey">@r.Premise_ID</span></td>
                             <td><span class="prop-desc" title="@r.PropertyDescription">@r.PropertyDescription</span></td>
                             <td data-order="@(r.MarketValue ?? 0)">@(r.MarketValue.HasValue ? $"R {r.MarketValue.Value:N2}" : "—")</td>
                             <td>@r.Category</td>
-                            <td>@r.PropertyType</td>
+                            
                             <td>
                                 @if (r.Decision == VerificationDecision.Pending)
                                 {

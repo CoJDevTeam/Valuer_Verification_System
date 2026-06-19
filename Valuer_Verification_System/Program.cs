@@ -5,6 +5,7 @@ using Valuer_Verification_System.Infrastructure.Configuration;
 using Valuer_Verification_System.Infrastructure.Configuration.Email;
 using Valuer_Verification_System.Services.Notice;
 using Valuer_Verification_System.Services.Permissions;
+using Valuer_Verification_System.Services.Stats;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -64,21 +65,24 @@ builder.Services.AddScoped<Valuer_Verification_System.Services.Manager.IManagerD
 
 
 //---------------------------------Notice ---------------------------------
-builder.Services.AddScoped<Valuer_Verification_System.Services.Notice.INoticeGuardService,
-    Valuer_Verification_System.Services.Notice.NoticeGuardService>();
+builder.Services.AddScoped<INoticeGuardService,NoticeGuardService>();
 
 builder.Services.AddScoped<INoticeCleaningService, NoticeCleaningService>();
-builder.Services.AddScoped<INoticePdfService, NoticePdfService>();
-builder.Services.AddScoped<INoticePrintService, NoticePrintService>();
-builder.Services.AddScoped<Valuer_Verification_System.Services.Stats.ISection78StatsService,
-    Valuer_Verification_System.Services.Stats.Section78StatsService>();
-builder.Services.AddScoped<Valuer_Verification_System.Services.Stats.ISection78StatsService,
-    Valuer_Verification_System.Services.Stats.Section78StatsService>();
-builder.Services.AddScoped<Valuer_Verification_System.Services.Notice.INoticeSendService,
-    Valuer_Verification_System.Services.Notice.NoticeSendService>();
 
-builder.Services.AddScoped<Valuer_Verification_System.Services.Stats.IStatsExportService,
-    Valuer_Verification_System.Services.Stats.StatsExportService>();
+builder.Services.AddScoped<INoticePdfService, NoticePdfService>();
+
+builder.Services.AddScoped<INoticePrintService, NoticePrintService>();
+
+builder.Services.AddScoped<INoticeSendService, NoticeSendService>();
+
+builder.Services.AddScoped<INoticeQaService,NoticeQaService>();
+//---------------------------------Stats ---------------------------------
+builder.Services.AddScoped<ISection78StatsService,Section78StatsService>();
+
+builder.Services.AddScoped<ISection78StatsService,Section78StatsService>();
+
+
+builder.Services.AddScoped<IStatsExportService,StatsExportService>();
 
 //------------------------------Home--------------------------------------------
 
@@ -94,8 +98,6 @@ builder.Services.AddScoped<Valuer_Verification_System.Services.Notifications.INo
 
 builder.Services.AddHostedService<Valuer_Verification_System.Services.Notifications.NotificationHostedService>();
 
-builder.Services.AddScoped<Valuer_Verification_System.Services.Notifications.INotificationService,
-    Valuer_Verification_System.Services.Notifications.NotificationService>();
 // ── NEW: IHttpContextAccessor (required by UserService) ───────────────────────
 builder.Services.AddHttpContextAccessor();
 
