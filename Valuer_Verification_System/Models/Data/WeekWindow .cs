@@ -26,6 +26,38 @@ namespace Valuer_Verification_System.Models.Data
         public string? Notes { get; set; }
 
         public List<Batch> Batches { get; set; } = new();
+
+        // Folder extract job tracking
+        public DateTime? ExtractCleanedAtUtc { get; set; }
+
+        [MaxLength(128)]
+        public string? ExtractCleanedBy { get; set; }
+
+        [MaxLength(255)]
+        public string? CleanWeekTableName { get; set; }
+
+        [MaxLength(50)]
+        public string? ExtractCleaningStatus { get; set; }
+
+        public string? ExtractCleaningMessage { get; set; }
+
+        // Email to QA + Project Manager after cleaning
+        public DateTime? ProjectManagerNotifiedAtUtc { get; set; }
+
+        [MaxLength(320)]
+        public string? ProjectManagerNotifiedTo { get; set; }
+
+        [MaxLength(320)]
+        public string? QaNotifiedTo { get; set; }
+
+        // Project Manager approval before notifying Sector Managers
+        public DateTime? ProjectManagerApprovedAtUtc { get; set; }
+
+        [MaxLength(128)]
+        public string? ProjectManagerApprovedBy { get; set; }
+
+        [MaxLength(1000)]
+        public string? ProjectManagerApprovalComment { get; set; }
     }
 
     public sealed class Batch : EntityBase
@@ -54,6 +86,16 @@ namespace Valuer_Verification_System.Models.Data
         public bool NoticesSent { get; set; } = false;
         public DateTime? NoticesSentAtUtc { get; set; }
         public string? NoticesSentBy { get; set; }
+
+        public DateTime? ExtractCleanedAtUtc { get; set; }  
+        public string? ExtractCleaningStatus { get; set; }
+        public string? ExtractCleaningMessage { get; set; } 
+        public string? ExtractCleanedBy { get; set; }
+        public string? CleanWeekTableName { get; set; }
+        public DateTime? ProjectManagerNotifiedAtUtc { get; set; }
+        public string? ProjectManagerNotifiedTo { get; set; }
+        public string? QaNotifiedTo { get; set; }
+       
 
     }
 

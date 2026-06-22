@@ -4,19 +4,244 @@ using Valuer_Verification_System.Models.Data;
 
 namespace Valuer_Verification_System.Services.Upload
 {
-    /// <summary>
-    /// Parses the weekly LIS extract XLS file into <see cref="ExtractRow"/> objects.
-    ///
-    /// Key notes:
-    ///   • MARKET_VALUE and RATEABLE_AREA are stored as TEXT strings in the XLS
-    ///     (e.g. "8245000.00").  We parse with InvariantCulture so the dot is always
-    ///     treated as the decimal separator, regardless of the server's OS locale.
-    ///   • Column look-up is case-insensitive.
-    ///   • GetStringAny() tries alternate header names to handle minor naming differences
-    ///     between export versions.
-    /// </summary>
+  
     public static class ExcelExtractParser
     {
+
+        public static List<ExtractRow> ParseExtractRowsFromFile(string path)
+        {
+            var ext = Path.GetExtension(path).ToLowerInvariant();
+
+            if (ext == ".csv")
+            {
+                using var stream = File.OpenRead(path);
+                return ParseCsvExtractRows(stream);
+            }
+
+            using var excelStream = File.OpenRead(path);
+            return ParseExtractRows(excelStream);
+        }
+        private static List<ExtractRow> ParseCsvExtractRows(Stream csvStream)
+        {
+            using var parser = new Microsoft.VisualBasic.FileIO.TextFieldParser(csvStream);
+
+            parser.TextFieldType = Microsoft.VisualBasic.FileIO.FieldType.Delimited;
+            parser.SetDelimiters(",");
+            parser.HasFieldsEnclosedInQuotes = true;
+
+            var rows = new List<ExtractRow>();
+
+            if (parser.EndOfData)
+                return rows;
+
+            var headers = parser.ReadFields() ?? Array.Empty<string>();
+
+            var header = headers
+                .Select((name, index) => new { name = (name ?? "").Trim(), index })
+                .Where(x => !string.IsNullOrWhiteSpace(x.name))
+                .GroupBy(x => x.name, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().index, StringComparer.OrdinalIgnoreCase);
+
+            while (!parser.EndOfData)
+            {
+                var fields = parser.ReadFields() ?? Array.Empty<string>();
+
+                if (fields.All(string.IsNullOrWhiteSpace))
+                    continue;
+
+                var g = new CsvRowGetter(fields, header);
+
+                var valuationKey = g.GetString("VALUATION_KEY");
+
+                if (string.IsNullOrWhiteSpace(valuationKey))
+                    continue;
+
+                var r = new ExtractRow
+                {
+                    ExtractionDate = g.GetDateOnly("EXTRACTION_DATE"),
+                    TownNameDesc = g.GetString("TOWN_NAME_DESC"),
+                    PropertyId = g.GetString("PROPERTY_ID"),
+                    SgId = g.GetString("SG_ID"),
+                    StandNo = g.GetString("STAND_NO"),
+                    StatusSubtype = g.GetString("STATUS_SUBTYPE"),
+
+                    UnitKey = g.GetString("UNIT_KEY"),
+                    UnitType = g.GetString("UNIT_TYPE"),
+                    UnitNo = g.GetString("UNIT_NO"),
+                    LegalArea = g.GetString("LEGAL_AREA"),
+
+                    UnitRightsKey = g.GetString("UNIT_RIGHTS_KEY"),
+                    RightsPremise = g.GetString("RIGHTS_PREMISE"),
+                    RightsUnitType = g.GetString("RIGHTS_UNIT_TYPE"),
+                    RightDescription = g.GetString("RIGHT_DESCRIPTION"),
+                    RightsPremiseSize = g.GetDecimal("RIGHTS_PREMISE_SIZE"),
+                    RightsStatus = g.GetString("RIGHTS_STATUS"),
+
+                    ValuationKey = valuationKey.Trim(),
+                    ValuationKey2 = g.GetString("VALUATION_KEY2"),
+                    ValuationRollKey = g.GetString("VALUATION_ROLL_KEY"),
+                    ValuationType = g.GetString("VALUATION_TYPE"),
+                    ValuationDate = g.GetDateOnly("VALUATION_DATE"),
+                    WefDate = g.GetDateOnly("WEF_DATE"),
+                    StatusCode = g.GetString("STATUS_CODE"),
+
+                    RateableArea = g.GetDecimal("RATEABLE_AREA"),
+                    MarketValue = g.GetDecimal("MARKET_VALUE"),
+
+                    ValuationSplitNo = g.GetString("VALUATION_SPLIT_NO"),
+                    ValuationSplitInd = g.GetString("VALUATION_SPLIT_IND"),
+
+                    CatCode = g.GetString("CAT_CODE"),
+                    CatDesc = g.GetString("CAT_DESC"),
+
+                    Sector = g.GetString("SECTOR"),
+                    Valuer = g.GetString("VALUER"),
+
+                    SendNotice = g.GetStringAny(
+                        "SendNotices Y/N",
+                        "SEND NOTICE?",
+                        "SEND NOTICE",
+                        "SEND_NOTICE",
+                        "SENDNOTICE"),
+
+                    Erf = g.GetString("ERF"),
+                    Ptn = g.GetString("PTN"),
+                    Re = g.GetString("RE"),
+                    PremiseId = g.GetString("PREMISE_ID"),
+
+                    NoticeOpen = g.GetString("NOTICE_OPEN"),
+                    ExtractPeriod = g.GetString("EXTRACT_PERIOD"),
+                    LetterDate = g.GetDateOnly("LETTER_DATE"),
+                    ReviewOpenDate = g.GetDateOnly("REVIEW_OPEN_DATE"),
+                    ReviewCloseDate = g.GetDateOnly("REVIEW_CLOSE_DATE"),
+                    ReviewOpen = g.GetString("REVIEW_OPEN"),
+                    ReviewCloseDate2 = g.GetDateOnly("REVIEW_CLOSE_DATE2"),
+                    ReviewOpenDate2 = g.GetDateOnly("REVIEW_OPEN_DATE2"),
+
+                    SchemeName = g.GetStringAny("Scheme_Name", "SCHEME_NAME"),
+                    SchemeNo = g.GetStringAny("Scheme_No", "SCHEME_NO"),
+                    SchemeYear = g.GetStringAny("Scheme_Year", "SCHEME_YEAR"),
+                    SchemeNameDesc = g.GetString("SCHEME_NAME_DESC"),
+                    SchemeNumber = g.GetString("SCHEME_NUMBER"),
+
+                    StPropertyDescription = g.GetString("ST_PROPERTY_DESCRIPTION"),
+                    PropertyDescription_ = g.GetString("PROPERTY_DESCRIPTION_"),
+                    PropertyDesc = g.GetStringAny("PROPERTY_DESC", "PROPERTY_DESCRIPTION"),
+                    PropertyCategory = g.GetString("PROPERTY_CATEGORY"),
+                    LeasePropertyDesc = g.GetString("LEASE_PROP_DESC"),
+
+                    OwnerName = g.GetStringAny("OwnerS_Name", "OWNER_NAME"),
+                    Addr1 = g.GetString("ADDR1"),
+                    Addr2 = g.GetString("ADDR2"),
+                    Addr3 = g.GetString("ADDR3"),
+                    Addr4 = g.GetString("ADDR4"),
+                    Addr5 = g.GetString("ADDR5"),
+                    PremiseAddress = g.GetString("PREMISE_ADDRESS"),
+                    LisStreetAddress = g.GetString("LIS_STREET_ADDRESS"),
+                    PhysicalAddress = g.GetString("PHYSICAL_ADDRESS"),
+                    StAddr2Postal = g.GetString("ST_ADDR2_POSTAL"),
+                    UnitNoChar = g.GetString("UNIT_NO_CHAR"),
+
+                    EmailInd = g.GetString("EMAIL_IND"),
+                    EmailAddr = g.GetString("EMAIL_ADDR"),
+
+                    CojOwned = g.GetString("COJ_OWNED"),
+                    SapData = g.GetString("SAP_DATA"),
+                    Usable = g.GetString("USABLE"),
+                    SplitPost = g.GetString("SPLIT_POST"),
+
+                    RemarkDesc = g.GetString("REMARK_DESC"),
+                    Remarks = g.GetString("REMARKS"),
+                    Extent = g.GetString("EXTENT"),
+                    EStatus = g.GetString("eSTATUS"),
+                    LeaseUnitNo = g.GetString("LEASE_UNIT_NO"),
+
+                    Decision = VerificationDecision.Pending
+                };
+
+                rows.Add(r);
+            }
+
+            return rows;
+        }
+        private sealed class CsvRowGetter
+        {
+            private readonly string[] _fields;
+            private readonly Dictionary<string, int> _h;
+
+            public CsvRowGetter(string[] fields, Dictionary<string, int> h)
+            {
+                _fields = fields;
+                _h = h;
+            }
+
+            public string? GetString(string col)
+            {
+                if (!_h.TryGetValue(col, out var idx))
+                    return null;
+
+                if (idx < 0 || idx >= _fields.Length)
+                    return null;
+
+                var value = _fields[idx];
+
+                return string.IsNullOrWhiteSpace(value)
+                    ? null
+                    : value.Trim();
+            }
+
+            public string? GetStringAny(params string[] cols)
+            {
+                foreach (var col in cols)
+                {
+                    var value = GetString(col);
+
+                    if (!string.IsNullOrWhiteSpace(value))
+                        return value;
+                }
+
+                return null;
+            }
+
+            public decimal? GetDecimal(string col)
+            {
+                var value = GetString(col);
+
+                if (string.IsNullOrWhiteSpace(value))
+                    return null;
+
+                value = value.Replace(",", "")
+                             .Replace(" ", "")
+                             .TrimStart('R', 'r');
+
+                return decimal.TryParse(
+                    value,
+                    NumberStyles.Any,
+                    CultureInfo.InvariantCulture,
+                    out var result)
+                    ? result
+                    : null;
+            }
+
+            public DateOnly? GetDateOnly(string col)
+            {
+                var value = GetString(col);
+
+                if (string.IsNullOrWhiteSpace(value))
+                    return null;
+
+                if (DateTime.TryParse(
+                        value,
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.None,
+                        out var dt))
+                {
+                    return DateOnly.FromDateTime(dt);
+                }
+
+                return null;
+            }
+        }
         public static List<ExtractRow> ParseExtractRows(Stream excelStream)
         {
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);

@@ -73,6 +73,14 @@ namespace Valuer_Verification_System.Data
                 .HasIndex(x => new { x.BatchId, x.Valuer });
 
             modelBuilder.Entity<ExtractRow>()
+    .HasIndex(x => new { x.BatchId, x.Username })
+    .HasDatabaseName("IX_ExtractRows_BatchId_Username");
+
+            modelBuilder.Entity<ExtractRow>()
+                .HasIndex(x => new { x.SourceFileHashSha256, x.SourceRowNumber })
+                .HasDatabaseName("IX_ExtractRows_SourceFile_RowNumber");
+
+            modelBuilder.Entity<ExtractRow>()
                 .Property(x => x.MarketValue)
                 .HasPrecision(18, 2);
 

@@ -64,6 +64,30 @@ namespace Valuer_Verification_System.Models.Data
         public string? Sector { get; set; }                     // SECTOR
         public string? Valuer { get; set; }                     // VALUER
 
+        // Resolved valuer from UserManagement.dbo.Users.
+        // This becomes the new source for valuer inbox assignment.
+        [MaxLength(256)]
+        public string? Username { get; set; }
+
+        public int? ResolvedUserId { get; set; }
+
+        [MaxLength(256)]
+        public string? ResolvedValuerEmail { get; set; }
+
+        [MaxLength(50)]
+        public string? ValuerMatchStatus { get; set; }
+
+        [MaxLength(500)]
+        public string? ValuerMatchComment { get; set; }
+
+        [MaxLength(255)]
+        public string? SourceFileName { get; set; }
+
+        [MaxLength(64)]
+        public string? SourceFileHashSha256 { get; set; }
+
+        public int? SourceRowNumber { get; set; }
+
         // SendNotices Y/N  (also stored as "SEND NOTICE?" in some file versions)
         public string? SendNotice { get; set; }                 // SendNotices Y/N
 
@@ -142,7 +166,8 @@ namespace Valuer_Verification_System.Models.Data
         public string? EStatus { get; set; }                    // eSTATUS
         public string? LeaseUnitNo { get; set; }                // LEASE_UNIT_NO
 
-                    // VALUER_EMAIL
+        // VALUER_EMAIL
+       
 
     }
 

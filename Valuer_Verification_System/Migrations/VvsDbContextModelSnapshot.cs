@@ -140,6 +140,9 @@ namespace Valuer_Verification_System.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("CleanWeekTableName")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -147,6 +150,18 @@ namespace Valuer_Verification_System.Migrations
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime?>("ExtractCleanedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ExtractCleanedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ExtractCleaningMessage")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ExtractCleaningStatus")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ManagersNotifiedAtUtc")
                         .HasColumnType("datetime2");
@@ -454,6 +469,13 @@ namespace Valuer_Verification_System.Migrations
                     b.Property<string>("Remarks")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("ResolvedUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ResolvedValuerEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
                     b.Property<DateOnly?>("ReviewCloseDate")
                         .HasColumnType("date");
 
@@ -512,6 +534,17 @@ namespace Valuer_Verification_System.Migrations
                     b.Property<string>("SgId")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("SourceFileHashSha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("SourceFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int?>("SourceRowNumber")
+                        .HasColumnType("int");
+
                     b.Property<string>("SplitPost")
                         .HasColumnType("nvarchar(max)");
 
@@ -558,6 +591,10 @@ namespace Valuer_Verification_System.Migrations
                     b.Property<string>("Usable")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Username")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
                     b.Property<DateOnly?>("ValuationDate")
                         .HasColumnType("date");
 
@@ -584,15 +621,29 @@ namespace Valuer_Verification_System.Migrations
                     b.Property<string>("Valuer")
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("ValuerMatchComment")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ValuerMatchStatus")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<DateOnly?>("WefDate")
                         .HasColumnType("date");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BatchId", "Username")
+                        .HasDatabaseName("IX_ExtractRows_BatchId_Username");
+
                     b.HasIndex("BatchId", "ValuationKey")
                         .HasDatabaseName("IX_ExtractRows_BatchId_ValuationKey");
 
                     b.HasIndex("BatchId", "Valuer");
+
+                    b.HasIndex("SourceFileHashSha256", "SourceRowNumber")
+                        .HasDatabaseName("IX_ExtractRows_SourceFile_RowNumber");
 
                     b.HasIndex("BatchId", "Sector", "Decision");
 
@@ -1027,6 +1078,10 @@ namespace Valuer_Verification_System.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("CleanWeekTableName")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -1035,12 +1090,48 @@ namespace Valuer_Verification_System.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
+                    b.Property<DateTime?>("ExtractCleanedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ExtractCleanedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("ExtractCleaningMessage")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ExtractCleaningStatus")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(512)
                         .HasColumnType("nvarchar(512)");
 
                     b.Property<DateOnly>("NoticeSendDate")
                         .HasColumnType("date");
+
+                    b.Property<string>("ProjectManagerApprovalComment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("ProjectManagerApprovedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ProjectManagerApprovedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime?>("ProjectManagerNotifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ProjectManagerNotifiedTo")
+                        .HasMaxLength(320)
+                        .HasColumnType("nvarchar(320)");
+
+                    b.Property<string>("QaNotifiedTo")
+                        .HasMaxLength(320)
+                        .HasColumnType("nvarchar(320)");
 
                     b.Property<DateOnly>("ReviewCloseDate")
                         .HasColumnType("date");

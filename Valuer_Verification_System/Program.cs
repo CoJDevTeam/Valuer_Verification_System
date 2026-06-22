@@ -6,6 +6,7 @@ using Valuer_Verification_System.Infrastructure.Configuration.Email;
 using Valuer_Verification_System.Services.Notice;
 using Valuer_Verification_System.Services.Permissions;
 using Valuer_Verification_System.Services.Stats;
+using Valuer_Verification_System.Services.Upload;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,8 +43,15 @@ builder.Services.AddScoped<Valuer_Verification_System.Domain.WeekWindows.IWeekWi
     Valuer_Verification_System.Domain.WeekWindows.WeekWindowService>();
 
 //-------------------------------Upload---------------------------------------
-builder.Services.AddScoped<Valuer_Verification_System.Services.Upload.IExtractUploadService,
-    Valuer_Verification_System.Services.Upload.ExtractUploadService>();
+
+builder.Services.AddScoped<IExtractUploadService,ExtractUploadService>();
+
+builder.Services.AddScoped<IValuerUsernameResolver,ValuerUsernameResolver>();
+
+builder.Services.AddScoped<IExtractFolderImportService,ExtractFolderImportService>();
+
+builder.Services.AddHostedService<ExtractFolderHostedService>();
+
 
 //------------------------------------------Valuer Inbox---------------------------------
 builder.Services.AddScoped<Valuer_Verification_System.Services.Valuer.IValuerVerificationService,
@@ -76,6 +84,12 @@ builder.Services.AddScoped<INoticePrintService, NoticePrintService>();
 builder.Services.AddScoped<INoticeSendService, NoticeSendService>();
 
 builder.Services.AddScoped<INoticeQaService,NoticeQaService>();
+
+builder.Services.AddScoped<INoticeCleaningService, NoticeCleaningService>();
+
+builder.Services.AddScoped<ILatestCleaningTableResolver,LatestCleaningTableResolver>();
+
+builder.Services.AddScoped<IExtractApprovalNotificationService,ExtractApprovalNotificationService>();
 //---------------------------------Stats ---------------------------------
 builder.Services.AddScoped<ISection78StatsService,Section78StatsService>();
 

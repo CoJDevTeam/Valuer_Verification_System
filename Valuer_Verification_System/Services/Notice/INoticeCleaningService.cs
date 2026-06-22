@@ -30,6 +30,13 @@ namespace Valuer_Verification_System.Services.Notice
 
         Task<bool> WeekTableExistsAsync(string weekTableName, CancellationToken ct);
 
+        Task<CleaningStepResultVm> RunFullCleaningOnceAsync(
+    int batchId,
+    DateOnly extractionDate,
+    string lisMasterTable,
+    string sapTable,
+    CancellationToken ct);
+
 
     }
 }

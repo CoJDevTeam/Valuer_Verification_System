@@ -47,5 +47,11 @@
             "Local Government: Municipal Property Rates Act, 2004 (Act No. 6 of 2004)";
 
         public string NoticeQaManagerEmail { get; set; } = "";
+
+        
+
+        public string ProjectManagerEmail { get; set; } = "";
+
+        public string AppBaseUrl { get; set; } = "";
     }
 }

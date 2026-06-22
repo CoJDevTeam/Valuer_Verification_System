@@ -1,6 +1,7 @@
 ﻿using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Valuer_Verification_System.Data;
+using Valuer_Verification_System.Models.Data;
 using Valuer_Verification_System.Models.ViewModels;
 
 namespace Valuer_Verification_System.Services.Notice
@@ -44,7 +45,7 @@ namespace Valuer_Verification_System.Services.Notice
         }
 
         // ── Table name builder ────────────────────────────────────────────────
-
+   
         public string BuildWeekTableName(DateOnly extractionDate)
         {
             int weekNo = (int)Math.Ceiling(extractionDate.Day / 7.0);
@@ -138,6 +139,125 @@ namespace Valuer_Verification_System.Services.Notice
                 return new CleaningStepResultVm { Success = false, StepName = "CreateWeekTable", Error = ex.Message };
             }
         }
+
+        public async Task<CleaningStepResultVm> RunFullCleaningOnceAsync(
+int batchId,
+DateOnly extractionDate,
+string lisMasterTable,
+string sapTable,
+CancellationToken ct)
+        {
+            var batch = await _db.Batches
+                .FirstOrDefaultAsync(x => x.Id == batchId, ct);
+
+            if (batch is null)
+            {
+                return new CleaningStepResultVm
+                {
+                    Success = false,
+                    StepName = "FullCleaning",
+                    Error = "Batch not found."
+                };
+            }
+
+            // Important:
+            // Cleaning must happen once only.
+            if (batch.ExtractCleanedAtUtc != null)
+            {
+                return new CleaningStepResultVm
+                {
+                    Success = true,
+                    StepName = "FullCleaning",
+                    RowsAffected = 0,
+                    Error = $"Skipped. Batch was already cleaned on {batch.ExtractCleanedAtUtc:yyyy-MM-dd HH:mm} UTC."
+                };
+            }
+
+            var weekTableName = BuildWeekTableName(extractionDate);
+
+            batch.ExtractCleaningStatus = "Running";
+            batch.ExtractCleaningMessage = "Cleaning started by folder job.";
+            batch.UpdatedBy = "folder-job";
+            batch.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
+
+            var totalRowsAffected = 0;
+            var messages = new List<string>();
+
+            foreach (var step in StepNames)
+            {
+                var stepResult = await RunStepAsync(
+                    step,
+                    extractionDate,
+                    lisMasterTable,
+                    sapTable,
+                    ct);
+
+                if (!stepResult.Success)
+                {
+                    batch.ExtractCleaningStatus = "Failed";
+                    batch.ExtractCleaningMessage = $"Cleaning failed at step '{step}': {stepResult.Error}";
+                    batch.UpdatedBy = "folder-job";
+                    batch.UpdatedAt = DateTime.UtcNow;
+                    await _db.SaveChangesAsync(ct);
+
+                    return new CleaningStepResultVm
+                    {
+                        Success = false,
+                        StepName = step,
+                        RowsAffected = totalRowsAffected,
+                        Error = batch.ExtractCleaningMessage
+                    };
+                }
+
+                totalRowsAffected += stepResult.RowsAffected;
+                messages.Add($"{step}: {stepResult.RowsAffected:N0}");
+            }
+
+            var createTableResult = await CreateWeekTableAsync(
+                weekTableName,
+                extractionDate,
+                ct);
+
+            if (!createTableResult.Success)
+            {
+                batch.ExtractCleaningStatus = "Failed";
+                batch.ExtractCleaningMessage = $"Week table creation failed: {createTableResult.Error}";
+                batch.UpdatedBy = "folder-job";
+                batch.UpdatedAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync(ct);
+
+                return new CleaningStepResultVm
+                {
+                    Success = false,
+                    StepName = "CreateWeekTable",
+                    RowsAffected = totalRowsAffected,
+                    Error = batch.ExtractCleaningMessage
+                };
+            }
+
+            totalRowsAffected += createTableResult.RowsAffected;
+            messages.Add($"CreateWeekTable: {createTableResult.RowsAffected:N0}");
+
+            batch.ExtractCleanedAtUtc = DateTime.UtcNow;
+            batch.ExtractCleanedBy = "folder-job";
+            batch.CleanWeekTableName = weekTableName;
+            batch.ExtractCleaningStatus = "Cleaned";
+            batch.ExtractCleaningMessage = string.Join(" | ", messages);
+            batch.Status = BatchStatus.Uploaded;
+            batch.UpdatedBy = "folder-job";
+            batch.UpdatedAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync(ct);
+
+            return new CleaningStepResultVm
+            {
+                Success = true,
+                StepName = "FullCleaning",
+                RowsAffected = totalRowsAffected,
+                Error = batch.ExtractCleaningMessage
+            };
+        }
         public async Task<bool> WeekTableExistsAsync(string weekTableName, CancellationToken ct)
         {
             var cs = _config.GetConnectionString("Section78Notice");
@@ -164,5 +284,6 @@ namespace Valuer_Verification_System.Services.Notice
                 return false;
             }
         }
+
     }
 }
