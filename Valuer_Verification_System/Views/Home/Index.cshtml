@@ -34,14 +34,17 @@
         _                           => s.ToString()
     };
 
-    string ActionIcon(string title) => title switch {
-        "Ready to Send Notices" => "📬",
-        "Notices Sent"          => "✅",
-        "Notify Managers"       => "📧",
-        "Verification In Progress" => "🔍",
-        "Upload Extract"        => "📤",
-        _                       => "⚡"
-    };
+   string ActionIcon(string title) => title switch {
+    "Ready to Send Notices"        => "📬",
+    "Notices Sent"                 => "✅",
+    "Project Manager Approval"     => "👤",
+    "Cleaning In Progress"         => "🧹",
+    "Waiting For Folder Import"    => "📁",
+    "Sector Notification Pending"  => "📧",
+    "Verification In Progress"     => "🔍",
+    "Open Extract Intake"          => "📂",
+    _                              => "⚡"
+};
 }
 
 <!DOCTYPE html>
@@ -76,16 +79,27 @@
             <div class="action-hint">@Model.NextActionHint</div>
         </div>
         <div class="action-buttons">
-            <a class="btn @(Model.NextActionTitle == "Ready to Send Notices" ? "btn-send-notices" : "btn-gold")"
-               href="@Model.NextActionUrl">
-                <span>▶</span> @Model.NextActionButton
-            </a>
-            <a class="btn btn-outline-white" href="/WeekWindows/Create">
-                <span>＋</span> New Weekly Process
-            </a>
-            <a class="btn btn-outline-white" href="/WeekWindows">Week Windows</a>
-            <a class="btn btn-outline-white" asp-controller="Section78Stats" asp-action="Index">📊 Section 78 Stats</a>
-        </div>
+    <a class="btn @(Model.NextActionTitle == "Ready to Send Notices" ? "btn-send-notices" : "btn-gold")"
+       href="@Model.NextActionUrl">
+        <span>▶</span> @Model.NextActionButton
+    </a>
+
+    <a class="btn btn-outline-white" href="/ExtractIntake">
+        📂 Automatic Extract Intake
+    </a>
+
+    <a class="btn btn-outline-white" href="/WeekWindows">
+        🗓 Week Windows
+    </a>
+
+    <a class="btn btn-outline-white" href="/DataTeam/SendNotice">
+        📬 Send Notice
+    </a>
+
+    <a class="btn btn-outline-white" asp-controller="Section78Stats" asp-action="Index">
+        📊 Section 78 Stats
+    </a>
+</div>
     </div>
 
     <!-- ─── KPI STAT CARDS ───────────────────────────── -->
@@ -98,15 +112,15 @@
         </div>
         <div class="stat-card">
             <div class="stat-icon">📦</div>
-            <div class="stat-label">Batches — Last 30 Days</div>
-            <div class="stat-value">@Model.TotalBatchesLast30</div>
-            <div class="stat-sub">Recent upload activity</div>
+           <div class="stat-label">Batches — Last 30 Days</div>
+                <div class="stat-value">@Model.TotalBatchesLast30</div>
+                <div class="stat-sub">Recent folder import activity</div>
         </div>
         <div class="stat-card">
             <div class="stat-icon">🔍</div>
             <div class="stat-label">Batches In Verification</div>
             <div class="stat-value">@Model.BatchesInVerification</div>
-            <div class="stat-sub">Currently under review</div>
+            <div class="stat-sub">Released to sector managers</div>
         </div>
         <div class="stat-card stat-card--notices @(Model.BatchesReadyToSend > 0 ? "stat-card--notices-active" : "")">
             <div class="stat-icon">📬</div>
@@ -125,6 +139,35 @@
         </div>
     </div>
 
+    <div class="stats-grid" style="margin-top:1rem;">
+    <div class="stat-card">
+        <div class="stat-icon">🧹</div>
+        <div class="stat-label">Cleaned Batches</div>
+        <div class="stat-value">@Model.CleanedBatches</div>
+        <div class="stat-sub">Extract cleaning completed</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">👤</div>
+        <div class="stat-label">PM Approval Pending</div>
+        <div class="stat-value">@Model.ProjectManagerApprovalPending</div>
+        <div class="stat-sub">Waiting for Project Manager</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">📧</div>
+        <div class="stat-label">Sector Notification Pending</div>
+        <div class="stat-value">@Model.SectorNotificationPending</div>
+        <div class="stat-sub">Approved but not released</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">⚠️</div>
+        <div class="stat-label">Unmatched Valuer Rows</div>
+        <div class="stat-value">@Model.UnmatchedValuerRows</div>
+        <div class="stat-sub">Rows without Username mapping</div>
+    </div>
+</div>
     <!-- ─── MAIN CONTENT PANELS ──────────────────────── -->
     <div class="content-grid">
 
@@ -167,14 +210,19 @@
                                 <td>
                                     <div class="action-cell">
                                         <a class="btn btn-sm btn-primary-sm" href="/WeekWindows/Details/@w.Id">Details</a>
-                                        <a class="btn btn-sm btn-secondary-sm" href="/Upload">Upload</a>
+                                        <a class="btn btn-sm btn-secondary-sm" href="/ExtractIntake">Extract Intake</a>
                                     </div>
                                 </td>
                             </tr>
                         }
                         @if (!Model.WeekWindows.Any())
                         {
-                            <tr class="empty-row"><td colspan="6">No week windows yet. <a href="/WeekWindows/Create">Create one →</a></td></tr>
+                            <tr class="empty-row">
+                                <td colspan="6">
+                                    No week windows yet. Week windows will be created automatically when the folder job imports a valid extract.
+                                    <a href="/ExtractIntake">Open Extract Intake →</a>
+                                </td>
+                            </tr>
                         }
                     </tbody>
                 </table>
@@ -193,12 +241,15 @@
             <div class="table-wrap">
                 <table>
                     <thead>
-                        <tr>
+                      <tr>
                             <th>Batch</th>
+                            <th>Source File</th>
                             <th>Week</th>
                             <th>Total</th>
                             <th>Pending</th>
-                            <th>SLA</th>
+                            <th>Cleaning</th>
+                            <th>PM Approval</th>
+                            <th>Sector Managers</th>
                             <th>Progress</th>
                             <th>Status</th>
                             <th>Actions</th>
@@ -207,66 +258,150 @@
                     <tbody>
                         @foreach (var b in Model.RecentBatches)
                         {
-                            <tr class="@(b.NoticesCanBeSent ? "row-highlight-notices" : b.NoticesSent ? "row-highlight-sent" : "")">
-                                <td>
-                                    <div class="batch-name">@b.BatchName</div>
-                                    <div class="batch-date">@b.BatchDate.ToString("dd MMM yyyy")</div>
-                                </td>
-                                <td class="no-wrap-sm">
-                                    @b.WeekStart.ToString("dd MMM")
-                                    <span class="week-arrow">→</span>
-                                    @b.WeekEnd.ToString("dd MMM")
-                                </td>
-                                <td><span class="total-txt">@b.Total.ToString("N0")</span></td>
-                                <td>
-                                    <span class="pending-pill @(b.Pending == 0 ? "pending-pill--zero" : "")">
-                                        @b.Pending
-                                    </span>
-                                </td>
-                                <td>
-                                    <span class="sla-badge @SlaClass(b.SlaStatus)" title="@b.SlaLabel">@b.SlaStatus</span>
-                                    <div class="sla-label">@b.SlaLabel</div>
-                                </td>
-                                <td>
-                                    <div class="progress-bar-wrap">
-                                        <div class="progress-bar-fill" style="width:@(b.ProgressPercent)%"></div>
-                                    </div>
-                                    <span class="pct-text">@b.ProgressPercent%</span>
-                                </td>
-                                <td>
-                                    @if (b.NoticesSent)
-                                    {
-                                        <span class="status-badge bs-sent" title="Sent by @b.NoticesSentBy on @b.NoticesSentAtUtc?.ToString("dd MMM yyyy HH:mm")">
-                                            ✓ Sent
-                                        </span>
-                                    }
-                                    else
-                                    {
-                                        <span class="status-badge @BatchStatusClass(b.Status)">
-                                            @BatchStatusLabel(b.Status)
-                                        </span>
-                                    }
-                                </td>
-                                <td>
-                                    <div class="action-cell">
-                                        @if (b.NoticesCanBeSent)
-                                        {
-                                            <a class="btn btn-sm btn-send-notices-sm" href="/DataTeam/SendNotice">
-                                                📬 Send Notices
-                                            </a>
-                                        }
-                                        else
-                                        {
-                                            <a class="btn btn-sm btn-manager" href="/Manager/Dashboard?batchId=@b.Id">Manager</a>
-                                            <a class="btn btn-sm btn-stats" href="/Manager/Stats/Download?batchId=@b.Id">Stats</a>
-                                        }
-                                    </div>
-                                </td>
-                            </tr>
+                          <tr class="@(b.NoticesCanBeSent ? "row-highlight-notices" : b.NoticesSent ? "row-highlight-sent" : "")">
+    <td>
+        <div class="batch-name">@b.BatchName</div>
+        <div class="batch-date">@b.BatchDate.ToString("dd MMM yyyy")</div>
+    </td>
+
+    <td>
+        <div class="batch-name" style="font-size:.72rem;">
+            @(string.IsNullOrWhiteSpace(b.OriginalFileName) ? "-" : b.OriginalFileName)
+        </div>
+        <div class="batch-date">
+            @(b.UploadedAtUtc?.ToString("dd MMM HH:mm") ?? "-")
+        </div>
+    </td>
+
+    <td class="no-wrap-sm">
+        @b.WeekStart.ToString("dd MMM")
+        <span class="week-arrow">→</span>
+        @b.WeekEnd.ToString("dd MMM")
+    </td>
+
+    <td><span class="total-txt">@b.Total.ToString("N0")</span></td>
+
+    <td>
+        <span class="pending-pill @(b.Pending == 0 ? "pending-pill--zero" : "")">
+            @b.Pending
+        </span>
+    </td>
+
+    <td>
+        @if (b.IsCleaned)
+        {
+            <span class="status-badge bs-sent">✓ Cleaned</span>
+        }
+        else if (string.Equals(b.ExtractCleaningStatus, "Failed", StringComparison.OrdinalIgnoreCase))
+        {
+            <span class="status-badge bs-cancelled">Failed</span>
+        }
+        else
+        {
+            <span class="status-badge bs-uploaded">Pending</span>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(b.CleanWeekTableName))
+        {
+            <div class="sla-label">@b.CleanWeekTableName</div>
+        }
+    </td>
+
+    <td>
+        @if (b.ProjectManagerApproved)
+        {
+            <span class="status-badge bs-sent">✓ Approved</span>
+            <div class="sla-label">
+                @b.ProjectManagerApprovedAtUtc?.ToString("dd MMM HH:mm")
+            </div>
+        }
+        else if (b.ProjectManagerNotified)
+        {
+            <span class="status-badge bs-emailpending">Pending</span>
+            <div class="sla-label">PM notified</div>
+        }
+        else
+        {
+            <span class="status-badge bs-uploaded">Not notified</span>
+        }
+    </td>
+
+    <td>
+        @if (b.ManagersNotified)
+        {
+            <span class="status-badge bs-inverification">Released</span>
+            <div class="sla-label">
+                @b.ManagersNotifiedAtUtc?.ToString("dd MMM HH:mm")
+            </div>
+        }
+        else
+        {
+            <span class="status-badge bs-emailpending">Pending</span>
+        }
+    </td>
+
+    <td>
+        <div class="progress-bar-wrap">
+            <div class="progress-bar-fill" style="width:@(b.ProgressPercent)%"></div>
+        </div>
+        <span class="pct-text">@b.ProgressPercent%</span>
+    </td>
+
+    <td>
+        @if (b.NoticesSent)
+        {
+            <span class="status-badge bs-sent" title="Sent by @b.NoticesSentBy on @b.NoticesSentAtUtc?.ToString("dd MMM yyyy HH:mm")">
+                ✓ Sent
+            </span>
+        }
+        else
+        {
+            <span class="status-badge @BatchStatusClass(b.Status)">
+                @BatchStatusLabel(b.Status)
+            </span>
+        }
+    </td>
+
+    <td>
+        <div class="action-cell">
+            @if (b.NoticesCanBeSent)
+            {
+                <a class="btn btn-sm btn-send-notices-sm" href="/DataTeam/SendNotice">
+                    📬 Send Notices
+                </a>
+            }
+            else if (!b.ProjectManagerApproved)
+            {
+                <a class="btn btn-sm btn-manager" href="/ExtractApproval/Batch/@b.Id">
+                    PM Approval
+                </a>
+                <a class="btn btn-sm btn-stats" href="/ExtractIntake">
+                    Intake
+                </a>
+            }
+            else if (!b.ManagersNotified)
+            {
+                <a class="btn btn-sm btn-manager" href="/ExtractApproval/Batch/@b.Id">
+                    Notify Sectors
+                </a>
+            }
+            else
+            {
+                <a class="btn btn-sm btn-manager" href="/Manager/Dashboard?batchId=@b.Id">Manager</a>
+                <a class="btn btn-sm btn-stats" href="/Manager/Stats/Download?batchId=@b.Id">Stats</a>
+            }
+        </div>
+    </td>
+</tr>
                         }
                         @if (!Model.RecentBatches.Any())
                         {
-                            <tr class="empty-row"><td colspan="8">No batches yet.</td></tr>
+                           <tr class="empty-row">
+                                <td colspan="11">
+                                    No folder-imported batches yet.
+                                    <a href="/ExtractIntake">Open Automatic Extract Intake →</a>
+                                </td>
+                            </tr>
                         }
                     </tbody>
                 </table>
@@ -392,56 +527,68 @@
     </div>
     }
 
+
 </div><!-- /dash-wrapper -->
 
+@{
+   var monthlyChartData = Model.Stats?.MonthlySummary?
+    .GroupBy(r => r.Period)
+    .OrderBy(g => g.First().WeekTableName)
+    .Select(g => (object)new
+    {
+        period = g.Key,
+        total = g.Sum(r => r.TotalEntries),
+        reviews = g.Sum(r => r.ReviewsReceived)
+    })
+    .ToList() ?? new List<object>();
+    var noticeChartData = new
+    {
+        suitable = Model.Stats?.Rows?.Sum(r => r.NoticesSuitableForPosting) ?? 0,
+        email = Model.Stats?.Rows?.Sum(r => r.SuitableForEmailing) ?? 0,
+        notSuitable = Model.Stats?.Rows?.Sum(r => r.NoticesNotSuitable) ?? 0,
+        coj = Model.Stats?.Rows?.Sum(r => r.MunicipalOwnedProperties) ?? 0
+    };
 
+    var batchChartData = Model.RecentBatches
+        .Take(8)
+        .Select(b => new
+        {
+            name = b.BatchName,
+            yes = b.Yes,
+            no = b.No,
+            pending = b.Pending
+        })
+        .ToList();
+}
 
 <script>
     (function () {
-        const el = document.getElementById('live-time');
-        if (!el) return;
-        const fmt = () => {
-            const d = new Date();
-            el.textContent = d.toLocaleDateString('en-ZA', {
-                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-            }) + ' \u00b7 ' + d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
-        };
-        fmt(); setInterval(fmt, 30000);
-    })();
+    const el = document.getElementById('live-time');
+    if (!el) return;
+
+    const fmt = () => {
+        const d = new Date();
+
+        el.textContent = d.toLocaleDateString('en-ZA', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        }) + ' \u00b7 ' + d.toLocaleTimeString('en-ZA', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    fmt();
+    setInterval(fmt, 30000);
 })();
 
 (function buildCharts() {
     // ── Raw data from server ──────────────────────────────────────────────────
-    const monthlyRaw = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-        Model.Stats.MonthlySummary
-            .GroupBy(r => r.Period)
-            .OrderBy(g => g.First().WeekTableName)
-            .Select(g => new {
-                period   = g.Key,
-                total    = g.Sum(r => r.TotalEntries),
-                reviews  = g.Sum(r => r.ReviewsReceived)
-            })
-            .ToList()
-    ));
-
-    const noticeRaw = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new {
-        suitable    = Model.Stats.Rows.Sum(r => r.NoticesSuitableForPosting),
-        email       = Model.Stats.Rows.Sum(r => r.SuitableForEmailing),
-        notSuitable = Model.Stats.Rows.Sum(r => r.NoticesNotSuitable),
-        coj         = Model.Stats.Rows.Sum(r => r.MunicipalOwnedProperties)
-    }));
-
-    const batchRaw = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-        Model.RecentBatches
-            .Take(8)
-            .Select(b => new {
-                name    = b.BatchName,
-                yes     = b.Yes,
-                no      = b.No,
-                pending = b.Pending
-            })
-            .ToList()
-    ));
+        const monthlyRaw = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(monthlyChartData));
+        const noticeRaw = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(noticeChartData));
+        const batchRaw = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(batchChartData));
 
     // ── Colour palette ────────────────────────────────────────────────────────
     const gold    = '#e6b000';

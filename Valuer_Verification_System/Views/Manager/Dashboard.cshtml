@@ -69,7 +69,9 @@
         <div class="d-flex align-items-center justify-content-between mb-4">
             <div>
                 <h1 class="page-title">Manager <span>Dashboard</span></h1>
-                <p class="page-subtitle">Batch overview, SLA tracking, and notice management</p>
+                <p class="page-subtitle">
+                    Folder import tracking, Project Manager approval, sector verification progress, and notice readiness
+                </p>
             </div>
         </div>
 
@@ -111,7 +113,16 @@
                 <div class="empty-state">
                     <div class="empty-icon"><i class="bi bi-inbox"></i></div>
                     <div class="empty-title">No Batches Found</div>
-                    <div class="empty-text">Upload an extract to get started with batch verification.</div>
+                    <div class="empty-text">
+                        No folder-imported batches found yet. Place an extract file in the configured folder,
+                        then use Automatic Extract Intake to run or monitor the import.
+                    </div>
+
+                    <div style="margin-top:16px;">
+                        <a class="btn-gold" href="/ExtractIntake">
+                            <i class="bi bi-folder-check me-1"></i> Open Automatic Extract Intake
+                        </a>
+                    </div>
                 </div>
             </div>
         }
@@ -123,6 +134,32 @@
                 <div class="info-item"><strong>Batch Date:</strong> @Model.BatchDate.ToString("yyyy-MM-dd")</div>
                 <div class="info-item"><strong>Week:</strong> @Model.WeekStart.ToString("yyyy-MM-dd") → @Model.WeekEnd.ToString("yyyy-MM-dd")</div>
                 <div class="info-item"><strong>Notice Send Date:</strong> @Model.NoticeSendDate.ToString("yyyy-MM-dd")</div>
+            </div>
+            <div class="batch-info-strip fade-up" style="margin-top:12px;">
+                <div class="info-item">
+                    <strong>Source File:</strong>
+                    @(string.IsNullOrWhiteSpace(Model.OriginalFileName) ? "-" : Model.OriginalFileName)
+                </div>
+
+                <div class="info-item">
+                    <strong>Cleaning:</strong>
+                    @(string.IsNullOrWhiteSpace(Model.ExtractCleaningStatus) ? "Pending" : Model.ExtractCleaningStatus)
+                </div>
+
+                <div class="info-item">
+                    <strong>PM Notified:</strong>
+                    @(Model.ProjectManagerNotified ? "Yes" : "No")
+                </div>
+
+                <div class="info-item">
+                    <strong>PM Approved:</strong>
+                    @(Model.ProjectManagerApproved ? "Yes" : "No")
+                </div>
+
+                <div class="info-item">
+                    <strong>Sector Managers:</strong>
+                    @(Model.ManagersNotified ? "Notified" : "Pending")
+                </div>
             </div>
 
             <!-- ── KPI CARDS ──────────────────────────────────── -->
@@ -148,7 +185,51 @@
                     <i class="bi bi-x-circle kpi-icon"></i>
                 </div>
             </div>
+            <div class="kpi-grid">
+    <div class="kpi-card fade-up">
+        <div class="kpi-label">Folder Import</div>
+        <div class="kpi-value" style="font-size:1.25rem;">
+            @(Model.UploadedAtUtc != null ? "Done" : "Pending")
+        </div>
+        <div style="font-size:0.78rem;color:var(--grey-3);">
+            @(Model.UploadedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "-") UTC
+        </div>
+        <i class="bi bi-folder-check kpi-icon"></i>
+    </div>
 
+    <div class="kpi-card fade-up">
+        <div class="kpi-label">Cleaning</div>
+        <div class="kpi-value" style="font-size:1.25rem;color:@(Model.IsCleaned ? "var(--success)" : "var(--danger)")">
+            @(Model.ExtractCleaningStatus ?? "Pending")
+        </div>
+        <div style="font-size:0.78rem;color:var(--grey-3);">
+            Table: @(Model.CleanWeekTableName ?? "-")
+        </div>
+        <i class="bi bi-stars kpi-icon"></i>
+    </div>
+
+    <div class="kpi-card fade-up">
+        <div class="kpi-label">PM Approval</div>
+        <div class="kpi-value" style="font-size:1.25rem;color:@(Model.ProjectManagerApproved ? "var(--success)" : "var(--danger)")">
+            @(Model.ProjectManagerApproved ? "Approved" : "Pending")
+        </div>
+        <div style="font-size:0.78rem;color:var(--grey-3);">
+            @(Model.ProjectManagerApprovedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "-") UTC
+        </div>
+        <i class="bi bi-person-check kpi-icon"></i>
+    </div>
+
+    <div class="kpi-card fade-up">
+        <div class="kpi-label">Sector Managers</div>
+        <div class="kpi-value" style="font-size:1.25rem;color:@(Model.ManagersNotified ? "var(--success)" : "var(--danger)")">
+            @(Model.ManagersNotified ? "Notified" : "Pending")
+        </div>
+        <div style="font-size:0.78rem;color:var(--grey-3);">
+            @(Model.ManagersNotifiedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "-") UTC
+        </div>
+        <i class="bi bi-people-fill kpi-icon"></i>
+    </div>
+</div>
             <!-- ── PROGRESS & SLA CARD ─────────────────────────── -->
             <div class="progress-section fade-up">
                 <div class="progress-header">
@@ -181,32 +262,90 @@
                 </div>
 
                 <div class="notification-row mt-2">
-                    <div class="notif-dot @(Model.ManagersNotified ? "sent" : "")"></div>
+                    <div class="notif-dot @(Model.ProjectManagerNotified ? "sent" : "")"></div>
                     <span>
-                        Managers Notified: <strong>@(Model.ManagersNotified ? "Yes" : "No")</strong>
-                        @if (Model.ManagersNotifiedAtUtc != null)
+                        QA + Project Manager Notified:
+                        <strong>@(Model.ProjectManagerNotified ? "Yes" : "No")</strong>
+                        @if (Model.ProjectManagerNotifiedAtUtc != null)
                         {
-                            <span class="ms-1" style="color:var(--grey-3);">(@Model.ManagersNotifiedAtUtc.Value.ToString("yyyy-MM-dd HH:mm") UTC)</span>
+                            <span class="ms-1" style="color:var(--grey-3);">
+                                (@Model.ProjectManagerNotifiedAtUtc.Value.ToString("yyyy-MM-dd HH:mm") UTC)
+                            </span>
                         }
                     </span>
                 </div>
 
+                <div class="notification-row mt-2">
+                    <div class="notif-dot @(Model.ProjectManagerApproved ? "sent" : "")"></div>
+                    <span>
+                        Project Manager Approved:
+                        <strong>@(Model.ProjectManagerApproved ? "Yes" : "No")</strong>
+                        @if (Model.ProjectManagerApprovedAtUtc != null)
+                        {
+                            <span class="ms-1" style="color:var(--grey-3);">
+                                (@Model.ProjectManagerApprovedAtUtc.Value.ToString("yyyy-MM-dd HH:mm") UTC by @Model.ProjectManagerApprovedBy)
+                            </span>
+                        }
+                    </span>
+                </div>
+
+                <div class="notification-row mt-2">
+                    <div class="notif-dot @(Model.ManagersNotified ? "sent" : "")"></div>
+                    <span>
+                        Sector Managers Notified:
+                        <strong>@(Model.ManagersNotified ? "Yes" : "No")</strong>
+                        @if (Model.ManagersNotifiedAtUtc != null)
+                        {
+                            <span class="ms-1" style="color:var(--grey-3);">
+                                (@Model.ManagersNotifiedAtUtc.Value.ToString("yyyy-MM-dd HH:mm") UTC)
+                            </span>
+                        }
+                    </span>
+                </div>
                 <!-- Stats Buttons -->
                 <div class="stats-row">
+                    <a class="btn-outline-gold" href="/ExtractIntake">
+                        <i class="bi bi-folder-check me-1"></i> Extract Intake
+                    </a>
+
+                    <a class="btn-outline-gold" href="/ExtractApproval/Batch/@Model.BatchId">
+                        <i class="bi bi-person-check me-1"></i> Approval Page
+                    </a>
+
                     <a class="btn-outline-gold" href="/Manager/Stats/Generate?batchId=@Model.BatchId">
                         <i class="bi bi-bar-chart-line me-1"></i> Generate Stats
                     </a>
+
                     <a class="btn-gold" href="/Manager/Stats/Download?batchId=@Model.BatchId">
                         <i class="bi bi-download me-1"></i> Download Stats
                     </a>
                 </div>
 
                 <!-- ── LOCK/UNLOCK PANEL ─────────────────────── -->
-                @if (Model.Pending > 0)
+                @if (!Model.ManagersNotified)
                 {
                     <div class="action-panel locked">
                         <div class="action-panel-text">
                             <i class="bi bi-lock-fill lock-icon"></i>
+                            This batch is not yet released to Sector Managers.
+                            Project Manager approval and sector notification must happen before verification can continue.
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <a class="btn-outline-gold" href="/ExtractApproval/Batch/@Model.BatchId">
+                                <i class="bi bi-person-check me-1"></i> Open Approval Page
+                            </a>
+                            <a class="btn-outline-gold" href="/ExtractIntake">
+                                <i class="bi bi-folder-check me-1"></i> Extract Intake
+                            </a>
+                        </div>
+                    </div>
+                }
+                else if (Model.Pending > 0)
+                {
+                    <div class="action-panel locked">
+                        <div class="action-panel-text">
+                            <i class="bi bi-lock-fill lock-icon"></i>
+                            Sector Managers have been notified, but verification is not complete.
                             Pending records must be <strong>0</strong> before notices can be generated or sent.
                             <strong>(@Model.Pending pending remaining)</strong>
                         </div>
@@ -225,7 +364,8 @@
                     <div class="action-panel unlocked">
                         <div class="action-panel-text">
                             <i class="bi bi-check-circle-fill check-icon"></i>
-                            All records verified. This batch is <strong>ready</strong> for the Notice step.
+                            All records are verified and Sector Managers were notified.
+                            This batch is <strong>ready</strong> for the Notice step.
                         </div>
                         <div class="d-flex gap-2 flex-wrap">
                             <a class="btn-dark-sm" href="/Notices/Generate?batchId=@Model.BatchId">
@@ -348,7 +488,7 @@
                         <i class="bi bi-envelope-check-fill"></i>
                     </div>
                     <p class="modal-desc">
-                        You are about to <strong>send notices</strong> to all verified valuers in this batch.<br />
+                        You are about to <strong>send notices</strong> for all verified properties in this batch.<br />
                         This action cannot be undone. Please confirm to proceed.
                     </p>
                 </div>

@@ -178,6 +178,26 @@ namespace Valuer_Verification_System.Migrations
                     b.Property<string>("NoticesSentBy")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ProjectManagerApprovalComment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("ProjectManagerApprovedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ProjectManagerApprovedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime?>("ProjectManagerNotifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ProjectManagerNotifiedTo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("QaNotifiedTo")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -319,6 +339,71 @@ namespace Valuer_Verification_System.Migrations
                         .IsUnique();
 
                     b.ToTable("ExtractFiles");
+                });
+
+            modelBuilder.Entity("Valuer_Verification_System.Models.Data.ExtractFolderImportAudit", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("FailedCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("FinishedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FolderPath")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("ImportedCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MachineName")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("Message")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("RunType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("SkippedCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("StartedBy")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<bool>("Success")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RunType");
+
+                    b.HasIndex("StartedAtUtc");
+
+                    b.HasIndex("Success");
+
+                    b.ToTable("ExtractFolderImportAudits");
                 });
 
             modelBuilder.Entity("Valuer_Verification_System.Models.Data.ExtractRow", b =>

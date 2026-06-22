@@ -86,8 +86,8 @@ namespace Valuer_Verification_System.Services.Notice
 
             var result = new LatestCleaningTables
             {
-                LisTable = $"dbo.{latestLis.TableName}",
-                SapTable = $"dbo.{latestSap.TableName}"
+                LisTable = latestLis.TableName,
+                SapTable = latestSap.TableName
             };
 
             _logger.LogInformation(

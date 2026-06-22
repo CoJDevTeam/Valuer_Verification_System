@@ -12,7 +12,10 @@ namespace Valuer_Verification_System.Services.Upload
 {
     public interface IExtractFolderImportService
     {
-        Task<ExtractFolderImportResult> ImportNewFilesAsync(CancellationToken ct);
+        Task<ExtractFolderImportResult> ImportNewFilesAsync(
+    string runType,
+    string startedBy,
+    CancellationToken ct);
     }
 
     public sealed class ExtractFolderImportResult
@@ -33,7 +36,7 @@ namespace Valuer_Verification_System.Services.Upload
         private readonly IExtractApprovalNotificationService _approvalNotify;
         private readonly ExtractInboxSettings _settings;
         private readonly ILogger<ExtractFolderImportService> _logger;
-
+        private readonly IExtractFolderImportLock _importLock;
         public ExtractFolderImportService(
             VvsDbContext db,
             IValuerUsernameResolver resolver,
@@ -42,7 +45,7 @@ namespace Valuer_Verification_System.Services.Upload
             ILatestCleaningTableResolver latestTables,
             IExtractApprovalNotificationService approvalNotify,
             Microsoft.Extensions.Options.IOptions<ExtractInboxSettings> settings,
-            ILogger<ExtractFolderImportService> logger)
+            ILogger<ExtractFolderImportService> logger, IExtractFolderImportLock importLock)
         {
             _db = db;
             _resolver = resolver;
@@ -52,60 +55,130 @@ namespace Valuer_Verification_System.Services.Upload
             _approvalNotify = approvalNotify;
             _settings = settings.Value;
             _logger = logger;
+            _importLock = importLock;
         }
 
-        public async Task<ExtractFolderImportResult> ImportNewFilesAsync(CancellationToken ct)
+        public async Task<ExtractFolderImportResult> ImportNewFilesAsync(
+     string runType,
+     string startedBy,
+     CancellationToken ct)
         {
+            runType = string.IsNullOrWhiteSpace(runType) ? "Unknown" : runType.Trim();
+            startedBy = string.IsNullOrWhiteSpace(startedBy) ? "system" : startedBy.Trim();
+
+            var audit = new ExtractFolderImportAudit
+            {
+                RunType = runType,
+                StartedBy = startedBy,
+                StartedAtUtc = DateTime.UtcNow,
+                Success = false,
+                FolderPath = _settings.FolderPath,
+                MachineName = Environment.MachineName,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _db.ExtractFolderImportAudits.Add(audit);
+            await _db.SaveChangesAsync(ct);
+
+            await using var lockHandle = await _importLock.TryAcquireAsync(ct);
+
+            if (lockHandle is null)
+            {
+                audit.FinishedAtUtc = DateTime.UtcNow;
+                audit.Success = false;
+                audit.ImportedCount = 0;
+                audit.SkippedCount = 1;
+                audit.FailedCount = 0;
+                audit.Message = "Folder import skipped because another folder import is already running.";
+                await _db.SaveChangesAsync(ct);
+
+                _logger.LogWarning("Folder import skipped because another folder import is already running.");
+
+                return new ExtractFolderImportResult
+                {
+                    ImportedCount = 0,
+                    SkippedCount = 1,
+                    FailedCount = 0,
+                    Messages =
+            {
+                "Folder import skipped because another folder import is already running."
+            }
+                };
+            }
+
             var result = new ExtractFolderImportResult();
 
-            EnsureFolder();
-
-            var regex = new Regex(
-                _settings.FileNamePattern,
-                RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-            var files = Directory.GetFiles(_settings.FolderPath)
-                .Where(path => regex.IsMatch(Path.GetFileName(path)))
-                .OrderBy(path => path)
-                .ToList();
-
-            if (files.Count == 0)
+            try
             {
-                result.Messages.Add("No extract files found.");
+                EnsureFolder();
+
+                var regex = new Regex(
+                    _settings.FileNamePattern,
+                    RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+                var files = Directory.GetFiles(_settings.FolderPath)
+                    .Where(path => regex.IsMatch(Path.GetFileName(path)))
+                    .OrderBy(path => path)
+                    .ToList();
+
+                foreach (var filePath in files)
+                {
+                    try
+                    {
+                        var message = await ImportOneFileAsync(filePath, regex, ct);
+
+                        result.Messages.Add($"{Path.GetFileName(filePath)}: {message}");
+
+                        if (message.StartsWith("Imported.", StringComparison.OrdinalIgnoreCase))
+                            result.ImportedCount++;
+                        else
+                            result.SkippedCount++;
+
+                        _logger.LogInformation(
+                            "Folder import result for {File}: {Message}",
+                            filePath,
+                            message);
+                    }
+                    catch (Exception ex)
+                    {
+                        result.FailedCount++;
+
+                        var msg = $"{Path.GetFileName(filePath)} failed: {ex.Message}";
+                        result.Messages.Add(msg);
+
+                        _logger.LogError(ex, "Folder import failed for {FilePath}", filePath);
+
+                        WriteFailureLog(filePath, ex);
+                    }
+                }
+
+                audit.FinishedAtUtc = DateTime.UtcNow;
+                audit.ImportedCount = result.ImportedCount;
+                audit.SkippedCount = result.SkippedCount;
+                audit.FailedCount = result.FailedCount;
+                audit.Success = result.FailedCount == 0;
+                audit.Message = result.Messages.Count == 0
+                    ? "No matching extract files found."
+                    : string.Join(" | ", result.Messages.Take(10));
+
+                await _db.SaveChangesAsync(ct);
+
                 return result;
             }
-
-            foreach (var filePath in files)
+            catch (Exception ex)
             {
-                try
-                {
-                    var importResult = await ImportOneFileAsync(filePath, regex, ct);
+                audit.FinishedAtUtc = DateTime.UtcNow;
+                audit.Success = false;
+                audit.ImportedCount = result.ImportedCount;
+                audit.SkippedCount = result.SkippedCount;
+                audit.FailedCount = result.FailedCount;
+                audit.ErrorMessage = ex.ToString();
+                audit.Message = ex.Message;
 
-                    if (importResult.StartsWith("Imported.", StringComparison.OrdinalIgnoreCase))
-                        result.ImportedCount++;
-                    else
-                        result.SkippedCount++;
+                await _db.SaveChangesAsync(ct);
 
-                    result.Messages.Add($"{Path.GetFileName(filePath)}: {importResult}");
-                }
-                catch (Exception ex)
-                {
-                    result.FailedCount++;
-
-                    _logger.LogError(
-                        ex,
-                        "Failed to import extract file {FilePath}.",
-                        filePath);
-
-                    result.Messages.Add($"{Path.GetFileName(filePath)}: Failed - {ex.Message}");
-
-                    // Do not move/delete the file.
-                    // Leave it in the folder so the issue can be corrected and reprocessed.
-                    WriteFailureLog(filePath, ex);
-                }
+                throw;
             }
-
-            return result;
         }
 
         private async Task<string> ImportOneFileAsync(

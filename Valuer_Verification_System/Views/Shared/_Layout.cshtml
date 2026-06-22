@@ -19,40 +19,59 @@
 </head>
 
 @{
-        // ── User context (set in AppBaseController) ─────────────────────────
-        string appFullName = ViewBag.AppUserFullName as string ?? User.Identity?.Name ?? "Unknown";
-        string appRole = ViewBag.AppUserRole as string ?? string.Empty;
-        string appInitials = ViewBag.AppUserInitials as string ?? "?";
+    // ── User context set in AppBaseController ─────────────────────────
+    string appFullName = ViewBag.AppUserFullName as string ?? User.Identity?.Name ?? "Unknown";
+    string appRole = ViewBag.AppUserRole as string ?? string.Empty;
+    string appInitials = ViewBag.AppUserInitials as string ?? "?";
+    string appUserName = User.Identity?.Name ?? "";
 
-        // ── Page permissions (from RolePermissions in appsettings) ──────────
-        var pages = ViewBag.AppUserPages as IReadOnlySet<string>
-                ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    // ── Page permissions from RolePermissions in appsettings ──────────
+    var pages = ViewBag.AppUserPages as IReadOnlySet<string>
+        ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        bool Can(string key) => pages.Contains(key);
+    bool Can(string key) => pages.Contains(key);
 
-        // ── Default landing by role ─────────────────────────────────────────
-        string defaultController = "Home";
-        string defaultAction = "Index";
+    // ── Emergency upload access ───────────────────────────────────────
+    bool canUseEmergencyUpload =
+        appRole.Equals("Admin", StringComparison.OrdinalIgnoreCase)
+        || appRole.Equals("Syscon", StringComparison.OrdinalIgnoreCase)
+        || appRole.Contains("DEPUTY DIRECTOR", StringComparison.OrdinalIgnoreCase)
+        || appUserName.Contains("Syscon", StringComparison.OrdinalIgnoreCase);
 
-        if (appRole.Equals("Valuer", StringComparison.OrdinalIgnoreCase))
-        {
-                defaultController = "Valuer";
-                defaultAction = "Dashboard";
-        }
-        else if (appRole.Equals("Valuer Manager", StringComparison.OrdinalIgnoreCase))
-        {
-                defaultController = "Manager";
-                defaultAction = "Dashboard";
-        }
+    // ── Extract Intake access ─────────────────────────────────────────
+    bool canViewExtractIntake =
+        canUseEmergencyUpload
+        || appRole.Contains("DATA", StringComparison.OrdinalIgnoreCase)
+        || appRole.Contains("MANAGER", StringComparison.OrdinalIgnoreCase)
+        || Can("WeekWindows")
+        || Can("ManagerDashboard");
+
+    // ── Default landing by role ───────────────────────────────────────
+    string defaultController = "Home";
+    string defaultAction = "Index";
+
+    if (appRole.Equals("Valuer", StringComparison.OrdinalIgnoreCase))
+    {
+        defaultController = "Valuer";
+        defaultAction = "Dashboard";
+    }
+    else if (appRole.Equals("Valuer Manager", StringComparison.OrdinalIgnoreCase))
+    {
+        defaultController = "Manager";
+        defaultAction = "Dashboard";
+    }
 }
+
 <body>
 
     <!-- ═════════════════════════ NAVIGATION ═════════════════════════ -->
     <nav class="site-nav">
 
-        <!-- Brand (ROLE-AWARE) -->
+        <!-- Brand ROLE-AWARE -->
         <a class="nav-brand" asp-area="" asp-controller="@defaultController" asp-action="@defaultAction">
-            <div class="nav-brand-icon"><i class="bi bi-bar-chart-fill"></i></div>
+            <div class="nav-brand-icon">
+                <i class="bi bi-bar-chart-fill"></i>
+            </div>
             <div>
                 <div class="nav-brand-text">Valuation <span>VS</span></div>
                 <div class="nav-brand-sub">Verification System</div>
@@ -64,30 +83,50 @@
         <!-- Desktop Nav -->
         <ul class="nav-links">
 
-            @if (Can("Home"))
+          @*   @if (Can("Home"))
             {
                 <li class="nav-item">
                     <a class="nav-link" asp-controller="Home" asp-action="Index">
                         <i class="bi bi-house-fill"></i> Home
                     </a>
                 </li>
-            }
+            } *@
 
             @if (Can("WeekWindows"))
             {
-                <li class="nav-item">
+               @*  <li class="nav-item">
                     <a class="nav-link" asp-controller="WeekWindows" asp-action="Index">
                         <i class="bi bi-calendar-week"></i> Week Windows
                     </a>
-                </li>
+                </li> *@
+
                 <li class="nav-item">
                     <a class="nav-link" asp-controller="DataTeam" asp-action="SendNotice">
-                        <i class="bi bi-calendar-week"></i> Send Notice
+                        <i class="bi bi-envelope-paper"></i> Send Notice
                     </a>
                 </li>
+
                 <li class="nav-item">
                     <a class="nav-link" href="/DataTeam/Stats">
-                        <i class="bi bi-calendar-week"></i> Official Stats
+                        <i class="bi bi-graph-up-arrow"></i> Official Stats
+                    </a>
+                </li>
+            }
+
+            @if (canViewExtractIntake)
+            {
+                <li class="nav-item">
+                    <a class="nav-link" asp-controller="ExtractIntake" asp-action="Index">
+                        <i class="bi bi-folder-check"></i> Extract Intake
+                    </a>
+                </li>
+            }
+
+            @if (canUseEmergencyUpload)
+            {
+                <li class="nav-item">
+                    <a class="nav-link" asp-controller="Upload" asp-action="Index">
+                        <i class="bi bi-cloud-arrow-up"></i> Emergency Upload
                     </a>
                 </li>
             }
@@ -128,13 +167,12 @@
                 </li>
             }
 
-         
-                <li class="nav-item">
-                    <a class="nav-link" href="/Home/Privacy">
-                        <i class="bi bi-shield-lock"></i> Privacy
-                    </a>
-                </li>
-            
+            <li class="nav-item">
+                <a class="nav-link" href="/Home/Privacy">
+                    <i class="bi bi-shield-lock"></i> Privacy
+                </a>
+            </li>
+
         </ul>
 
         <!-- User -->
@@ -149,7 +187,7 @@
         </div>
 
         <!-- Mobile toggler -->
-        <button class="nav-toggler" id="navToggler">
+        <button class="nav-toggler" id="navToggler" type="button">
             <i class="bi bi-list"></i>
         </button>
     </nav>
@@ -157,6 +195,14 @@
     <!-- ═════════════════════════ MAIN ═════════════════════════ -->
     <div class="site-main">
         <main role="main" class="pb-3">
+
+            @if (TempData["UploadBlocked"] is not null)
+            {
+                <div style="background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;padding:14px 16px;border-radius:10px;margin:18px;font-weight:700;">
+                    @TempData["UploadBlocked"]
+                </div>
+            }
+
             @RenderBody()
         </main>
     </div>

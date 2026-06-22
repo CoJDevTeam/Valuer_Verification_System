@@ -40,34 +40,34 @@ namespace Valuer_Verification_System.Services.Valuer
 
         // ── Inbox ─────────────────────────────────────────────────────────────
         public async Task<(List<Batch> batches, List<ExtractRow> rows, int unreadNotifications, List<Notification> notifications)> GetInboxAsync(
-            string valuer,
-            int? batchId,
-            string filter,
-            CancellationToken ct)
+      string valuer,
+      int? batchId,
+      string filter,
+      CancellationToken ct)
         {
             valuer = (valuer ?? "").Trim();
+
             if (string.IsNullOrWhiteSpace(valuer))
                 throw new InvalidOperationException("Valuer is required.");
 
+            var baseRowsQ = _db.ExtractRows
+                .AsNoTracking()
+                .Where(r => r.Username != null && r.Username.Trim() == valuer);
+
             var batches = await _db.Batches
                 .Include(b => b.WeekWindow)
-                .Where(b => _db.Assignments.Any(a =>
-                    a.AssignedToValuer == valuer &&
-                    a.ExtractRow.BatchId == b.Id))
+                .Where(b => baseRowsQ.Any(r => r.BatchId == b.Id))
                 .OrderByDescending(b => b.Id)
                 .Take(200)
                 .ToListAsync(ct);
 
-            var q = _db.Assignments
-                .AsNoTracking()
-                .Where(a => a.AssignedToValuer == valuer)
-                .Select(a => a.ExtractRow)
-                .AsQueryable();
+            var q = baseRowsQ.AsQueryable();
 
             if (batchId.HasValue && batchId.Value > 0)
                 q = q.Where(r => r.BatchId == batchId.Value);
 
             filter = (filter ?? "Pending").Trim();
+
             q = filter switch
             {
                 "Yes" => q.Where(r => r.Decision == VerificationDecision.Yes),
@@ -103,16 +103,16 @@ namespace Valuer_Verification_System.Services.Valuer
             if (string.IsNullOrWhiteSpace(valuer))
                 throw new InvalidOperationException("Valuer is required.");
 
-            var assigned = await _db.Assignments
-                .AsNoTracking()
-                .AnyAsync(a => a.ExtractRowId == extractRowId && a.AssignedToValuer == valuer, ct);
+                        var row = await _db.ExtractRows
+                .FirstOrDefaultAsync(r =>
+                    r.Id == extractRowId &&
+                    r.Username != null &&
+                    r.Username.Trim() == valuer,
+                    ct);
 
-            if (!assigned)
-                throw new InvalidOperationException("You are not allowed to verify this record.");
-
-            var row = await _db.ExtractRows.FirstOrDefaultAsync(r => r.Id == extractRowId, ct);
             if (row is null)
-                throw new InvalidOperationException("Record not found.");
+                throw new InvalidOperationException("You are not allowed to verify this record.");
+            
 
             if (decision == VerificationDecision.No && string.IsNullOrWhiteSpace(comment))
                 throw new InvalidOperationException("Comment is required when selecting No.");
@@ -139,20 +139,17 @@ namespace Valuer_Verification_System.Services.Valuer
             valuer = (valuer ?? "").Trim();
 
             // Security: only rows assigned to this valuer
-            var assigned = await _db.Assignments
-                .AsNoTracking()
-                .AnyAsync(a => a.ExtractRowId == extractRowId
-                            && a.AssignedToValuer == valuer, ct);
-
-            if (!assigned) return null;
-
-            // Load the full row with batch + siblings
+            // Security: only rows assigned to this valuer through ExtractRows.Username
             var row = await _db.ExtractRows
                 .AsNoTracking()
                 .Include(r => r.Batch)
                     .ThenInclude(b => b.WeekWindow)
                 .Include(r => r.Assignment)
-                .FirstOrDefaultAsync(r => r.Id == extractRowId, ct);
+                .FirstOrDefaultAsync(r =>
+                    r.Id == extractRowId &&
+                    r.Username != null &&
+                    r.Username.Trim() == valuer,
+                    ct);
 
             if (row is null) return null;
 
@@ -255,7 +252,7 @@ namespace Valuer_Verification_System.Services.Valuer
                 Decision = row.Decision,
                 DecisionComment = row.DecisionComment,
                 DecisionAtUtc = row.DecisionAtUtc,
-                AssignedTo = row.Assignment?.AssignedToValuer,
+                AssignedTo = row.Username ?? row.Assignment?.AssignedToValuer,
 
                 // ── Split siblings ────────────────────────────────────────────
                 SplitRows = siblings.Select(s => new ValuerRowDetailsVm.SplitRowVm

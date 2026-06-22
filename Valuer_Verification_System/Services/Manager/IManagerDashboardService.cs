@@ -37,6 +37,7 @@ namespace Valuer_Verification_System.Services.Manager
                 .ToListAsync(ct);
 
             var selectedBatchId = batchId ?? batches.FirstOrDefault()?.Id ?? 0;
+
             if (selectedBatchId <= 0)
             {
                 return new ManagerDashboardVm
@@ -55,39 +56,66 @@ namespace Valuer_Verification_System.Services.Manager
             if (batch is null)
                 throw new InvalidOperationException("Batch not found.");
 
-            // Overall counts
-            var total = await _db.ExtractRows.AsNoTracking().CountAsync(r => r.BatchId == selectedBatchId, ct);
-            var pending = await _db.ExtractRows.AsNoTracking().CountAsync(r => r.BatchId == selectedBatchId && r.Decision == VerificationDecision.Pending, ct);
-            var yes = await _db.ExtractRows.AsNoTracking().CountAsync(r => r.BatchId == selectedBatchId && r.Decision == VerificationDecision.Yes, ct);
-            var no = await _db.ExtractRows.AsNoTracking().CountAsync(r => r.BatchId == selectedBatchId && r.Decision == VerificationDecision.No, ct);
+            // Source extract file used by new folder-import flow
+            var extractFile = await _db.ExtractFiles
+                .AsNoTracking()
+                .Where(x => x.BatchId == selectedBatchId)
+                .OrderByDescending(x => x.Id)
+                .FirstOrDefaultAsync(ct);
+
+            // Overall counts from ExtractRows
+            var rowsQ = _db.ExtractRows
+                .AsNoTracking()
+                .Where(r => r.BatchId == selectedBatchId);
+
+            var total = await rowsQ.CountAsync(ct);
+
+            var pending = await rowsQ.CountAsync(
+                r => r.Decision == VerificationDecision.Pending,
+                ct);
+
+            var yes = await rowsQ.CountAsync(
+                r => r.Decision == VerificationDecision.Yes,
+                ct);
+
+            var no = await rowsQ.CountAsync(
+                r => r.Decision == VerificationDecision.No,
+                ct);
 
             var verified = yes + no;
-            var progress = total <= 0 ? 0m : Math.Round((decimal)verified * 100m / total, 2);
 
-            // ✅ SLA
+            var progress = total <= 0
+                ? 0m
+                : Math.Round((decimal)verified * 100m / total, 2);
+
+            // SLA
             var sla = SlaCalculator.Evaluate(batch.WeekWindow.NoticeSendDate, pending);
 
-            // Breakdown by valuer (based on current assignment)
-            var byValuerRaw = await _db.Assignments
-                .AsNoTracking()
-                .Where(a => a.ExtractRow.BatchId == selectedBatchId)
-                .GroupBy(a => a.AssignedToValuer)
+            // Breakdown by valuer.
+            // New source of truth is ExtractRows.Username.
+            var byValuerRaw = await rowsQ
+                .GroupBy(r => string.IsNullOrWhiteSpace(r.Username)
+                    ? "Unassigned"
+                    : r.Username!.Trim())
                 .Select(g => new
                 {
                     Valuer = g.Key,
                     Total = g.Count(),
-                    Pending = g.Count(x => x.ExtractRow.Decision == VerificationDecision.Pending),
-                    Yes = g.Count(x => x.ExtractRow.Decision == VerificationDecision.Yes),
-                    No = g.Count(x => x.ExtractRow.Decision == VerificationDecision.No)
+                    Pending = g.Count(x => x.Decision == VerificationDecision.Pending),
+                    Yes = g.Count(x => x.Decision == VerificationDecision.Yes),
+                    No = g.Count(x => x.Decision == VerificationDecision.No)
                 })
-                .OrderByDescending(x => x.Pending) // who is holding up the batch
+                .OrderByDescending(x => x.Pending)
                 .ThenBy(x => x.Valuer)
                 .ToListAsync(ct);
 
             var byValuer = byValuerRaw.Select(x =>
             {
                 var vVerified = x.Yes + x.No;
-                var vProgress = x.Total <= 0 ? 0m : Math.Round((decimal)vVerified * 100m / x.Total, 2);
+
+                var vProgress = x.Total <= 0
+                    ? 0m
+                    : Math.Round((decimal)vVerified * 100m / x.Total, 2);
 
                 return new ManagerDashboardVm.ValuerBreakdownVm
                 {
@@ -100,11 +128,11 @@ namespace Valuer_Verification_System.Services.Manager
                 };
             }).ToList();
 
-            // Breakdown by sector
-            var bySectorRaw = await _db.ExtractRows
-                .AsNoTracking()
-                .Where(r => r.BatchId == selectedBatchId)
-                .GroupBy(r => (r.Sector ?? "Unknown").Trim())
+            // Breakdown by sector from ExtractRows
+            var bySectorRaw = await rowsQ
+                .GroupBy(r => string.IsNullOrWhiteSpace(r.Sector)
+                    ? "Unassigned"
+                    : r.Sector!.Trim())
                 .Select(g => new
                 {
                     Sector = g.Key,
@@ -120,7 +148,10 @@ namespace Valuer_Verification_System.Services.Manager
             var bySector = bySectorRaw.Select(x =>
             {
                 var sVerified = x.Yes + x.No;
-                var sProgress = x.Total <= 0 ? 0m : Math.Round((decimal)sVerified * 100m / x.Total, 2);
+
+                var sProgress = x.Total <= 0
+                    ? 0m
+                    : Math.Round((decimal)sVerified * 100m / x.Total, 2);
 
                 return new ManagerDashboardVm.SectorBreakdownVm
                 {
@@ -138,6 +169,8 @@ namespace Valuer_Verification_System.Services.Manager
                 BatchId = batch.Id,
                 BatchName = batch.BatchName,
                 BatchDate = batch.BatchDate,
+                Status = batch.Status.ToString(),
+
                 WeekStart = batch.WeekWindow.WeekStart,
                 WeekEnd = batch.WeekWindow.WeekEnd,
                 NoticeSendDate = batch.WeekWindow.NoticeSendDate,
@@ -148,11 +181,34 @@ namespace Valuer_Verification_System.Services.Manager
                 No = no,
                 ProgressPercent = progress,
 
-                // ✅ SLA fields
+                // SLA fields
                 SlaStatus = sla.Status,
                 DaysToSend = sla.DaysToSend,
                 SlaLabel = sla.Label,
 
+                // New folder-import file details
+                OriginalFileName = extractFile?.OriginalFileName,
+                SourceFilePath = extractFile?.SavedPath,
+                UploadedAtUtc = extractFile?.UploadedAtUtc,
+
+                // Cleaning status
+                ExtractCleaningStatus = batch.ExtractCleaningStatus,
+                ExtractCleanedAtUtc = batch.ExtractCleanedAtUtc,
+                ExtractCleanedBy = batch.ExtractCleanedBy,
+                CleanWeekTableName = batch.CleanWeekTableName,
+                ExtractCleaningMessage = batch.ExtractCleaningMessage,
+
+                // QA + Project Manager notification
+                ProjectManagerNotifiedAtUtc = batch.ProjectManagerNotifiedAtUtc,
+                ProjectManagerNotifiedTo = batch.ProjectManagerNotifiedTo,
+                QaNotifiedTo = batch.QaNotifiedTo,
+
+                // Project Manager approval
+                ProjectManagerApprovedAtUtc = batch.ProjectManagerApprovedAtUtc,
+                ProjectManagerApprovedBy = batch.ProjectManagerApprovedBy,
+                ProjectManagerApprovalComment = batch.ProjectManagerApprovalComment,
+
+                // Sector Manager notification
                 ManagersNotified = batch.ManagersNotifiedAtUtc != null,
                 ManagersNotifiedAtUtc = batch.ManagersNotifiedAtUtc,
 

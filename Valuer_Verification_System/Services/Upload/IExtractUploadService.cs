@@ -145,96 +145,315 @@ namespace Valuer_Verification_System.Services.Upload
             if (batch is null)
                 throw new InvalidOperationException("Batch not found.");
 
-            if (batch.ManagersNotifiedAtUtc != null)
-                throw new InvalidOperationException("Managers have already been notified for this batch.");
+            // The folder job must clean first.
+            if (batch.ExtractCleanedAtUtc == null)
+                throw new InvalidOperationException("Extract has not been cleaned yet.");
 
-            // Extract file metadata (for archive path)
+            if (!string.Equals(batch.ExtractCleaningStatus, "Cleaned", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Extract cleaning was not completed successfully.");
+
+            // Project Manager must approve before Sector Managers are notified.
+            if (batch.ProjectManagerApprovedAtUtc == null)
+                throw new InvalidOperationException("Project Manager must approve before Sector Managers are notified.");
+
+            // Prevent duplicate sector notifications.
+            if (batch.ManagersNotifiedAtUtc != null)
+                throw new InvalidOperationException("Sector Managers have already been notified for this batch.");
+
             var extract = await _db.ExtractFiles
                 .AsNoTracking()
-                .FirstAsync(x => x.BatchId == batchId, ct);
+                .FirstOrDefaultAsync(x => x.BatchId == batchId, ct);
 
-            // Summary counts for email
-            var totalRecords = await _db.ExtractRows.CountAsync(r => r.BatchId == batchId, ct);
-            var assignedRecords = await _db.Assignments.CountAsync(a => a.ExtractRow.BatchId == batchId, ct);
+            if (extract is null)
+                throw new InvalidOperationException("Extract file log was not found for this batch.");
 
-            // Fetch all active manager emails from SectorManagers table
-            var managerEmails = await _db.SectorManagers
+            var sectorGroups = await _db.ExtractRows
                 .AsNoTracking()
-                .Where(m => m.IsActive)
-                .Select(m => m.Email)
-                .Where(e => !string.IsNullOrWhiteSpace(e))
-                .Select(e => e!.Trim())
-                .Distinct()
+                .Where(x => x.BatchId == batchId)
+                .GroupBy(x => string.IsNullOrWhiteSpace(x.Sector) ? "Unassigned" : x.Sector!.Trim())
+                .Select(g => new SectorNotifySummary
+                {
+                    Sector = g.Key,
+                    TotalRows = g.Count(),
+                    TotalProperties = g.Select(x => x.ValuationKey).Distinct().Count(),
+                    TotalValuers = g.Where(x => x.Username != null && x.Username != "")
+                                    .Select(x => x.Username)
+                                    .Distinct()
+                                    .Count(),
+                    UnmatchedRows = g.Count(x => x.Username == null || x.Username == "")
+                })
+                .OrderBy(x => x.Sector)
                 .ToListAsync(ct);
 
-            if (managerEmails.Count == 0)
-                throw new InvalidOperationException("No active sector manager email addresses found in the database.");
+            if (sectorGroups.Count == 0)
+                throw new InvalidOperationException("No extract rows found for this batch.");
 
-            // Use absolute URL path for the dashboard link
-            var managerDashboardUrl = $"/Manager/Dashboard?batchId={batch.Id}";
+            var managers = await _db.SectorManagers
+                .AsNoTracking()
+                .Where(x => x.IsActive)
+                .ToListAsync(ct);
 
-            // Build email using the branded template
-            var (subject, html, text) = EmailTemplates.ManagersUploadReady(
-                batchName: batch.BatchName,
-                batchDate: batch.BatchDate,
-                weekStart: batch.WeekWindow.WeekStart,
-                weekEnd: batch.WeekWindow.WeekEnd,
-                noticeSendDate: batch.WeekWindow.NoticeSendDate,
-                totalRecords: totalRecords,
-                assignedRecords: assignedRecords,
-                managerDashboardUrl: managerDashboardUrl
-            );
+            if (managers.Count == 0)
+                throw new InvalidOperationException("No active Sector Managers found.");
 
-            var req = new EmailRequest
+            var sentTo = new List<string>();
+            var emailErrors = new List<string>();
+
+            foreach (var sector in sectorGroups)
             {
-                To = managerEmails,
-                Subject = subject,
-                BodyHtml = html,
-                BodyText = text
-            };
+                var sectorName = sector.Sector.Trim();
 
-            // Archive the .eml next to the extract file
-            var baseEmlName = Path.GetFileNameWithoutExtension(extract.OriginalFileName);
-            var emlPath = Path.Combine(
-                Path.GetDirectoryName(_storage.GetExtractFilePath(extract.OriginalFileName))!,
-                $"{baseEmlName}_managers.eml"
-            );
+                var managerEmails = managers
+                    .Where(m =>
+                        string.Equals(m.Sector?.Trim(), "*", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(m.Sector?.Trim(), sectorName, StringComparison.OrdinalIgnoreCase))
+                    .Select(m => m.Email?.Trim())
+                    .Where(e => !string.IsNullOrWhiteSpace(e))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList()!;
 
-            // Send + archive (never throw; always record outcome)
-            EmailSendResult result;
-            try
-            {
-                result = await _email.SendAndArchiveAsync(req, emlPath, ct);
+                if (managerEmails.Count == 0)
+                {
+                    emailErrors.Add($"No active Sector Manager email found for sector '{sectorName}'.");
+                    continue;
+                }
+
+                var valuers = await _db.ExtractRows
+                    .AsNoTracking()
+                    .Where(x =>
+                        x.BatchId == batchId &&
+                        (string.IsNullOrWhiteSpace(x.Sector) ? "Unassigned" : x.Sector!.Trim()) == sectorName)
+                    .GroupBy(x => new
+                    {
+                        Username = string.IsNullOrWhiteSpace(x.Username) ? "Unmatched" : x.Username!.Trim(),
+                        Valuer = string.IsNullOrWhiteSpace(x.Valuer) ? "Unmatched" : x.Valuer!.Trim()
+                    })
+                    .Select(g => new ValuerNotifySummary
+                    {
+                        Username = g.Key.Username,
+                        Valuer = g.Key.Valuer,
+                        TotalRows = g.Count(),
+                        TotalProperties = g.Select(x => x.ValuationKey).Distinct().Count()
+                    })
+                    .OrderByDescending(x => x.TotalProperties)
+                    .ThenBy(x => x.Valuer)
+                    .ToListAsync(ct);
+
+                var dashboardUrl = $"/Manager/Dashboard?batchId={batch.Id}&sector={Uri.EscapeDataString(sectorName)}";
+
+                var rowsHtml = string.Join("", valuers.Select(v => $@"
+<tr>
+  <td style='padding:8px;border-bottom:1px solid #eee;'>{Html(v.Valuer)}</td>
+  <td style='padding:8px;border-bottom:1px solid #eee;'>{Html(v.Username)}</td>
+  <td style='padding:8px;border-bottom:1px solid #eee;text-align:right;'>{v.TotalProperties:N0}</td>
+  <td style='padding:8px;border-bottom:1px solid #eee;text-align:right;'>{v.TotalRows:N0}</td>
+</tr>"));
+
+                var subject = $"[VeriApp] {sectorName} verification extract ready - {batch.BatchName}";
+
+                var html = $@"
+<html>
+<body style='margin:0;padding:0;background:#f4f4f4;font-family:Segoe UI,Arial,sans-serif;'>
+  <table width='100%' cellpadding='0' cellspacing='0' style='background:#f4f4f4;'>
+    <tr>
+      <td align='center' style='padding:28px 14px;'>
+        <table width='720' cellpadding='0' cellspacing='0' style='background:#fff;border-radius:10px;overflow:hidden;border:1px solid #ddd;'>
+          <tr>
+            <td style='background:#e6b000;padding:18px 24px;'>
+              <strong style='font-size:16px;color:#111;'>Valuer Verification System</strong>
+            </td>
+          </tr>
+
+          <tr>
+            <td style='padding:26px 24px;'>
+              <h2 style='margin:0 0 12px;color:#111;'>Verification extract ready: {Html(sectorName)}</h2>
+
+              <p style='font-size:14px;color:#333;line-height:1.6;'>
+                The Project Manager has approved the cleaned extract.
+                The respective valuers in your sector now have records to verify.
+              </p>
+
+              <table width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse;margin:18px 0;background:#fafafa;border:1px solid #eee;'>
+                {DetailRow("Batch", batch.BatchName)}
+                {DetailRow("Sector", sectorName)}
+                {DetailRow("Extract Week", $"{batch.WeekWindow.WeekStart:yyyy-MM-dd} to {batch.WeekWindow.WeekEnd:yyyy-MM-dd}")}
+                {DetailRow("Notice Send Date", $"{batch.WeekWindow.NoticeSendDate:yyyy-MM-dd}")}
+                {DetailRow("Review Period", $"{batch.WeekWindow.ReviewOpenDate:yyyy-MM-dd} to {batch.WeekWindow.ReviewCloseDate:yyyy-MM-dd}")}
+                {DetailRow("Clean Week Table", batch.CleanWeekTableName ?? "")}
+                {DetailRow("Total Properties", $"{sector.TotalProperties:N0}")}
+                {DetailRow("Total Rows", $"{sector.TotalRows:N0}")}
+                {DetailRow("Valuers", $"{sector.TotalValuers:N0}")}
+                {DetailRow("Unmatched Rows", $"{sector.UnmatchedRows:N0}")}
+              </table>
+
+              <h3 style='margin:20px 0 10px;color:#111;'>Valuer Breakdown</h3>
+
+              <table width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse;border:1px solid #eee;'>
+                <tr style='background:#111827;color:white;'>
+                  <th align='left' style='padding:8px;'>Valuer</th>
+                  <th align='left' style='padding:8px;'>Username</th>
+                  <th align='right' style='padding:8px;'>Properties</th>
+                  <th align='right' style='padding:8px;'>Rows</th>
+                </tr>
+                {rowsHtml}
+              </table>
+
+              <div style='text-align:center;margin:28px 0;'>
+                <a href='{dashboardUrl}'
+                   style='display:inline-block;background:#e6b000;color:#111;text-decoration:none;
+                          padding:13px 28px;border-radius:8px;font-weight:800;'>
+                  Open Manager Dashboard
+                </a>
+              </div>
+
+              <p style='font-size:12px;color:#777;border-top:1px solid #eee;padding-top:14px;'>
+                Automated notification from VeriApp.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>";
+
+                var text = $@"
+Verification extract ready: {sectorName}
+
+Batch: {batch.BatchName}
+Sector: {sectorName}
+Week: {batch.WeekWindow.WeekStart:yyyy-MM-dd} to {batch.WeekWindow.WeekEnd:yyyy-MM-dd}
+Notice Send Date: {batch.WeekWindow.NoticeSendDate:yyyy-MM-dd}
+Review Period: {batch.WeekWindow.ReviewOpenDate:yyyy-MM-dd} to {batch.WeekWindow.ReviewCloseDate:yyyy-MM-dd}
+Clean Week Table: {batch.CleanWeekTableName}
+
+Total Properties: {sector.TotalProperties:N0}
+Total Rows: {sector.TotalRows:N0}
+Valuers: {sector.TotalValuers:N0}
+Unmatched Rows: {sector.UnmatchedRows:N0}
+
+Dashboard:
+{dashboardUrl}
+";
+
+                var req = new EmailRequest
+                {
+                    To = managerEmails,
+                    Subject = subject,
+                    BodyHtml = html,
+                    BodyText = text
+                };
+
+                var baseEmlName = Path.GetFileNameWithoutExtension(extract.OriginalFileName);
+                var sourceFolder = Path.GetDirectoryName(extract.SavedPath) ?? AppContext.BaseDirectory;
+
+                var emlPath = Path.Combine(
+                    sourceFolder,
+                    $"{baseEmlName}_{SanitizeFileName(sectorName)}_sector_managers.eml");
+
+                EmailSendResult sendResult;
+
+                try
+                {
+                    sendResult = await _email.SendAndArchiveAsync(req, emlPath, ct);
+                }
+                catch (Exception ex)
+                {
+                    sendResult = new EmailSendResult
+                    {
+                        Sent = false,
+                        Error = ex.Message,
+                        ArchivePath = emlPath
+                    };
+                }
+
+                _db.EmailArchives.Add(new EmailArchive
+                {
+                    BatchId = batch.Id,
+                    Kind = EmailKind.UploadReadyToManager,
+                    ToAddress = string.Join("; ", managerEmails),
+                    FromAddress = "",
+                    Subject = subject,
+                    EmlPath = sendResult.ArchivePath,
+                    SentAtUtc = DateTime.UtcNow,
+                    ErrorMessage = sendResult.Sent ? null : sendResult.Error,
+                    CreatedBy = notifiedBy,
+                    CreatedAt = DateTime.UtcNow
+                });
+
+                if (sendResult.Sent)
+                {
+                    sentTo.AddRange(managerEmails);
+                }
+                else
+                {
+                    emailErrors.Add($"Sector '{sectorName}' email failed: {sendResult.Error}");
+                }
             }
-            catch (Exception ex)
-            {
-                result = new EmailSendResult { Sent = false, Error = ex.Message, ArchivePath = emlPath };
-            }
 
-            _db.EmailArchives.Add(new EmailArchive
+            if (sentTo.Count == 0)
             {
-                BatchId = batch.Id,
-                Kind = EmailKind.UploadReadyToManager,
-                ToAddress = string.Join("; ", managerEmails),
-                FromAddress = "",   // filled from EmailSettings by EmailService
-                Subject = subject,
-                EmlPath = result.ArchivePath,
-                SentAtUtc = DateTime.UtcNow,
-                ErrorMessage = result.Sent ? null : result.Error,
-                CreatedBy = notifiedBy,
-                CreatedAt = DateTime.UtcNow
-            });
+                var error = emailErrors.Count > 0
+                    ? string.Join(" | ", emailErrors)
+                    : "No Sector Manager emails matched the sectors in this batch.";
+
+                throw new InvalidOperationException(error);
+            }
 
             batch.ManagersNotifiedAtUtc = DateTime.UtcNow;
             batch.ManagersNotifiedBy = notifiedBy;
             batch.Status = BatchStatus.InVerification;
+            batch.UpdatedBy = notifiedBy;
+            batch.UpdatedAt = DateTime.UtcNow;
 
             await _db.SaveChangesAsync(ct);
 
-            // Propagate send failure so the UI can warn the user (upload is already saved)
-            if (!result.Sent && !string.IsNullOrWhiteSpace(result.Error))
+            if (emailErrors.Count > 0)
+            {
                 throw new InvalidOperationException(
-                    $"Batch marked as notified but email failed to send: {result.Error}");
+                    "Some sector notifications failed: " + string.Join(" | ", emailErrors));
+            }
+        }
+        private static string DetailRow(string label, string value)
+        {
+            return $@"
+<tr>
+  <td style='padding:8px;border-bottom:1px solid #eee;font-weight:700;width:210px;'>{Html(label)}</td>
+  <td style='padding:8px;border-bottom:1px solid #eee;'>{Html(value)}</td>
+</tr>";
+        }
+
+        private static string SanitizeFileName(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return "Unknown";
+
+            var invalid = Path.GetInvalidFileNameChars();
+
+            return string.Concat(value.Select(c => invalid.Contains(c) ? '_' : c));
+        }
+
+        private static string Html(string? value)
+        {
+            return System.Net.WebUtility.HtmlEncode(value ?? "");
+        }
+
+        private sealed class SectorNotifySummary
+        {
+            public string Sector { get; set; } = "";
+            public int TotalRows { get; set; }
+            public int TotalProperties { get; set; }
+            public int TotalValuers { get; set; }
+            public int UnmatchedRows { get; set; }
+        }
+
+        private sealed class ValuerNotifySummary
+        {
+            public string Username { get; set; } = "";
+            public string Valuer { get; set; } = "";
+            public int TotalRows { get; set; }
+            public int TotalProperties { get; set; }
         }
     }
 }

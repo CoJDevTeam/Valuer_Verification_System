@@ -22,14 +22,16 @@ namespace Valuer_Verification_System.Services.Valuer
 
         public async Task<ValuerDashboardVm> BuildAsync(string valuer, CancellationToken ct)
         {
+            valuer = (valuer ?? "").Trim();
+
             if (string.IsNullOrWhiteSpace(valuer))
                 valuer = "UNKNOWN_VALUER";
 
-            // Base query: rows assigned to this valuer (current assignment)
-            var assignedRowsQ = _db.Assignments
+            // New source of truth:
+            // ExtractRows.Username is the current valuer assignment.
+            var assignedRowsQ = _db.ExtractRows
                 .AsNoTracking()
-                .Where(a => a.AssignedToValuer == valuer)
-                .Select(a => a.ExtractRow);
+                .Where(r => r.Username != null && r.Username.Trim() == valuer);
 
             var total = await assignedRowsQ.CountAsync(ct);
             var pending = await assignedRowsQ.CountAsync(r => r.Decision == VerificationDecision.Pending, ct);
@@ -39,7 +41,6 @@ namespace Valuer_Verification_System.Services.Valuer
             var verified = yes + no;
             var progress = total <= 0 ? 0m : Math.Round((decimal)verified * 100m / total, 2);
 
-            // Today performance (UTC - matches DecisionAtUtc usage)
             var todayUtc = DateTime.UtcNow.Date;
 
             var verifiedToday = await assignedRowsQ.CountAsync(r =>
@@ -57,11 +58,8 @@ namespace Valuer_Verification_System.Services.Valuer
                 r.DecisionAtUtc.Value >= todayUtc &&
                 r.Decision == VerificationDecision.No, ct);
 
-            // My batches summary
-            var myBatchIds = await _db.Assignments
-                .AsNoTracking()
-                .Where(a => a.AssignedToValuer == valuer)
-                .Select(a => a.ExtractRow.BatchId)
+            var myBatchIds = await assignedRowsQ
+                .Select(r => r.BatchId)
                 .Distinct()
                 .OrderByDescending(x => x)
                 .Take(50)
@@ -74,18 +72,15 @@ namespace Valuer_Verification_System.Services.Valuer
                 .OrderByDescending(b => b.Id)
                 .ToListAsync(ct);
 
-            // For performance: aggregate counts by batch in one query
-            var countsByBatch = await _db.Assignments
-                .AsNoTracking()
-                .Where(a => a.AssignedToValuer == valuer)
-                .GroupBy(a => a.ExtractRow.BatchId)
+            var countsByBatch = await assignedRowsQ
+                .GroupBy(r => r.BatchId)
                 .Select(g => new
                 {
                     BatchId = g.Key,
                     Total = g.Count(),
-                    Pending = g.Count(x => x.ExtractRow.Decision == VerificationDecision.Pending),
-                    Yes = g.Count(x => x.ExtractRow.Decision == VerificationDecision.Yes),
-                    No = g.Count(x => x.ExtractRow.Decision == VerificationDecision.No),
+                    Pending = g.Count(x => x.Decision == VerificationDecision.Pending),
+                    Yes = g.Count(x => x.Decision == VerificationDecision.Yes),
+                    No = g.Count(x => x.Decision == VerificationDecision.No)
                 })
                 .ToListAsync(ct);
 
@@ -94,6 +89,7 @@ namespace Valuer_Verification_System.Services.Valuer
             var batchVms = batches.Select(b =>
             {
                 map.TryGetValue(b.Id, out var c);
+
                 var bt = c?.Total ?? 0;
                 var by = c?.Yes ?? 0;
                 var bn = c?.No ?? 0;

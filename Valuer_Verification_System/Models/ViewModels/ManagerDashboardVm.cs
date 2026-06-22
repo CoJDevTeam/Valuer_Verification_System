@@ -35,6 +35,40 @@ namespace Valuer_Verification_System.Models.ViewModels
         public int DaysToSend { get; set; }
         public string SlaLabel { get; set; } = "";
 
+        public string? Status { get; set; }
+
+        public string? OriginalFileName { get; set; }
+        public string? SourceFilePath { get; set; }
+        public DateTime? UploadedAtUtc { get; set; }
+
+        public string? ExtractCleaningStatus { get; set; }
+        public DateTime? ExtractCleanedAtUtc { get; set; }
+        public string? ExtractCleanedBy { get; set; }
+        public string? CleanWeekTableName { get; set; }
+        public string? ExtractCleaningMessage { get; set; }
+
+        public DateTime? ProjectManagerNotifiedAtUtc { get; set; }
+        public string? ProjectManagerNotifiedTo { get; set; }
+        public string? QaNotifiedTo { get; set; }
+
+        public DateTime? ProjectManagerApprovedAtUtc { get; set; }
+        public string? ProjectManagerApprovedBy { get; set; }
+        public string? ProjectManagerApprovalComment { get; set; }
+
+        public bool IsCleaned =>
+            ExtractCleanedAtUtc != null &&
+            string.Equals(ExtractCleaningStatus, "Cleaned", StringComparison.OrdinalIgnoreCase);
+
+        public bool ProjectManagerNotified => ProjectManagerNotifiedAtUtc != null;
+
+        public bool ProjectManagerApproved => ProjectManagerApprovedAtUtc != null;
+
+        public bool ReadyForVerification =>
+            ProjectManagerApproved && ManagersNotified;
+
+        public bool ReadyForNoticeStep =>
+            Pending == 0 && ManagersNotified;
+
         public sealed class BatchOptionVm
         {
             public int Id { get; set; }

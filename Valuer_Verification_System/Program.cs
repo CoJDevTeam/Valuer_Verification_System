@@ -2,45 +2,45 @@
 using Microsoft.EntityFrameworkCore;
 using Valuer_Verification_System.Data;
 using Valuer_Verification_System.Infrastructure.Configuration;
-using Valuer_Verification_System.Infrastructure.Configuration.Email;
+
 using Valuer_Verification_System.Services.Notice;
 using Valuer_Verification_System.Services.Permissions;
 using Valuer_Verification_System.Services.Stats;
 using Valuer_Verification_System.Services.Upload;
+using Valuer_Verification_System.Infrastructure.Configuration.Email;
+using Valuer_Verification_System.Infrastructure.Storage;
+using Valuer_Verification_System.Domain.Dates;
+using Valuer_Verification_System.Domain.WeekWindows;
+using Valuer_Verification_System.Services.Valuer;
+using Valuer_Verification_System.Services.Manager;
+using Valuer_Verification_System.Services.Home;
+using Valuer_Verification_System.Services.Notifications;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<VvsDbContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
 
 //-----------------Email--------------------------------------
-builder.Services.Configure<Valuer_Verification_System.Infrastructure.Configuration.EmailSettings>(
-    builder.Configuration.GetSection("Email"));
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
 
-builder.Services.AddScoped<IEmailService,
-    EmailService>();
+builder.Services.AddScoped<IEmailService,EmailService>();
 
 //----------------------------------------Storage---------------------------------------
-builder.Services.Configure<Valuer_Verification_System.Infrastructure.Configuration.StorageSettings>(
-    builder.Configuration.GetSection("Storage"));
+builder.Services.Configure<StorageSettings>(builder.Configuration.GetSection("Storage"));
 
-builder.Services.AddSingleton<Valuer_Verification_System.Infrastructure.Storage.IStorageService,
-    Valuer_Verification_System.Infrastructure.Storage.StorageService>();
+builder.Services.AddSingleton<IStorageService,StorageService>();
 
 //-------------------------Date Configurations-------------------------------------
-builder.Services.Configure<Valuer_Verification_System.Infrastructure.Configuration.HolidaySettings>(
-    builder.Configuration.GetSection("Holidays"));
+builder.Services.Configure<HolidaySettings>(builder.Configuration.GetSection("Holidays"));
 
-builder.Services.AddScoped<Valuer_Verification_System.Domain.Dates.IWeekWindowCalculator,
-    Valuer_Verification_System.Domain.Dates.WeekWindowCalculator>();
+builder.Services.AddScoped<IWeekWindowCalculator,WeekWindowCalculator>();
 
-builder.Services.AddScoped<Valuer_Verification_System.Domain.WeekWindows.IWeekWindowService,
-    Valuer_Verification_System.Domain.WeekWindows.WeekWindowService>();
+builder.Services.AddScoped<IWeekWindowService,WeekWindowService>();
 
 //-------------------------------Upload---------------------------------------
 
@@ -52,30 +52,26 @@ builder.Services.AddScoped<IExtractFolderImportService,ExtractFolderImportServic
 
 builder.Services.AddHostedService<ExtractFolderHostedService>();
 
+builder.Services.Configure<ExtractInboxSettings>(builder.Configuration.GetSection("ExtractInbox"));
 
+builder.Services.AddSingleton<IExtractFolderImportLock, ExtractFolderImportLock>();
 //------------------------------------------Valuer Inbox---------------------------------
-builder.Services.AddScoped<Valuer_Verification_System.Services.Valuer.IValuerVerificationService,
-    Valuer_Verification_System.Services.Valuer.ValuerVerificationService>();
+builder.Services.AddScoped<IValuerVerificationService,ValuerVerificationService>();
 
-builder.Services.AddScoped<Valuer_Verification_System.Services.Valuer.IValuerDashboardService,
-    Valuer_Verification_System.Services.Valuer.ValuerDashboardService>();
+builder.Services.AddScoped<IValuerDashboardService,ValuerDashboardService>();
 
-builder.Services.AddScoped<Valuer_Verification_System.Services.Valuer.IValuerRowDetailsService,
-    Valuer_Verification_System.Services.Valuer.ValuerRowDetailsService>();
+builder.Services.AddScoped<IValuerRowDetailsService,ValuerRowDetailsService>();
 
 
 //-------------------------------Manager Reassignment---------------------------------
-builder.Services.AddScoped<Valuer_Verification_System.Services.Manager.IManagerReassignmentService,
-    Valuer_Verification_System.Services.Manager.ManagerReassignmentService>();
+builder.Services.AddScoped<IManagerReassignmentService,ManagerReassignmentService>();
 
-builder.Services.AddScoped<Valuer_Verification_System.Services.Manager.IManagerDashboardService,
-    Valuer_Verification_System.Services.Manager.ManagerDashboardService>();
+builder.Services.AddScoped<IManagerDashboardService,ManagerDashboardService>();
 
 
 //---------------------------------Notice ---------------------------------
 builder.Services.AddScoped<INoticeGuardService,NoticeGuardService>();
 
-builder.Services.AddScoped<INoticeCleaningService, NoticeCleaningService>();
 
 builder.Services.AddScoped<INoticePdfService, NoticePdfService>();
 
@@ -93,24 +89,18 @@ builder.Services.AddScoped<IExtractApprovalNotificationService,ExtractApprovalNo
 //---------------------------------Stats ---------------------------------
 builder.Services.AddScoped<ISection78StatsService,Section78StatsService>();
 
-builder.Services.AddScoped<ISection78StatsService,Section78StatsService>();
-
-
 builder.Services.AddScoped<IStatsExportService,StatsExportService>();
 
 //------------------------------Home--------------------------------------------
 
-builder.Services.AddScoped<Valuer_Verification_System.Services.Home.IDataTeamDashboardService,
-    Valuer_Verification_System.Services.Home.DataTeamDashboardService>();
+builder.Services.AddScoped<IDataTeamDashboardService,DataTeamDashboardService>();
 
 //----------------------------Notifications--------------------------------
-builder.Services.AddScoped<Valuer_Verification_System.Services.Notifications.INotificationService,
-    Valuer_Verification_System.Services.Notifications.NotificationService>();
+builder.Services.AddScoped<INotificationService,NotificationService>();
 
-builder.Services.AddScoped<Valuer_Verification_System.Services.Notifications.INotificationReminderJob,
-    Valuer_Verification_System.Services.Notifications.NotificationReminderJob>();
+builder.Services.AddScoped<INotificationReminderJob,NotificationReminderJob>();
 
-builder.Services.AddHostedService<Valuer_Verification_System.Services.Notifications.NotificationHostedService>();
+builder.Services.AddHostedService<NotificationHostedService>();
 
 // ── NEW: IHttpContextAccessor (required by UserService) ───────────────────────
 builder.Services.AddHttpContextAccessor();

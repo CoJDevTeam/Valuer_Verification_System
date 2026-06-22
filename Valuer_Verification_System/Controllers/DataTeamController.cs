@@ -97,18 +97,36 @@ namespace Valuer_Verification_System.Controllers
         // ═════════════════════════════════════════════════════════════════════
         // STEP 2 – Cleaning AJAX calls
         // ═════════════════════════════════════════════════════════════════════
-
         [HttpPost("/DataTeam/SendNotice/RunCleanStep")]
-        public async Task<IActionResult> RunCleanStep([FromBody] RunCleanStepRequest req, CancellationToken ct)
+        public async Task<IActionResult> RunCleanStep(
+            [FromBody] RunCleanStepRequest req,
+            CancellationToken ct)
         {
-            if (req is null || string.IsNullOrWhiteSpace(req.StepName))
+            if (req is null)
+                return BadRequest(new { success = false, error = "Request body required." });
+
+            if (req.BatchId <= 0)
+                return BadRequest(new { success = false, error = "BatchId required." });
+
+            if (string.IsNullOrWhiteSpace(req.StepName))
                 return BadRequest(new { success = false, error = "Step name required." });
 
+            if (string.IsNullOrWhiteSpace(req.LisMasterTable))
+                return BadRequest(new { success = false, error = "LIS table required." });
+
+            if (string.IsNullOrWhiteSpace(req.SapTable))
+                return BadRequest(new { success = false, error = "SAP table required." });
+
             var result = await _cleaning.RunStepAsync(
-                req.StepName, req.ExtractionDate, req.LisMasterTable, req.SapTable, ct);
+                req.BatchId,
+                req.StepName,
+                req.ExtractionDate,
+                req.LisMasterTable,
+                req.SapTable,
+                ct);
+
             return Json(result);
         }
-
         [HttpPost("/DataTeam/SendNotice/CreateWeekTable")]
         public async Task<IActionResult> CreateWeekTable([FromBody] CreateWeekTableRequest req, CancellationToken ct)
         {
@@ -155,6 +173,84 @@ namespace Valuer_Verification_System.Controllers
         [HttpGet("/DataTeam/SendNotice/Step3/{batchId:int}")]
         public async Task<IActionResult> PrintNotices(int batchId, CancellationToken ct)
         {
+            var batch = await _db.Batches
+                .Include(b => b.WeekWindow)
+                .FirstOrDefaultAsync(b => b.Id == batchId, ct);
+
+            if (batch is null)
+                return NotFound();
+
+            if (batch.ExtractCleanedAtUtc == null ||
+                !string.Equals(batch.ExtractCleaningStatus, "Cleaned", StringComparison.OrdinalIgnoreCase))
+            {
+                TempData["Error"] = "This batch has not been cleaned by the folder job yet.";
+
+                return RedirectToAction(
+                    nameof(SendNotice),
+                    new { batchId });
+            }
+
+            if (string.IsNullOrWhiteSpace(batch.CleanWeekTableName))
+            {
+                TempData["Error"] = "This batch does not have a clean week table name.";
+
+                return RedirectToAction(
+                    nameof(SendNotice),
+                    new { batchId });
+            }
+
+            if (batch.ManagersNotifiedAtUtc == null)
+            {
+                TempData["Error"] = "Sector Managers must be notified before notices can be prepared.";
+
+                return RedirectToAction(
+                    nameof(SendNotice),
+                    new { batchId });
+            }
+
+            var pending = await _db.ExtractRows
+                .AsNoTracking()
+                .CountAsync(r =>
+                    r.BatchId == batchId &&
+                    r.Decision == VerificationDecision.Pending,
+                    ct);
+
+            if (pending > 0)
+            {
+                TempData["Error"] = $"Cannot prepare notices. There are still {pending:N0} pending verification records.";
+
+                return RedirectToAction(
+                    nameof(SendNotice),
+                    new { batchId });
+            }
+
+            // This is the new replacement for the old cleaning process.
+            // It does NOT clean again.
+            // It only inserts already-cleaned and verified rows into the week table.
+            var insertResult = await _cleaning.InsertVerifiedRowsIntoWeekTableAsync(
+                batch.Id,
+                batch.CleanWeekTableName,
+                ct);
+
+            if (!insertResult.Success)
+            {
+                TempData["Error"] = insertResult.Error ?? "Failed to insert verified rows into the week table.";
+
+                return RedirectToAction(
+                    nameof(SendNotice),
+                    new { batchId });
+            }
+
+            if (batch.Status != BatchStatus.PrintedEmailPending &&
+                batch.Status != BatchStatus.Sent)
+            {
+                batch.Status = BatchStatus.ReadyToSend;
+                await _db.SaveChangesAsync(ct);
+            }
+
+            TempData["Success"] =
+                $"Week table prepared successfully. {insertResult.RowsAffected:N0} verified rows inserted.";
+
             var vm = await BuildPrintVmAsync(batchId, ct);
             return View("SendNoticeStep3", vm);
         }
@@ -189,7 +285,9 @@ namespace Valuer_Verification_System.Controllers
             {
                 batchId,
                 batchName = batch.BatchName,
-                weekTableName = _cleaning.BuildWeekTableName(extractionDate),
+                weekTableName = !string.IsNullOrWhiteSpace(batch.CleanWeekTableName)
+    ? batch.CleanWeekTableName
+    : _cleaning.BuildWeekTableName(extractionDate),
                 letterDate = ww.NoticeSendDate.ToString("dd MMMM yyyy").ToUpperInvariant(),
                 reviewOpenDate = ww.ReviewOpenDate.ToString("dd MMMM yyyy").ToUpperInvariant(),
                 reviewCloseDate = ww.ReviewCloseDate.ToString("dd MMMM yyyy").ToUpperInvariant(),
@@ -197,8 +295,12 @@ namespace Valuer_Verification_System.Controllers
                 totalNotices = counts.total,
                 singleCount = counts.single,
                 multiCount = counts.multi,
-                outputFolder = _print.BuildOutputFolder(extractionDate, batch.BatchName,
-                                        _cleaning.BuildWeekTableName(extractionDate)),
+                outputFolder = _print.BuildOutputFolder(
+    extractionDate,
+    batch.BatchName,
+    !string.IsNullOrWhiteSpace(batch.CleanWeekTableName)
+        ? batch.CleanWeekTableName
+        : _cleaning.BuildWeekTableName(extractionDate)),
                 emailHtml
             });
         }
@@ -419,7 +521,9 @@ namespace Valuer_Verification_System.Controllers
                 {
                     Id = b.Id,
                     BatchName = b.BatchName,
-                    WeekTableName = _cleaning.BuildWeekTableName(exDate),
+                    WeekTableName = !string.IsNullOrWhiteSpace(b.CleanWeekTableName)
+    ? b.CleanWeekTableName
+    : _cleaning.BuildWeekTableName(exDate),
                     NoticeSendDate = b.WeekWindow.NoticeSendDate,
                     NoticeCount = cnt
                 });
@@ -527,7 +631,9 @@ namespace Valuer_Verification_System.Controllers
                 {
                     Id = b.Id,
                     BatchName = b.BatchName,
-                    WeekTableName = _cleaning.BuildWeekTableName(exDate),
+                    WeekTableName = !string.IsNullOrWhiteSpace(b.CleanWeekTableName)
+    ? b.CleanWeekTableName
+    : _cleaning.BuildWeekTableName(exDate),
                     NoticeSendDate = b.WeekWindow.NoticeSendDate,
                     NoticeCount = count
                 });
@@ -667,9 +773,14 @@ namespace Valuer_Verification_System.Controllers
     // ── AJAX request bodies ────────────────────────────────────────────────────
     public sealed class RunCleanStepRequest
     {
+        public int BatchId { get; set; }
+
         public string StepName { get; set; } = "";
+
         public DateOnly ExtractionDate { get; set; }
+
         public string LisMasterTable { get; set; } = "";
+
         public string SapTable { get; set; } = "";
     }
 

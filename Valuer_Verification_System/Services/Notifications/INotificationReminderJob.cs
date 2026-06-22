@@ -47,21 +47,21 @@ public sealed class NotificationReminderJob : INotificationReminderJob
             return;
         }
 
-        var pendingByValuer = await _db.Assignments
-            .AsNoTracking()
-            .Where(a =>
-                batchIds.Contains(a.ExtractRow.BatchId) &&
-                a.ExtractRow.Decision == VerificationDecision.Pending &&
-                a.AssignedToValuer != null &&
-                a.AssignedToValuer != "")
-            .GroupBy(a => a.AssignedToValuer!.Trim())
-            .Select(g => new
-            {
-                Valuer = g.Key,
-                Pending = g.Count()
-            })
-            .Where(x => x.Pending > 0 && x.Valuer != "")
-            .ToListAsync(ct);
+        var pendingByValuer = await _db.ExtractRows
+     .AsNoTracking()
+     .Where(r =>
+         batchIds.Contains(r.BatchId) &&
+         r.Decision == VerificationDecision.Pending &&
+         r.Username != null &&
+         r.Username != "")
+     .GroupBy(r => r.Username!.Trim())
+     .Select(g => new
+     {
+         Valuer = g.Key,
+         Pending = g.Count()
+     })
+     .Where(x => x.Pending > 0 && x.Valuer != "")
+     .ToListAsync(ct);
 
         if (pendingByValuer.Count == 0)
         {

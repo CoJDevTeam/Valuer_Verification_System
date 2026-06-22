@@ -95,7 +95,15 @@ namespace Valuer_Verification_System.Models.Data
         public DateTime? ProjectManagerNotifiedAtUtc { get; set; }
         public string? ProjectManagerNotifiedTo { get; set; }
         public string? QaNotifiedTo { get; set; }
-       
+
+        public DateTime? ProjectManagerApprovedAtUtc { get; set; }
+
+        [MaxLength(128)]
+        public string? ProjectManagerApprovedBy { get; set; }
+
+        [MaxLength(1000)]
+        public string? ProjectManagerApprovalComment { get; set; }
+
 
     }
 

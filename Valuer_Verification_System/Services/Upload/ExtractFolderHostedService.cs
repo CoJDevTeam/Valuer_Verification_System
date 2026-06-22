@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Options;
+using System.Runtime.Intrinsics.Arm;
 using Valuer_Verification_System.Infrastructure.Configuration;
 
 namespace Valuer_Verification_System.Services.Upload
@@ -53,8 +54,11 @@ namespace Valuer_Verification_System.Services.Upload
                             "Running extract folder import job for {Date}.",
                             today);
 
-                        var result = await job.ImportNewFilesAsync(stoppingToken);
-
+                        var result = /*await job.ImportNewFilesAsync(stoppingToken);*/
+                        await job.ImportNewFilesAsync(
+    runType: "Hosted",
+    startedBy: "folder-hosted-service",
+    ct: stoppingToken);
                         _logger.LogInformation(
                             "Extract folder import job completed. Imported: {Imported}, Skipped: {Skipped}, Failed: {Failed}.",
                             result.ImportedCount,

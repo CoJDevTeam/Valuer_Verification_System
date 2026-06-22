@@ -21,6 +21,7 @@ namespace Valuer_Verification_System.Data
 
         public DbSet<NoticeQaApproval> NoticeQaApprovals => Set<NoticeQaApproval>();
         public DbSet<NoticeQaSample> NoticeQaSamples => Set<NoticeQaSample>();
+        public DbSet<ExtractFolderImportAudit> ExtractFolderImportAudits => Set<ExtractFolderImportAudit>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -173,6 +174,13 @@ namespace Valuer_Verification_System.Data
                 .WithMany(x => x.Samples)
                 .HasForeignKey(x => x.NoticeQaApprovalId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ExtractFolderImportAudit>(e =>
+            {
+                e.HasIndex(x => x.StartedAtUtc);
+                e.HasIndex(x => x.RunType);
+                e.HasIndex(x => x.Success);
+            });
         }
 
     }

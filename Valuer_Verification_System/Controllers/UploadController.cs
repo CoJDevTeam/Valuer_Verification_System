@@ -17,9 +17,30 @@ namespace Valuer_Verification_System.Controllers
             _svc = svc;
         }
 
+        private bool CanUseEmergencyUpload()
+        {
+            var role = User.FindFirst("Role")?.Value
+                       ?? User.FindFirst("Position")?.Value
+                       ?? User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value
+                       ?? "";
+
+            var name = User.Identity?.Name ?? "";
+
+            return role.Equals("Admin", StringComparison.OrdinalIgnoreCase)
+                || role.Equals("Syscon", StringComparison.OrdinalIgnoreCase)
+                || role.Contains("DEPUTY DIRECTOR", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("Syscon", StringComparison.OrdinalIgnoreCase);
+        }
         [HttpGet("/Upload")]
         public async Task<IActionResult> Index(CancellationToken ct)
         {
+            if (!CanUseEmergencyUpload())
+            {
+                TempData["UploadBlocked"] =
+                    "Manual extract upload has been disabled. Extracts are now imported automatically from the configured folder.";
+
+                return RedirectToAction("Index", "Home");
+            }
             var weeks = await _db.WeekWindows
                 .OrderByDescending(x => x.WeekStart)
                 .Take(200)
@@ -43,6 +64,8 @@ namespace Valuer_Verification_System.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Index(UploadExtractVm vm, CancellationToken ct)
         {
+            if (!CanUseEmergencyUpload())
+                return Forbid();
             if (vm.File is null || vm.File.Length == 0)
             {
                 ModelState.AddModelError("", "Please select an extract file.");

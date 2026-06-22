@@ -96,8 +96,7 @@ namespace Valuer_Verification_System.Services.Upload
                 .OrderBy(x => x.Sector)
                 .ToListAsync(ct);
 
-            var approveUrl =
-                $"{_emailCfg.AppBaseUrl.TrimEnd('/')}/ExtractApproval/Batch/{batch.Id}";
+            var approveUrl = $"{_emailCfg.AppBaseUrl.TrimEnd('/')}/ExtractApproval/Batch/{batch.Id}";
 
             var sectorRowsHtml = string.Join("", sectorSummary.Select(x => $@"
 <tr>

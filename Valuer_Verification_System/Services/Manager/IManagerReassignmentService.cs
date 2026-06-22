@@ -41,48 +41,61 @@ namespace Valuer_Verification_System.Services.Manager
 
         public async Task<List<string>> GetValuerListAsync(int? batchId, CancellationToken ct)
         {
-            var q = _db.Assignments.AsNoTracking().Select(a => a.AssignedToValuer);
+            var q = _db.ExtractRows
+                .AsNoTracking()
+                .Where(r => r.Username != null && r.Username != "")
+                .Select(r => r.Username!);
 
             if (batchId.HasValue && batchId.Value > 0)
-                q = _db.Assignments.AsNoTracking()
-                    .Where(a => a.ExtractRow.BatchId == batchId.Value)
-                    .Select(a => a.AssignedToValuer);
+            {
+                q = _db.ExtractRows
+                    .AsNoTracking()
+                    .Where(r =>
+                        r.BatchId == batchId.Value &&
+                        r.Username != null &&
+                        r.Username != "")
+                    .Select(r => r.Username!);
+            }
 
             return await q
-                .Where(v => v != null && v != "")
                 .Distinct()
                 .OrderBy(v => v)
                 .ToListAsync(ct);
         }
 
-        public async Task<List<ReassignRowDto>> ListPendingAsync(int batchId, string? currentValuer, string? sector, int top, CancellationToken ct)
+        public async Task<List<ReassignRowDto>> ListPendingAsync(
+    int batchId,
+    string? currentValuer,
+    string? sector,
+    int top,
+    CancellationToken ct)
         {
             if (top <= 0) top = 500;
             if (top > 2000) top = 2000;
 
-            var q = _db.Assignments
+            var q = _db.ExtractRows
                 .AsNoTracking()
-                .Where(a => a.ExtractRow.BatchId == batchId)
-                .Where(a => a.ExtractRow.Decision == VerificationDecision.Pending)
-                .Select(a => new
+                .Where(r => r.BatchId == batchId)
+                .Where(r => r.Decision == VerificationDecision.Pending)
+                .Select(r => new
                 {
-                    a.ExtractRowId,
-                    a.AssignedToValuer,
-                    a.ExtractRow.ValuationKey,
-                    a.ExtractRow.Sector,
-                    a.ExtractRow.PropertyDescription,
-                    a.ExtractRow.DecisionAtUtc
+                    ExtractRowId = r.Id,
+                    CurrentValuer = string.IsNullOrWhiteSpace(r.Username) ? "Unassigned" : r.Username!.Trim(),
+                    r.ValuationKey,
+                    r.Sector,
+                    r.PropertyDescription,
+                    r.DecisionAtUtc
                 })
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(currentValuer))
-                q = q.Where(x => x.AssignedToValuer == currentValuer);
+                q = q.Where(x => x.CurrentValuer == currentValuer.Trim());
 
             if (!string.IsNullOrWhiteSpace(sector))
                 q = q.Where(x => x.Sector == sector);
 
             var list = await q
-                .OrderBy(x => x.AssignedToValuer)
+                .OrderBy(x => x.CurrentValuer)
                 .ThenBy(x => x.ValuationKey)
                 .Take(top)
                 .ToListAsync(ct);
@@ -90,7 +103,7 @@ namespace Valuer_Verification_System.Services.Manager
             return list.Select(x => new ReassignRowDto
             {
                 ExtractRowId = x.ExtractRowId,
-                CurrentValuer = x.AssignedToValuer,
+                CurrentValuer = x.CurrentValuer,
                 ValuationKey = x.ValuationKey,
                 Sector = x.Sector,
                 PropertyDescription = x.PropertyDescription,
@@ -98,53 +111,87 @@ namespace Valuer_Verification_System.Services.Manager
             }).ToList();
         }
 
-        public async Task ReassignAsync(int extractRowId, string fromValuer, string toValuer, string reason, string managerUser, CancellationToken ct)
+        public async Task ReassignAsync(
+    int extractRowId,
+    string fromValuer,
+    string toValuer,
+    string reason,
+    string managerUser,
+    CancellationToken ct)
         {
+            fromValuer = (fromValuer ?? "").Trim();
+            toValuer = (toValuer ?? "").Trim();
+            reason = (reason ?? "").Trim();
+            managerUser = (managerUser ?? "manager").Trim();
+
             if (string.IsNullOrWhiteSpace(toValuer))
                 throw new InvalidOperationException("Please select a new valuer.");
 
-            if (string.Equals(fromValuer?.Trim(), toValuer.Trim(), StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(fromValuer, toValuer, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("New valuer must be different from current valuer.");
 
             if (string.IsNullOrWhiteSpace(reason))
                 throw new InvalidOperationException("Reason is required.");
 
-            // Load assignment + row
-            var assignment = await _db.Assignments
-                .Include(a => a.ExtractRow)
-                .FirstOrDefaultAsync(a => a.ExtractRowId == extractRowId, ct);
+            var row = await _db.ExtractRows
+                .Include(r => r.Assignment)
+                .FirstOrDefaultAsync(r => r.Id == extractRowId, ct);
 
-            if (assignment is null)
-                throw new InvalidOperationException("Assignment not found.");
+            if (row is null)
+                throw new InvalidOperationException("Record not found.");
 
-            // Only pending records can be reassigned
-            if (assignment.ExtractRow.Decision != VerificationDecision.Pending)
+            if (row.Decision != VerificationDecision.Pending)
                 throw new InvalidOperationException("This record is already verified. Reassignment is only allowed for Pending records.");
 
-            var current = assignment.AssignedToValuer;
+            var current = string.IsNullOrWhiteSpace(row.Username)
+                ? "Unassigned"
+                : row.Username.Trim();
 
             if (!string.Equals(current, fromValuer, StringComparison.OrdinalIgnoreCase))
-            {
-                // optional: stops stale UI submissions
                 throw new InvalidOperationException("The current valuer has changed. Refresh the page and try again.");
+
+            row.Username = toValuer;
+            row.UpdatedAt = DateTime.UtcNow;
+            row.UpdatedBy = managerUser;
+
+            Assignment assignment;
+
+            if (row.Assignment is null)
+            {
+                assignment = new Assignment
+                {
+                    ExtractRowId = row.Id,
+                    AssignedToValuer = toValuer,
+                    AssignedAtUtc = DateTime.UtcNow,
+                    AssignedBy = managerUser,
+                    CreatedBy = managerUser,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _db.Assignments.Add(assignment);
+                await _db.SaveChangesAsync(ct);
+            }
+            else
+            {
+                assignment = row.Assignment;
+
+                assignment.AssignedToValuer = toValuer;
+                assignment.AssignedAtUtc = DateTime.UtcNow;
+                assignment.AssignedBy = managerUser;
+                assignment.UpdatedAt = DateTime.UtcNow;
+                assignment.UpdatedBy = managerUser;
+
+                await _db.SaveChangesAsync(ct);
             }
 
-            // Update assignment
-            assignment.AssignedToValuer = toValuer.Trim();
-            assignment.AssignedAtUtc = DateTime.UtcNow;
-            assignment.AssignedBy = managerUser;
-            assignment.UpdatedAt = DateTime.UtcNow;
-            assignment.UpdatedBy = managerUser;
-
-            // Audit history
             _db.AssignmentHistories.Add(new AssignmentHistory
             {
                 AssignmentId = assignment.Id,
                 FromValuer = current,
-                ToValuer = toValuer.Trim(),
+                ToValuer = toValuer,
                 ChangedBy = managerUser,
                 ChangedAtUtc = DateTime.UtcNow,
-                Reason = reason.Trim(),
+                Reason = reason,
                 CreatedBy = managerUser,
                 CreatedAt = DateTime.UtcNow
             });
@@ -152,27 +199,42 @@ namespace Valuer_Verification_System.Services.Manager
             await _db.SaveChangesAsync(ct);
         }
         public async Task<BulkReassignResult> BulkReassignAsync(
-    int batchId,
-    string fromValuer,
-    string toValuer,
-    string reason,
-    string managerUser,
-    CancellationToken ct)
+     int batchId,
+     string fromValuer,
+     string toValuer,
+     string reason,
+     string managerUser,
+     CancellationToken ct)
         {
-            if (batchId <= 0) throw new InvalidOperationException("Batch is required.");
-            if (string.IsNullOrWhiteSpace(fromValuer)) throw new InvalidOperationException("From valuer is required.");
-            if (string.IsNullOrWhiteSpace(toValuer)) throw new InvalidOperationException("To valuer is required.");
-            if (string.Equals(fromValuer.Trim(), toValuer.Trim(), StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("New valuer must be different from current valuer.");
-            if (string.IsNullOrWhiteSpace(reason)) throw new InvalidOperationException("Reason is required.");
+            fromValuer = (fromValuer ?? "").Trim();
+            toValuer = (toValuer ?? "").Trim();
+            reason = (reason ?? "").Trim();
+            managerUser = (managerUser ?? "manager").Trim();
 
-            // Load all assignments in that batch for that valuer
-            var assignments = await _db.Assignments
-                .Include(a => a.ExtractRow)
-                .Where(a => a.ExtractRow.BatchId == batchId && a.AssignedToValuer == fromValuer)
+            if (batchId <= 0)
+                throw new InvalidOperationException("Batch is required.");
+
+            if (string.IsNullOrWhiteSpace(fromValuer))
+                throw new InvalidOperationException("From valuer is required.");
+
+            if (string.IsNullOrWhiteSpace(toValuer))
+                throw new InvalidOperationException("To valuer is required.");
+
+            if (string.Equals(fromValuer, toValuer, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("New valuer must be different from current valuer.");
+
+            if (string.IsNullOrWhiteSpace(reason))
+                throw new InvalidOperationException("Reason is required.");
+
+            var rows = await _db.ExtractRows
+                .Include(r => r.Assignment)
+                .Where(r =>
+                    r.BatchId == batchId &&
+                    r.Username != null &&
+                    r.Username.Trim() == fromValuer)
                 .ToListAsync(ct);
 
-            if (assignments.Count == 0)
+            if (rows.Count == 0)
             {
                 return new BulkReassignResult
                 {
@@ -184,36 +246,63 @@ namespace Valuer_Verification_System.Services.Manager
 
             var result = new BulkReassignResult
             {
-                TotalFound = assignments.Count
+                TotalFound = rows.Count
             };
 
             var now = DateTime.UtcNow;
 
-            foreach (var a in assignments)
+            foreach (var row in rows)
             {
-                // Only move Pending
-                if (a.ExtractRow.Decision != VerificationDecision.Pending)
+                if (row.Decision != VerificationDecision.Pending)
                 {
                     result.SkippedNotPending++;
                     continue;
                 }
 
-                var oldValuer = a.AssignedToValuer;
+                var oldValuer = string.IsNullOrWhiteSpace(row.Username)
+                    ? "Unassigned"
+                    : row.Username.Trim();
 
-                a.AssignedToValuer = toValuer.Trim();
-                a.AssignedAtUtc = now;
-                a.AssignedBy = managerUser;
-                a.UpdatedAt = now;
-                a.UpdatedBy = managerUser;
+                row.Username = toValuer;
+                row.UpdatedAt = now;
+                row.UpdatedBy = managerUser;
+
+                Assignment assignment;
+
+                if (row.Assignment is null)
+                {
+                    assignment = new Assignment
+                    {
+                        ExtractRowId = row.Id,
+                        AssignedToValuer = toValuer,
+                        AssignedAtUtc = now,
+                        AssignedBy = managerUser,
+                        CreatedBy = managerUser,
+                        CreatedAt = now
+                    };
+
+                    _db.Assignments.Add(assignment);
+                    await _db.SaveChangesAsync(ct);
+                }
+                else
+                {
+                    assignment = row.Assignment;
+
+                    assignment.AssignedToValuer = toValuer;
+                    assignment.AssignedAtUtc = now;
+                    assignment.AssignedBy = managerUser;
+                    assignment.UpdatedAt = now;
+                    assignment.UpdatedBy = managerUser;
+                }
 
                 _db.AssignmentHistories.Add(new AssignmentHistory
                 {
-                    AssignmentId = a.Id,
+                    AssignmentId = assignment.Id,
                     FromValuer = oldValuer,
-                    ToValuer = toValuer.Trim(),
+                    ToValuer = toValuer,
                     ChangedBy = managerUser,
                     ChangedAtUtc = now,
-                    Reason = reason.Trim(),
+                    Reason = reason,
                     CreatedBy = managerUser,
                     CreatedAt = now
                 });
@@ -222,6 +311,7 @@ namespace Valuer_Verification_System.Services.Manager
             }
 
             await _db.SaveChangesAsync(ct);
+
             return result;
         }
 
