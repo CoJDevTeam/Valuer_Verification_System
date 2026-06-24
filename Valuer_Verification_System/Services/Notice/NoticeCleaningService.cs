@@ -20,11 +20,12 @@ namespace Valuer_Verification_System.Services.Notice
         private readonly IConfiguration _config;
 
         private static readonly string[] _steps =
-        {
+         {
+            "SectorValuer",
             "UnitType",
             "PremiseId",
             "ErfPtnRe",
-            "Dates",              // Stamp LetterDate, ReviewOpenDate, ReviewCloseDate from WeekWindow
+            "Dates",
             "SchemeInfo",
             "PropertyDescription",
             "SapAddresses",
@@ -55,18 +56,37 @@ namespace Valuer_Verification_System.Services.Notice
         // ── Cleaning step runner (runs on Valuer_Verification_DB, 118) ────────
 
         public async Task<CleaningStepResultVm> RunStepAsync(
-    int batchId,
-    string stepName,
-    DateOnly extractionDate,
-    string lisMasterTable,
-    string sapTable,
-    CancellationToken ct)
+           int batchId,
+           string stepName,
+           DateOnly extractionDate,
+           string lisMasterTable,
+           string sapTable,
+           CancellationToken ct)
         {
+            if (batchId <= 0)
+            {
+                return new CleaningStepResultVm
+                {
+                    Success = false,
+                    StepName = stepName,
+                    Error = "BatchId is required."
+                };
+            }
+
+            if (string.IsNullOrWhiteSpace(stepName))
+            {
+                return new CleaningStepResultVm
+                {
+                    Success = false,
+                    StepName = "Unknown",
+                    Error = "Step name is required."
+                };
+            }
+
             lisMasterTable = CleanTableName(lisMasterTable);
             sapTable = CleanTableName(sapTable);
 
-            // SAP table has PREMIS​E_ID, not ValuationKey/UnitKey.
-            // We handle this step directly here so we do not depend on the old stored procedure join.
+            // SAP is handled by the new batch-based SAP procedure.
             if (stepName.Equals("SapAddresses", StringComparison.OrdinalIgnoreCase))
             {
                 return await RunSapAddressesStepAsync(
@@ -88,8 +108,9 @@ namespace Valuer_Verification_System.Services.Notice
 
                 cmd.CommandText = spName;
                 cmd.CommandType = System.Data.CommandType.StoredProcedure;
-                cmd.CommandTimeout = 300;
+                cmd.CommandTimeout = 600;
 
+                cmd.Parameters.Add(new SqlParameter("@BatchId", batchId));
                 cmd.Parameters.Add(new SqlParameter("@ExtractionDate", extractionDate.ToDateTime(TimeOnly.MinValue)));
                 cmd.Parameters.Add(new SqlParameter("@LisMasterTable", lisMasterTable));
                 cmd.Parameters.Add(new SqlParameter("@SapTable", sapTable));
@@ -103,7 +124,7 @@ namespace Valuer_Verification_System.Services.Notice
 
                 await cmd.ExecuteNonQueryAsync(ct);
 
-                int rows = rowsParam.Value != DBNull.Value
+                var rows = rowsParam.Value != DBNull.Value
                     ? Convert.ToInt32(rowsParam.Value)
                     : 0;
 
@@ -126,9 +147,9 @@ namespace Valuer_Verification_System.Services.Notice
         }
 
         private async Task<CleaningStepResultVm> RunSapAddressesStepAsync(
-    int batchId,
-    string sapTable,
-    CancellationToken ct)
+           int batchId,
+           string sapTable,
+           CancellationToken ct)
         {
             sapTable = CleanTableName(sapTable);
 
@@ -141,49 +162,25 @@ namespace Valuer_Verification_System.Services.Notice
 
                 await using var cmd = conn.CreateCommand();
 
-                cmd.CommandType = System.Data.CommandType.Text;
+                cmd.CommandText = "sp_VVS_Clean_SapAddresses_ByBatch";
+                cmd.CommandType = System.Data.CommandType.StoredProcedure;
                 cmd.CommandTimeout = 600;
 
-                cmd.CommandText = $@"
-UPDATE r
-SET
-    r.EmailInd = COALESCE(NULLIF(LTRIM(RTRIM(CONVERT(NVARCHAR(50), s.EMAIL_IND))), ''), r.EmailInd),
-    r.EmailAddr = COALESCE(NULLIF(LTRIM(RTRIM(s.EMAIL_ADDR)), ''), r.EmailAddr),
-
-    r.Addr1 = COALESCE(NULLIF(LTRIM(RTRIM(s.ADDR1)), ''), r.Addr1),
-    r.Addr2 = COALESCE(NULLIF(LTRIM(RTRIM(s.ADDR2)), ''), r.Addr2),
-    r.Addr3 = COALESCE(NULLIF(LTRIM(RTRIM(s.ADDR3)), ''), r.Addr3),
-    r.Addr4 = COALESCE(NULLIF(LTRIM(RTRIM(s.ADDR4)), ''), r.Addr4),
-    r.Addr5 = COALESCE(NULLIF(LTRIM(RTRIM(s.ADDR5)), ''), r.Addr5),
-
-    r.PremiseAddress = COALESCE(NULLIF(LTRIM(RTRIM(s.PREMISE_ADDRESS)), ''), r.PremiseAddress),
-    r.StPropertyDescription = COALESCE(NULLIF(LTRIM(RTRIM(s.PREMISE_ERF_PTN)), ''), r.StPropertyDescription),
-
-    r.WefDate = COALESCE(TRY_CONVERT(date, s.WEF_DATE), r.WefDate),
-
-    r.MarketValue = COALESCE(TRY_CONVERT(decimal(18,2), s.MARKET_VALUE), r.MarketValue),
-
-    r.UpdatedAt = SYSUTCDATETIME(),
-    r.UpdatedBy = 'cleaning:SapAddresses'
-FROM dbo.ExtractRows r
-INNER JOIN dbo.[{sapTable}] s
-    ON
-    (
-        LTRIM(RTRIM(CONVERT(NVARCHAR(100), r.PremiseId))) =
-        LTRIM(RTRIM(CONVERT(NVARCHAR(100), s.PREMISE_ID)))
-    )
-    OR
-    (
-        TRY_CONVERT(BIGINT, TRY_CONVERT(FLOAT, r.PremiseId)) IS NOT NULL
-        AND TRY_CONVERT(BIGINT, TRY_CONVERT(FLOAT, s.PREMISE_ID)) IS NOT NULL
-        AND TRY_CONVERT(BIGINT, TRY_CONVERT(FLOAT, r.PremiseId)) =
-            TRY_CONVERT(BIGINT, TRY_CONVERT(FLOAT, s.PREMISE_ID))
-    )
-WHERE r.BatchId = @BatchId;";
-
                 cmd.Parameters.Add(new SqlParameter("@BatchId", batchId));
+                cmd.Parameters.Add(new SqlParameter("@SapTable", sapTable));
 
-                var rows = await cmd.ExecuteNonQueryAsync(ct);
+                var rowsParam = new SqlParameter("@RowsAffected", System.Data.SqlDbType.Int)
+                {
+                    Direction = System.Data.ParameterDirection.Output
+                };
+
+                cmd.Parameters.Add(rowsParam);
+
+                await cmd.ExecuteNonQueryAsync(ct);
+
+                var rows = rowsParam.Value != DBNull.Value
+                    ? Convert.ToInt32(rowsParam.Value)
+                    : 0;
 
                 return new CleaningStepResultVm
                 {
@@ -257,18 +254,22 @@ WHERE r.BatchId = @BatchId;";
             if (tableName.StartsWith("dbo.", StringComparison.OrdinalIgnoreCase))
                 tableName = tableName.Substring(4);
 
+            tableName = tableName.Replace("[", "").Replace("]", "").Trim();
+
+            if (tableName.Contains(";") || tableName.Contains("--") || tableName.Contains(" "))
+                throw new InvalidOperationException($"Invalid table name '{tableName}'.");
+
             return tableName;
         }
         public async Task<CleaningStepResultVm> RunFullCleaningOnceAsync(
-int batchId,
-DateOnly extractionDate,
-string lisMasterTable,
-string sapTable,
-CancellationToken ct)
+       int batchId,
+       DateOnly extractionDate,
+       string lisMasterTable,
+       string sapTable,
+       CancellationToken ct)
         {
             lisMasterTable = CleanTableName(lisMasterTable);
             sapTable = CleanTableName(sapTable);
-
 
             var batch = await _db.Batches
                 .FirstOrDefaultAsync(x => x.Id == batchId, ct);
@@ -283,8 +284,6 @@ CancellationToken ct)
                 };
             }
 
-            // Important:
-            // Cleaning must happen once only.
             if (batch.ExtractCleanedAtUtc != null)
             {
                 return new CleaningStepResultVm
@@ -302,6 +301,7 @@ CancellationToken ct)
             batch.ExtractCleaningMessage = "Cleaning started by folder job.";
             batch.UpdatedBy = "folder-job";
             batch.UpdatedAt = DateTime.UtcNow;
+
             await _db.SaveChangesAsync(ct);
 
             var totalRowsAffected = 0;
@@ -310,18 +310,20 @@ CancellationToken ct)
             foreach (var step in StepNames)
             {
                 var stepResult = await RunStepAsync(
-     batchId,
-     step,
-     extractionDate,
-     lisMasterTable,
-     sapTable,
-     ct);
+                    batchId,
+                    step,
+                    extractionDate,
+                    lisMasterTable,
+                    sapTable,
+                    ct);
+
                 if (!stepResult.Success)
                 {
                     batch.ExtractCleaningStatus = "Failed";
                     batch.ExtractCleaningMessage = $"Cleaning failed at step '{step}': {stepResult.Error}";
                     batch.UpdatedBy = "folder-job";
                     batch.UpdatedAt = DateTime.UtcNow;
+
                     await _db.SaveChangesAsync(ct);
 
                     return new CleaningStepResultVm
@@ -348,6 +350,7 @@ CancellationToken ct)
                 batch.ExtractCleaningMessage = $"Week table creation failed: {createTableResult.Error}";
                 batch.UpdatedBy = "folder-job";
                 batch.UpdatedAt = DateTime.UtcNow;
+
                 await _db.SaveChangesAsync(ct);
 
                 return new CleaningStepResultVm

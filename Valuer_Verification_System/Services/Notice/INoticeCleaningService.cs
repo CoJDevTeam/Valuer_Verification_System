@@ -12,12 +12,12 @@ namespace Valuer_Verification_System.Services.Notice
 
         /// <summary>Execute a single named cleaning step. Used by AJAX progress calls.</summary>
         Task<CleaningStepResultVm> RunStepAsync(
-       int batchId,
-       string stepName,
-       DateOnly extractionDate,
-       string lisMasterTable,
-       string sapTable,
-       CancellationToken ct);
+    int batchId,
+    string stepName,
+    DateOnly extractionDate,
+    string lisMasterTable,
+    string sapTable,
+    CancellationToken ct);
         /// <summary>Create the clean week table on the 173 server and populate it.</summary>
         Task<CleaningStepResultVm> CreateWeekTableAsync(
             string weekTableName,

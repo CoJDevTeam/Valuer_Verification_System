@@ -182,9 +182,9 @@ namespace Valuer_Verification_System.Services.Upload
         }
 
         private async Task<string> ImportOneFileAsync(
-            string sourcePath,
-            Regex regex,
-            CancellationToken ct)
+         string sourcePath,
+         Regex regex,
+         CancellationToken ct)
         {
             var fileName = Path.GetFileName(sourcePath);
             var match = regex.Match(fileName);
@@ -247,9 +247,6 @@ namespace Valuer_Verification_System.Services.Upload
             batch.BatchName = $"VVS_{batch.Id:0000}";
             await _db.SaveChangesAsync(ct);
 
-            // Important:
-            // Folder job does not copy/move the extract like manual upload.
-            // The file remains in the configured extract folder.
             var extractFile = new ExtractFile
             {
                 BatchId = batch.Id,
@@ -275,6 +272,7 @@ namespace Valuer_Verification_System.Services.Upload
             foreach (var row in rows)
             {
                 row.BatchId = batch.Id;
+
                 row.Decision = VerificationDecision.Pending;
                 row.DecisionAtUtc = null;
                 row.DecisionComment = null;
@@ -286,16 +284,132 @@ namespace Valuer_Verification_System.Services.Upload
                 row.CreatedBy = "folder-job";
                 row.CreatedAt = DateTime.UtcNow;
 
-                await ResolveValuerUsernameAsync(row, ct);
+                // Do NOT resolve username here.
+                // Valuer may be populated later by sp_VVS_Clean_SectorValuer.
+                row.ResolvedUserId = null;
+                row.Username = null;
+                row.ResolvedValuerEmail = null;
+                row.ValuerMatchStatus = null;
+                row.ValuerMatchComment = null;
             }
 
             _db.ExtractRows.AddRange(rows);
             await _db.SaveChangesAsync(ct);
 
+            var cleaningMessage = "Auto-clean skipped.";
+            var cleaningDone = false;
+
+            if (_settings.AutoCleanAfterImport)
+            {
+                var latestTables = await _latestTables.ResolveAsync(ct);
+
+                var cleanResult = await _cleaning.RunFullCleaningOnceAsync(
+                    batch.Id,
+                    weekStart,
+                    latestTables.LisTable,
+                    latestTables.SapTable,
+                    ct);
+
+                if (!cleanResult.Success)
+                    throw new InvalidOperationException(cleanResult.Error);
+
+                cleaningDone = true;
+
+                cleaningMessage =
+                    $"Auto-clean completed once using {latestTables.LisTable} and {latestTables.SapTable}. " +
+                    $"Rows affected {cleanResult.RowsAffected:N0}.";
+
+                var freshBatch = await _db.Batches
+                    .FirstAsync(x => x.Id == batch.Id, ct);
+
+                freshBatch.ExtractCleaningMessage =
+                    $"{freshBatch.ExtractCleaningMessage} | Cleaning tables used: LIS={latestTables.LisTable}, SAP={latestTables.SapTable}";
+
+                freshBatch.UpdatedBy = "folder-job";
+                freshBatch.UpdatedAt = DateTime.UtcNow;
+
+                await _db.SaveChangesAsync(ct);
+            }
+
+            // Resolve usernames AFTER cleaning.
+            // This is important because SectorValuer cleaning may populate ExtractRows.Valuer.
+            var resolvedCount = await ResolveBatchValuerUsernamesAsync(batch.Id, ct);
+
             // Keep Assignments populated for old screens.
-            // Later we will move Valuer Inbox fully to ExtractRows.Username.
+            // New source of truth remains ExtractRows.Username.
+            var assignmentCount = await CreateAssignmentsForBatchAsync(batch.Id, ct);
+
+            week.Status = WeekWindowStatus.Uploaded;
+            week.UpdatedBy = "folder-job";
+            week.UpdatedAt = DateTime.UtcNow;
+
+            batch.Status = BatchStatus.Uploaded;
+            batch.UpdatedBy = "folder-job";
+            batch.UpdatedAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync(ct);
+
+            if (cleaningDone)
+            {
+                // After cleaning and username resolving, notify QA + Project Manager only.
+                // Sector Managers are notified only after Project Manager approval.
+                await _approvalNotify.NotifyProjectManagerAfterCleanAsync(batch.Id, ct);
+            }
+
+            return $"Imported. Batch {batch.BatchName}. Rows {rows.Count}. " +
+                   $"Resolved usernames {resolvedCount}. Assignments {assignmentCount}. {cleaningMessage}";
+        }
+
+        private async Task<int> ResolveBatchValuerUsernamesAsync(
+      int batchId,
+      CancellationToken ct)
+        {
+            var rows = await _db.ExtractRows
+                .Where(r => r.BatchId == batchId)
+                .ToListAsync(ct);
+
+            var resolvedCount = 0;
+
+            foreach (var row in rows)
+            {
+                var resolution = await _resolver.ResolveAsync(row.Valuer, ct);
+
+                row.ResolvedUserId = resolution.UserId;
+                row.Username = resolution.Username;
+                row.ResolvedValuerEmail = resolution.EmailAddress;
+                row.ValuerMatchStatus = resolution.Status;
+                row.ValuerMatchComment = resolution.Comment;
+
+                if (!string.IsNullOrWhiteSpace(row.Username))
+                    resolvedCount++;
+            }
+
+            await _db.SaveChangesAsync(ct);
+
+            return resolvedCount;
+        }
+
+        private async Task<int> CreateAssignmentsForBatchAsync(
+    int batchId,
+    CancellationToken ct)
+        {
+            var existingAssignments = await _db.Assignments
+                .Where(a => a.ExtractRow.BatchId == batchId)
+                .ToListAsync(ct);
+
+            if (existingAssignments.Count > 0)
+            {
+                _db.Assignments.RemoveRange(existingAssignments);
+                await _db.SaveChangesAsync(ct);
+            }
+
+            var rows = await _db.ExtractRows
+                .Where(r =>
+                    r.BatchId == batchId &&
+                    !string.IsNullOrWhiteSpace(r.Username))
+                .ToListAsync(ct);
+
             var assignments = rows
-                .Where(r => !string.IsNullOrWhiteSpace(r.Username))
                 .GroupBy(r => r.ValuationKey)
                 .Select(g =>
                     g.FirstOrDefault(r =>
@@ -315,67 +429,10 @@ namespace Valuer_Verification_System.Services.Upload
                 .ToList();
 
             _db.Assignments.AddRange(assignments);
-
-            week.Status = WeekWindowStatus.Uploaded;
-            week.UpdatedBy = "folder-job";
-            week.UpdatedAt = DateTime.UtcNow;
-
-            batch.Status = BatchStatus.Uploaded;
-            batch.UpdatedBy = "folder-job";
-            batch.UpdatedAt = DateTime.UtcNow;
-
             await _db.SaveChangesAsync(ct);
 
-            var cleaningMessage = "Auto-clean skipped.";
-
-            if (_settings.AutoCleanAfterImport)
-            {
-                var latestTables = await _latestTables.ResolveAsync(ct);
-
-                var cleanResult = await _cleaning.RunFullCleaningOnceAsync(
-                    batch.Id,
-                    weekStart,
-                    latestTables.LisTable,
-                    latestTables.SapTable,
-                    ct);
-
-                if (!cleanResult.Success)
-                    throw new InvalidOperationException(cleanResult.Error);
-
-                cleaningMessage =
-                    $"Auto-clean completed once using {latestTables.LisTable} and {latestTables.SapTable}. " +
-                    $"Rows affected {cleanResult.RowsAffected:N0}.";
-
-                var freshBatch = await _db.Batches
-                    .FirstAsync(x => x.Id == batch.Id, ct);
-
-                freshBatch.ExtractCleaningMessage =
-                    $"{freshBatch.ExtractCleaningMessage} | Cleaning tables used: LIS={latestTables.LisTable}, SAP={latestTables.SapTable}";
-
-                freshBatch.UpdatedBy = "folder-job";
-                freshBatch.UpdatedAt = DateTime.UtcNow;
-
-                await _db.SaveChangesAsync(ct);
-
-                // After cleaning, notify QA + Project Manager only.
-                // Sector Managers are notified only after Project Manager approval.
-                await _approvalNotify.NotifyProjectManagerAfterCleanAsync(batch.Id, ct);
-            }
-
-            return $"Imported. Batch {batch.BatchName}. Rows {rows.Count}. Assignments {assignments.Count}. {cleaningMessage}";
+            return assignments.Count;
         }
-
-        private async Task ResolveValuerUsernameAsync(ExtractRow row, CancellationToken ct)
-        {
-            var resolution = await _resolver.ResolveAsync(row.Valuer, ct);
-
-            row.ResolvedUserId = resolution.UserId;
-            row.Username = resolution.Username;
-            row.ResolvedValuerEmail = resolution.EmailAddress;
-            row.ValuerMatchStatus = resolution.Status;
-            row.ValuerMatchComment = resolution.Comment;
-        }
-
         private async Task<WeekWindow> GetOrCreateWeekWindowAsync(
             DateOnly weekStart,
             DateOnly weekEnd,
