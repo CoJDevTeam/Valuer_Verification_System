@@ -4,437 +4,318 @@
     ViewData["Title"] = "Extract Approval";
 }
 
-<style>
-    .approval-page {
-        padding: 24px;
-        background: #f5f6f8;
-        min-height: 100vh;
-        font-family: Segoe UI, Arial, sans-serif;
-    }
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
-    .approval-card {
-        max-width: 1100px;
-        margin: 0 auto;
-        background: white;
-        border-radius: 14px;
-        border: 1px solid #e5e7eb;
-        overflow: hidden;
-        box-shadow: 0 10px 24px rgba(15, 23, 42, .08);
-    }
 
-    .approval-head {
-        background: #111827;
-        color: white;
-        padding: 22px 26px;
-    }
 
-    .approval-head h1 {
-        margin: 0;
-        font-size: 24px;
-    }
-
-    .approval-head p {
-        margin: 8px 0 0;
-        color: #d1d5db;
-    }
-
-    .approval-body {
-        padding: 24px 26px;
-    }
-
-    .alert {
-        padding: 13px 15px;
-        border-radius: 10px;
-        margin-bottom: 16px;
-        font-weight: 700;
-    }
-
-    .alert.ok {
-        background: #dcfce7;
-        color: #166534;
-        border: 1px solid #bbf7d0;
-    }
-
-    .alert.err {
-        background: #fee2e2;
-        color: #991b1b;
-        border: 1px solid #fecaca;
-    }
-
-    .status-strip {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        margin-bottom: 18px;
-    }
-
-    .pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 8px 11px;
-        border-radius: 999px;
-        font-weight: 800;
-        font-size: 12px;
-    }
-
-    .pill.ok {
-        background: #dcfce7;
-        color: #166534;
-    }
-
-    .pill.warn {
-        background: #fef3c7;
-        color: #92400e;
-    }
-
-    .pill.lock {
-        background: #e5e7eb;
-        color: #374151;
-    }
-
-    .summary-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 14px;
-        margin-bottom: 20px;
-    }
-
-    .summary-box {
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 14px;
-        min-height: 82px;
-    }
-
-    .summary-box label {
-        display: block;
-        font-size: 11px;
-        color: #6b7280;
-        font-weight: 900;
-        text-transform: uppercase;
-        letter-spacing: .04em;
-    }
-
-    .summary-box strong {
-        display: block;
-        margin-top: 7px;
-        font-size: 18px;
-        color: #111827;
-        word-break: break-word;
-    }
-
-    .summary-box.wide {
-        grid-column: span 4;
-    }
-
-    .section-title {
-        font-size: 18px;
-        margin: 22px 0 10px;
-        color: #111827;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 10px;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        overflow: hidden;
-    }
-
-    th {
-        background: #111827;
-        color: white;
-        text-align: left;
-        padding: 10px;
-        font-size: 13px;
-    }
-
-    td {
-        border-bottom: 1px solid #e5e7eb;
-        padding: 10px;
-        font-size: 13px;
-        vertical-align: top;
-    }
-
-    tr:last-child td {
-        border-bottom: none;
-    }
-
-    .num {
-        text-align: right;
-    }
-
-    textarea {
-        width: 100%;
-        min-height: 90px;
-        border: 1px solid #d1d5db;
-        border-radius: 10px;
-        padding: 12px;
-        font-family: inherit;
-        margin-top: 12px;
-        resize: vertical;
-    }
-
-    .approval-actions {
-        margin-top: 22px;
-        padding-top: 18px;
-        border-top: 1px solid #e5e7eb;
-    }
-
-    .btn-approve {
-        background: #16a34a;
-        color: white;
-        border: 0;
-        border-radius: 10px;
-        padding: 13px 18px;
-        font-weight: 900;
-        cursor: pointer;
-    }
-
-    .btn-approve:disabled {
-        background: #9ca3af;
-        cursor: not-allowed;
-    }
-
-    .locked {
-        background: #fef3c7;
-        color: #92400e;
-        padding: 14px;
-        border-radius: 10px;
-        font-weight: 800;
-        margin-top: 18px;
-        border: 1px solid #fde68a;
-    }
-
-    .danger-note {
-        background: #fff7ed;
-        border: 1px solid #fed7aa;
-        color: #9a3412;
-        border-radius: 10px;
-        padding: 14px;
-        margin-top: 14px;
-        font-weight: 700;
-    }
-</style>
-
-<div class="approval-page">
-    <div class="approval-card">
-        <div class="approval-head">
-            <h1>Extract Approval — @Model.BatchName</h1>
-            <p>
-                Review the cleaned extract summary before notifying Sector Managers.
-            </p>
+<link href="~/css/upload/batch-css.css" rel="stylesheet" asp-append-version="true"/>
+<div class="top-bar">
+    <div class="top-bar__brand">
+        <div class="top-bar__logo">VVS</div>
+        <div>
+            <div class="top-bar__name">Valuation Services</div>
+            <div class="top-bar__dept">City of Johannesburg · Finance</div>
         </div>
+    </div>
+    <a class="top-bar__back" href="/ExtractIntake">← Intake</a>
+</div>
 
-        <div class="approval-body">
+<div class="ap-page">
 
-            @if (TempData["ApprovalSuccess"] is not null)
-            {
-                <div class="alert ok">@TempData["ApprovalSuccess"]</div>
-            }
+  
+    <div class="ap-eyebrow">Workflow · Extract Approval</div>
+    <h1 class="ap-title">Batch <span>@Model.BatchName</span></h1>
+    <p class="ap-sub">Review the cleaned extract summary before notifying Sector Managers.</p>
 
-            @if (TempData["ApprovalError"] is not null)
-            {
-                <div class="alert err">@TempData["ApprovalError"]</div>
-            }
+  
+    @if (TempData["ApprovalSuccess"] is not null)
+    {
+        <div class="alert ok">✓ @TempData["ApprovalSuccess"]</div>
+    }
+    @if (TempData["ApprovalError"] is not null)
+    {
+        <div class="alert err">⚠ @TempData["ApprovalError"]</div>
+    }
 
-            <div class="status-strip">
-                @if (Model.IsCleaned)
-                {
-                    <span class="pill ok">✓ Cleaned</span>
-                }
-                else
-                {
-                    <span class="pill warn">⚠ Not Cleaned</span>
-                }
 
-                @if (Model.ProjectManagerApprovedAtUtc != null)
-                {
-                    <span class="pill ok">✓ Project Manager Approved</span>
-                }
-                else
-                {
-                    <span class="pill warn">Pending Project Manager Approval</span>
-                }
-
-                @if (Model.SectorManagersNotified)
-                {
-                    <span class="pill ok">✓ Sector Managers Notified</span>
-                }
-                else
-                {
-                    <span class="pill lock">Sector Managers Not Yet Notified</span>
-                }
+    <div class="status-timeline">
+        <div class="st-step @(Model.IsCleaned ? "done" : "active")">
+            <div class="st-icon">@(Model.IsCleaned ? "✓" : "⚙")</div>
+            <div>
+                <div class="st-label">1 · Cleaning</div>
+                <div class="st-value">@(Model.IsCleaned ? "Completed" : Model.ExtractCleaningStatus)</div>
             </div>
-
-            <div class="summary-grid">
-                <div class="summary-box">
-                    <label>Week</label>
-                    <strong>@Model.WeekStart.ToString("yyyy-MM-dd") to @Model.WeekEnd.ToString("yyyy-MM-dd")</strong>
-                </div>
-
-                <div class="summary-box">
-                    <label>Notice Send Date</label>
-                    <strong>@Model.NoticeSendDate.ToString("yyyy-MM-dd")</strong>
-                </div>
-
-                <div class="summary-box">
-                    <label>Review Period</label>
-                    <strong>@Model.ReviewOpenDate.ToString("yyyy-MM-dd") to @Model.ReviewCloseDate.ToString("yyyy-MM-dd")</strong>
-                </div>
-
-                <div class="summary-box">
-                    <label>Cleaning Status</label>
-                    <strong>@Model.ExtractCleaningStatus</strong>
-                </div>
-
-                <div class="summary-box">
-                    <label>Total Properties</label>
-                    <strong>@Model.TotalProperties.ToString("N0")</strong>
-                </div>
-
-                <div class="summary-box">
-                    <label>Total Rows</label>
-                    <strong>@Model.TotalRows.ToString("N0")</strong>
-                </div>
-
-                <div class="summary-box">
-                    <label>Valuers</label>
-                    <strong>@Model.TotalValuers.ToString("N0")</strong>
-                </div>
-
-                <div class="summary-box">
-                    <label>Unmatched Rows</label>
-                    <strong>@Model.TotalUnmatchedRows.ToString("N0")</strong>
-                </div>
-
-                <div class="summary-box">
-                    <label>Cleaned At</label>
-                    <strong>@Model.ExtractCleanedAtUtc?.ToString("yyyy-MM-dd HH:mm") UTC</strong>
-                </div>
-
-                <div class="summary-box">
-                    <label>Week Table</label>
-                    <strong style="font-size:13px;">@Model.CleanWeekTableName</strong>
-                </div>
-
-                <div class="summary-box">
-                    <label>PM Notified</label>
-                    <strong>@(Model.ProjectManagerNotifiedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "No")</strong>
-                </div>
-
-                <div class="summary-box">
-                    <label>Sector Managers</label>
-                    <strong>@(Model.ManagersNotifiedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "Not yet")</strong>
-                </div>
-
-                <div class="summary-box wide">
-                    <label>Cleaning Details</label>
-                    <strong style="font-size:12px;line-height:1.5;">@Model.ExtractCleaningMessage</strong>
+        </div>
+        <div class="st-step @(Model.ProjectManagerApprovedAtUtc != null ? "done" : Model.IsCleaned ? "active" : "wait")">
+            <div class="st-icon">@(Model.ProjectManagerApprovedAtUtc != null ? "✓" : "👤")</div>
+            <div>
+                <div class="st-label">2 · PM Approval</div>
+                <div class="st-value">
+                    @(Model.ProjectManagerApprovedAtUtc != null
+                        ? Model.ProjectManagerApprovedAtUtc?.ToString("yyyy-MM-dd HH:mm")
+                        : "Pending")
                 </div>
             </div>
+        </div>
+        <div class="st-step @(Model.SectorManagersNotified ? "done" : Model.ProjectManagerApprovedAtUtc != null ? "active" : "wait")">
+            <div class="st-icon">@(Model.SectorManagersNotified ? "✓" : "📧")</div>
+            <div>
+                <div class="st-label">3 · Notify Sectors</div>
+                <div class="st-value">
+                    @(Model.SectorManagersNotified
+                        ? Model.ManagersNotifiedAtUtc?.ToString("yyyy-MM-dd HH:mm")
+                        : "Waiting")
+                </div>
+            </div>
+        </div>
+    </div>
 
-            <h2 class="section-title">Sector Breakdown</h2>
+  
+    <div class="kpi-row">
+        <div class="kpi">
+            <label>Properties</label>
+            <strong>@Model.TotalProperties.ToString("N0")</strong>
+        </div>
+        <div class="kpi">
+            <label>Rows</label>
+            <strong>@Model.TotalRows.ToString("N0")</strong>
+        </div>
+        <div class="kpi">
+            <label>Valuers</label>
+            <strong>@Model.TotalValuers.ToString("N0")</strong>
+        </div>
+        <div class="kpi @(Model.TotalUnmatchedRows > 0 ? "warn" : "")">
+            <label>Unmatched Rows</label>
+            <strong>@Model.TotalUnmatchedRows.ToString("N0")</strong>
+        </div>
+    </div>
 
-            <table>
-                <thead>
-                    <tr>
-                        <th>Sector</th>
-                        <th class="num">Properties</th>
-                        <th class="num">Rows</th>
-                        <th class="num">Valuers</th>
-                        <th class="num">Unmatched Rows</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var s in Model.Sectors)
-                    {
-                        <tr>
-                            <td>@s.Sector</td>
-                            <td class="num">@s.TotalProperties.ToString("N0")</td>
-                            <td class="num">@s.TotalRows.ToString("N0")</td>
-                            <td class="num">@s.TotalValuers.ToString("N0")</td>
-                            <td class="num">@s.UnmatchedRows.ToString("N0")</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+ 
+    <div class="ap-layout">
 
+        
+        <div>
+
+           
+            <div class="card">
+                <div class="card__head">
+                    <div class="card__accent"></div>
+                    <div class="card__title">Batch Details</div>
+                </div>
+                <div class="card__body">
+                    <div class="summary-grid">
+                        <div class="s-box">
+                            <label>Week Period</label>
+                            <strong>@Model.WeekStart.ToString("yyyy-MM-dd") → @Model.WeekEnd.ToString("yyyy-MM-dd")</strong>
+                        </div>
+                        <div class="s-box">
+                            <label>Notice Send Date</label>
+                            <strong>@Model.NoticeSendDate.ToString("yyyy-MM-dd")</strong>
+                        </div>
+                        <div class="s-box">
+                            <label>Review Period</label>
+                            <strong>@Model.ReviewOpenDate.ToString("yyyy-MM-dd") — @Model.ReviewCloseDate.ToString("yyyy-MM-dd")</strong>
+                        </div>
+                        <div class="s-box">
+                            <label>Cleaning Status</label>
+                            <strong>@Model.ExtractCleaningStatus</strong>
+                        </div>
+                        <div class="s-box">
+                            <label>Cleaned At</label>
+                            <strong>@(Model.ExtractCleanedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—") UTC</strong>
+                        </div>
+                        <div class="s-box">
+                            <label>Week Table</label>
+                            <strong style="font-size:11px;word-break:break-all;">@Model.CleanWeekTableName</strong>
+                        </div>
+                        <div class="s-box">
+                            <label>PM Notified</label>
+                            <strong>@(Model.ProjectManagerNotifiedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</strong>
+                        </div>
+                        <div class="s-box">
+                            <label>Sector Managers</label>
+                            <strong>@(Model.ManagersNotifiedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "Not yet")</strong>
+                        </div>
+                        <div class="s-box full">
+                            <label>Cleaning Details</label>
+                            <strong style="font-size:11px;line-height:1.6;font-weight:500;">@Model.ExtractCleaningMessage</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+          
+            <div class="card">
+                <div class="card__head">
+                    <div class="card__accent"></div>
+                    <div class="card__title">Sector Breakdown</div>
+                </div>
+                <div class="card__body" style="padding:0;">
+                    <div class="tbl-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Sector</th>
+                                    <th class="num">Properties</th>
+                                    <th class="num">Rows</th>
+                                    <th class="num">Valuers</th>
+                                    <th class="num">Unmatched</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var s in Model.Sectors)
+                                {
+                                    <tr>
+                                        <td><strong style="font-weight:700;">@s.Sector</strong></td>
+                                        <td class="num">@s.TotalProperties.ToString("N0")</td>
+                                        <td class="num">@s.TotalRows.ToString("N0")</td>
+                                        <td class="num">@s.TotalValuers.ToString("N0")</td>
+                                        <td class="num" style="@(s.UnmatchedRows > 0 ? "color:var(--red-text);font-weight:700;" : "")">
+                                            @s.UnmatchedRows.ToString("N0")
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        
             @if (Model.UnmatchedValuers.Any())
             {
-                <div class="danger-note">
-                    There are unmatched valuer rows. You can still approve, but those rows may not appear correctly in a valuer inbox until the valuer name is fixed or mapped.
+                <div class="danger-block">
+                    <span class="state-ico">⚠️</span>
+                    <span>
+                        There are <strong>@Model.UnmatchedValuers.Count unmatched valuer rows</strong>.
+                        You can still approve, but those rows will not appear in any valuer's inbox until the name is fixed in the Sectors table.
+                    </span>
                 </div>
 
-                <h2 class="section-title">Unmatched Valuer Summary</h2>
-
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Extract Valuer</th>
-                            <th class="num">Properties</th>
-                            <th class="num">Rows</th>
-                            <th>Status</th>
-                            <th>Comment</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var u in Model.UnmatchedValuers)
-                        {
-                            <tr>
-                                <td>@u.Valuer</td>
-                                <td class="num">@u.Properties.ToString("N0")</td>
-                                <td class="num">@u.Rows.ToString("N0")</td>
-                                <td>@u.MatchStatus</td>
-                                <td>@u.MatchComment</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+                <div class="card">
+                    <div class="card__head">
+                        <div class="card__accent" style="background:var(--red-text);"></div>
+                        <div class="card__title" style="color:var(--red-text);">Unmatched Valuer Summary</div>
+                    </div>
+                    <div class="card__body" style="padding:0;">
+                        <div class="tbl-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Extract Valuer</th>
+                                        <th class="num">Properties</th>
+                                        <th class="num">Rows</th>
+                                        <th>Status</th>
+                                        <th>Comment</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var u in Model.UnmatchedValuers)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <span style="font-family:monospace;font-size:11px;font-weight:700;
+                                                             background:var(--ink);color:var(--gold);
+                                                             padding:2px 7px;border-radius:4px;">
+                                                    @u.Valuer
+                                                </span>
+                                            </td>
+                                            <td class="num">@u.Properties.ToString("N0")</td>
+                                            <td class="num">@u.Rows.ToString("N0")</td>
+                                            <td>
+                                                <span style="font-size:11px;font-weight:700;padding:2px 8px;
+                                                             border-radius:20px;background:var(--red-bg);color:var(--red-text);">
+                                                    @u.MatchStatus
+                                                </span>
+                                            </td>
+                                            <td style="font-size:11px;color:var(--ink3);">@u.MatchComment</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             }
 
-            <div class="approval-actions">
-                @if (Model.SectorManagersNotified)
-                {
-                    <div class="locked">
-                        Sector Managers were already notified by @Model.ManagersNotifiedBy
-                        on @Model.ManagersNotifiedAtUtc?.ToString("yyyy-MM-dd HH:mm") UTC.
-                    </div>
-                }
-                else if (!Model.IsCleaned)
-                {
-                    <div class="locked">
-                        The extract must be cleaned successfully before Sector Managers can be notified.
-                    </div>
-                }
-                else
-                {
-                    <form method="post" action="/ExtractApproval/Batch/@Model.BatchId/NotifySectorManagers">
-                        @Html.AntiForgeryToken()
+        </div>
 
-                        <label style="font-weight:900;color:#111827;">
-                            Approval Comment
-                        </label>
+        <div>
 
-                        <textarea name="comment"
-                                  placeholder="Optional approval comment before notifying Sector Managers"></textarea>
-
-                        <div style="margin-top:12px;">
-                            <label style="font-weight:800;">
-                                <input type="checkbox" required />
-                                I confirm that I reviewed this cleaned extract summary and approve notifying Sector Managers.
-                            </label>
+           
+            <div class="side-card">
+                <div class="side-card__head">
+                    <div class="side-card__icon">📋</div>
+                    <div class="side-card__title">Approval Action</div>
+                </div>
+                <div class="side-card__body">
+                    @if (Model.SectorManagersNotified)
+                    {
+                        <div class="notified-block">
+                            <span class="state-ico">✅</span>
+                            <span>
+                                Sector Managers notified by <strong>@Model.ManagersNotifiedBy</strong>
+                                on <strong>@Model.ManagersNotifiedAtUtc?.ToString("yyyy-MM-dd HH:mm") UTC</strong>.
+                                No further action required.
+                            </span>
                         </div>
+                    }
+                    else if (!Model.IsCleaned)
+                    {
+                        <div class="locked-block">
+                            <span class="state-ico">🔒</span>
+                            <span>The extract must be cleaned successfully before Sector Managers can be notified.</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <form method="post" action="/ExtractApproval/Batch/@Model.BatchId/NotifySectorManagers">
+                            @Html.AntiForgeryToken()
 
-                        <button class="btn-approve" type="submit">
-                            Approve and Notify Sector Managers
-                        </button>
-                    </form>
-                }
+                            <span class="approve-label">Approval comment (optional)</span>
+                            <textarea class="approve-textarea"
+                                      name="comment"
+                                      placeholder="Add a note before notifying Sector Managers…"></textarea>
+
+                            <label class="approve-check">
+                                <input type="checkbox" required />
+                                I reviewed this extract summary and approve notifying Sector Managers.
+                            </label>
+
+                            <button class="btn-approve" type="submit">
+                                ✓ Approve &amp; Notify Sector Managers
+                            </button>
+                        </form>
+                    }
+                </div>
             </div>
+
+            
+            <div class="side-card">
+                <div class="side-card__head">
+                    <div class="side-card__icon">📦</div>
+                    <div class="side-card__title">Batch Quick Reference</div>
+                </div>
+                <div class="side-card__body">
+                    <div class="meta-row">
+                        <div class="lbl">Batch</div>
+                        <div class="val" style="font-weight:800;color:var(--ink);font-size:14px;">@Model.BatchName</div>
+                    </div>
+                    <div class="meta-row">
+                        <div class="lbl">Week</div>
+                        <div class="val">@Model.WeekStart.ToString("dd MMM yyyy") — @Model.WeekEnd.ToString("dd MMM yyyy")</div>
+                    </div>
+                    <div class="meta-row">
+                        <div class="lbl">Notice Date</div>
+                        <div class="val gold">@Model.NoticeSendDate.ToString("dd MMM yyyy")</div>
+                    </div>
+                    <div class="meta-row">
+                        <div class="lbl">Review Period</div>
+                        <div class="val">@Model.ReviewOpenDate.ToString("dd MMM") — @Model.ReviewCloseDate.ToString("dd MMM yyyy")</div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>

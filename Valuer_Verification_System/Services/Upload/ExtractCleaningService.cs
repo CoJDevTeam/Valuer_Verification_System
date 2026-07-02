@@ -50,6 +50,9 @@ namespace Valuer_Verification_System.Services.Upload
             await _db.SaveChangesAsync(ct);
         }
 
+        // ─────────────────────────────────────────────────────────────────
+        // Sector matching  (unchanged from original)
+        // ─────────────────────────────────────────────────────────────────
         private static SectorRow? FindSectorMatch(ExtractRow row, List<SectorRow> sectors)
         {
             var town = CleanUpper(row.TownNameDesc);
@@ -70,19 +73,16 @@ namespace Valuer_Verification_System.Services.Upload
 
                 var byTc8 = sectors.FirstOrDefault(s =>
                     CleanUpper(s.Tc8) == sg8);
-
                 if (byTc8 != null) return byTc8;
 
                 var byTc11 = sectors.FirstOrDefault(s =>
                     CleanUpper(s.Tc11) == sg11);
-
                 if (byTc11 != null) return byTc11;
 
                 var byTc11First8 = sectors.FirstOrDefault(s =>
                 {
                     var tc11 = CleanUpper(s.Tc11);
                     if (string.IsNullOrWhiteSpace(tc11)) return false;
-
                     var tc11First8 = tc11.Length >= 8 ? tc11[..8] : tc11;
                     return tc11First8 == sg8;
                 });
@@ -93,6 +93,24 @@ namespace Valuer_Verification_System.Services.Upload
             return null;
         }
 
+        // ─────────────────────────────────────────────────────────────────
+        // Username resolution
+        //
+        // Sector VALUER column contains values like:
+        //   "jSibeko(Jabulani Sibeko)"   — compact code + full name in brackets
+        //   "jSibeko"                    — compact code only, no brackets
+        //   "JOBURG\10112533"            — already a username
+        //   "Jabulani Sibeko"            — full name only
+        //
+        // Match order (first hit wins):
+        //   1. Exact full VALUER == Username or UsernameOld
+        //   2. Text BEFORE bracket == Username or Username-without-domain or UsernameOld
+        //   3. Text INSIDE bracket == FirstName Surname  (catches "jSibeko(Jabulani Sibeko)")
+        //   4. Full VALUER == FirstName Surname  (catches "Jabulani Sibeko" with no brackets)
+        //   5. Text BEFORE bracket == FirstInitial+Surname  (catches "jSibeko" with no brackets)
+        //   6. Full VALUER == FirstInitial+Surname  (compact code with no brackets at all)
+        //   7. Inside bracket == FirstInitial+Surname  (compact inside brackets, rare)
+        // ─────────────────────────────────────────────────────────────────
         private static void ResolveUsername(ExtractRow row, List<UserRow> users)
         {
             row.Username = null;
@@ -110,61 +128,111 @@ namespace Valuer_Verification_System.Services.Upload
                 return;
             }
 
-            UserRow? match = null;
-
-            // 1. Exact username
-            match = users.FirstOrDefault(u =>
-                Same(valuer, u.Username));
-
-            if (match != null)
-            {
-                ApplyUser(row, match, "Matched Valuer to UserManagement by exact Username.");
-                return;
-            }
-
-            // 2. Username before bracket
-            var outsideBracket = valuer.Contains("(")
-                ? valuer[..valuer.IndexOf("(")].Trim()
+            // Split the valuer value into its two parts once
+            var outsideBracket = valuer.Contains('(')
+                ? valuer[..valuer.IndexOf('(')].Trim()
                 : valuer;
 
+            var insideBracket = ExtractInsideBracket(valuer);
+
+            UserRow? match;
+
+            // ── Step 1: exact full VALUER == Username or UsernameOld ──────────
             match = users.FirstOrDefault(u =>
-                Same(outsideBracket, u.Username));
+                Same(valuer, u.Username) ||
+                Same(valuer, u.UsernameOld));
 
             if (match != null)
             {
-                ApplyUser(row, match, "Matched Valuer to UserManagement by username before brackets.");
+                ApplyUser(row, match, "Matched by exact Username.");
                 return;
             }
 
-            // 3. Full name inside bracket
-            var insideBracket = ExtractInsideBracket(valuer);
-
-            if (!string.IsNullOrWhiteSpace(insideBracket))
+            // ── Step 2: outside bracket == Username / UsernameOld / no-domain ─
+            if (!string.IsNullOrWhiteSpace(outsideBracket))
             {
                 match = users.FirstOrDefault(u =>
-                    Same(insideBracket, u.FullName1) ||
-                    Same(insideBracket, u.FullName2));
+                    Same(outsideBracket, u.Username) ||
+                    Same(outsideBracket, u.UsernameOld) ||
+                    Same(outsideBracket, u.UsernameNoDomain));
 
                 if (match != null)
                 {
-                    ApplyUser(row, match, "Matched Valuer to UserManagement by full name inside brackets.");
+                    ApplyUser(row, match, "Matched by username before brackets.");
                     return;
                 }
             }
 
-            // 4. Direct full name
+            // ── Step 3: inside bracket == FirstName Surname ───────────────────
+            // Catches "jSibeko(Jabulani Sibeko)" → inside = "Jabulani Sibeko"
+            if (!string.IsNullOrWhiteSpace(insideBracket))
+            {
+                match = users.FirstOrDefault(u =>
+                    Same(insideBracket, u.FullName1) ||
+                    Same(insideBracket, u.FullName2) ||
+                    Same(insideBracket, u.FullName3));
+
+                if (match != null)
+                {
+                    ApplyUser(row, match, "Matched by full name inside brackets.");
+                    return;
+                }
+            }
+
+            // ── Step 4: full VALUER == FirstName Surname ──────────────────────
+            // Catches "Jabulani Sibeko" (no brackets)
             match = users.FirstOrDefault(u =>
                 Same(valuer, u.FullName1) ||
-                Same(valuer, u.FullName2));
+                Same(valuer, u.FullName2) ||
+                Same(valuer, u.FullName3));
 
             if (match != null)
             {
-                ApplyUser(row, match, "Matched Valuer to UserManagement by FirstName + Surname.");
+                ApplyUser(row, match, "Matched by direct full name.");
                 return;
             }
 
+            // ── Step 5: outside bracket == FirstInitial+Surname ───────────────
+            // Catches "jSibeko(Jabulani Sibeko)" → outside = "jSibeko" → "JSIBEKO"
+            // and also "jSibeko" with no brackets at all
+            if (!string.IsNullOrWhiteSpace(outsideBracket))
+            {
+                match = users.FirstOrDefault(u =>
+                    Same(outsideBracket, u.CompactCode));
+
+                if (match != null)
+                {
+                    ApplyUser(row, match, "Matched by compact code (FirstInitial+Surname) before brackets.");
+                    return;
+                }
+            }
+
+            // ── Step 6: full VALUER == FirstInitial+Surname (no brackets at all)
+            match = users.FirstOrDefault(u =>
+                Same(valuer, u.CompactCode));
+
+            if (match != null)
+            {
+                ApplyUser(row, match, "Matched by compact code (FirstInitial+Surname) direct.");
+                return;
+            }
+
+            // ── Step 7: inside bracket == FirstInitial+Surname (rare edge case)
+            if (!string.IsNullOrWhiteSpace(insideBracket))
+            {
+                match = users.FirstOrDefault(u =>
+                    Same(insideBracket, u.CompactCode));
+
+                if (match != null)
+                {
+                    ApplyUser(row, match, "Matched by compact code inside brackets.");
+                    return;
+                }
+            }
+
+            // ── No match ─────────────────────────────────────────────────────
             row.ValuerMatchStatus = "NotFound";
-            row.ValuerMatchComment = "No active UserManagement user found for this Valuer.";
+            row.ValuerMatchComment = $"No active UserManagement user found for Valuer: {valuer}";
         }
 
         private static void ApplyUser(ExtractRow row, UserRow user, string comment)
@@ -176,6 +244,9 @@ namespace Valuer_Verification_System.Services.Upload
             row.ValuerMatchComment = comment;
         }
 
+        // ─────────────────────────────────────────────────────────────────
+        // Data loaders
+        // ─────────────────────────────────────────────────────────────────
         private async Task<List<SectorRow>> LoadLatestSectorRowsAsync(CancellationToken ct)
         {
             var connString = _db.Database.GetConnectionString();
@@ -201,7 +272,7 @@ namespace Valuer_Verification_System.Services.Upload
 
             var sql =
                 $"""
-                SELECT 
+                SELECT
                     TOWN_NAME_DESC,
                     TC_8,
                     TC_11,
@@ -238,11 +309,12 @@ namespace Valuer_Verification_System.Services.Upload
             await using var conn = new SqlConnection(connString);
             await conn.OpenAsync(ct);
 
-            var sql =
+            const string sql =
                 """
-                SELECT 
+                SELECT
                     UserID,
                     Username,
+                    UsernameOld,
                     FirstName,
                     SecondName,
                     Surname,
@@ -259,24 +331,70 @@ namespace Valuer_Verification_System.Services.Upload
 
             while (await reader.ReadAsync(ct))
             {
-                var first = ReadString(reader, "FirstName");
-                var second = ReadString(reader, "SecondName");
-                var surname = ReadString(reader, "Surname");
+                var first = ReadString(reader, "FirstName")?.Trim();
+                var second = ReadString(reader, "SecondName")?.Trim();
+                var surname = ReadString(reader, "Surname")?.Trim();
+                var username = ReadString(reader, "Username")?.Trim();
+                var usernameOld = ReadString(reader, "UsernameOld")?.Trim();
+
+                // FirstName without double-barrelled prefix (e.g. "Mary Jane" → "Mary")
+                var firstShort = first != null && first.Contains(' ')
+                    ? first[..first.IndexOf(' ')].Trim()
+                    : first;
+
+                // Username without domain prefix (e.g. "JOBURG\10112533" → "10112533")
+                var usernameNoDomain = username != null && username.Contains('\\')
+                    ? username[(username.IndexOf('\\') + 1)..].Trim()
+                    : username;
 
                 result.Add(new UserRow
                 {
                     UserId = ReadInt(reader, "UserID"),
-                    Username = ReadString(reader, "Username"),
+                    Username = username,
+                    UsernameOld = usernameOld,
+                    UsernameNoDomain = usernameNoDomain,
                     FirstName = first,
                     SecondName = second,
                     Surname = surname,
                     EmailAddress = ReadString(reader, "EmailAddress"),
-                    FullName1 = Clean($"{first} {surname}"),
-                    FullName2 = Clean($"{first} {second} {surname}")
+
+                    // "JABULANI SIBEKO"
+                    FullName1 = BuildFullName(first, null, surname),
+
+                    // "JABULANI SIBEKO" or "JABULANI JANE SIBEKO" when second name exists
+                    FullName2 = BuildFullName(first, second, surname),
+
+                    // "MARY SIBEKO" when first = "Mary Jane" (short first + surname)
+                    FullName3 = BuildFullName(firstShort, null, surname),
+
+                    // "JSIBEKO" — first initial + surname, matches compact codes like "jSibeko"
+                    CompactCode = BuildCompactCode(first, surname)
                 });
             }
 
             return result;
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // Helpers
+        // ─────────────────────────────────────────────────────────────────
+        private static string? BuildFullName(string? first, string? second, string? surname)
+        {
+            var parts = new[] { first, second, surname }
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Select(p => p!.Trim());
+
+            var name = string.Join(" ", parts).Trim();
+            return string.IsNullOrWhiteSpace(name) ? null : name;
+        }
+
+        private static string? BuildCompactCode(string? first, string? surname)
+        {
+            if (string.IsNullOrWhiteSpace(first) || string.IsNullOrWhiteSpace(surname))
+                return null;
+
+            // jSibeko → "J" + "SIBEKO" = "JSIBEKO"
+            return (first.Trim()[0].ToString() + surname.Trim()).ToUpperInvariant();
         }
 
         private static string? ReadString(SqlDataReader r, string col)
@@ -299,18 +417,19 @@ namespace Valuer_Verification_System.Services.Upload
             => string.IsNullOrWhiteSpace(s) ? null : s.Trim().ToUpperInvariant();
 
         private static bool Same(string? a, string? b)
-            => string.Equals(Clean(a), Clean(b), StringComparison.OrdinalIgnoreCase);
+            => string.Equals(a?.Trim(), b?.Trim(), StringComparison.OrdinalIgnoreCase);
 
         private static string? ExtractInsideBracket(string value)
         {
-            var start = value.IndexOf("(");
-            var end = value.IndexOf(")");
-
+            var start = value.IndexOf('(');
+            var end = value.IndexOf(')');
             if (start < 0 || end <= start) return null;
-
             return value.Substring(start + 1, end - start - 1).Trim();
         }
 
+        // ─────────────────────────────────────────────────────────────────
+        // Private record types
+        // ─────────────────────────────────────────────────────────────────
         private sealed class SectorRow
         {
             public string? TownNameDesc { get; set; }
@@ -324,12 +443,16 @@ namespace Valuer_Verification_System.Services.Upload
         {
             public int? UserId { get; set; }
             public string? Username { get; set; }
+            public string? UsernameOld { get; set; }
+            public string? UsernameNoDomain { get; set; }
             public string? FirstName { get; set; }
             public string? SecondName { get; set; }
             public string? Surname { get; set; }
             public string? EmailAddress { get; set; }
-            public string? FullName1 { get; set; }
-            public string? FullName2 { get; set; }
+            public string? FullName1 { get; set; }   // FirstName + Surname
+            public string? FullName2 { get; set; }   // FirstName + SecondName + Surname
+            public string? FullName3 { get; set; }   // ShortFirst + Surname
+            public string? CompactCode { get; set; }   // FirstInitial + Surname (e.g. JSIBEKO)
         }
     }
 }

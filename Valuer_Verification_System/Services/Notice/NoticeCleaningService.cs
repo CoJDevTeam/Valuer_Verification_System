@@ -34,6 +34,7 @@ namespace Valuer_Verification_System.Services.Notice
             "CojOwned",
             "FallbackAddresses",
             "FinalMappings",
+            "ResolveUsername",
             "Trim"
         };
 
@@ -46,7 +47,7 @@ namespace Valuer_Verification_System.Services.Notice
         }
 
         // ── Table name builder ────────────────────────────────────────────────
-   
+
         public string BuildWeekTableName(DateOnly extractionDate)
         {
             int weekNo = (int)Math.Ceiling(extractionDate.Day / 7.0);
@@ -221,7 +222,7 @@ namespace Valuer_Verification_System.Services.Notice
                 await conn.OpenAsync(ct);
 
                 await using var cmd = conn.CreateCommand();
-                
+
                 cmd.CommandText = "sp_VVS_CreateWeekTable";
                 cmd.CommandType = System.Data.CommandType.StoredProcedure;
                 cmd.CommandTimeout = 600;

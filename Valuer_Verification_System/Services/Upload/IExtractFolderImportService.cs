@@ -331,9 +331,12 @@ namespace Valuer_Verification_System.Services.Upload
                 await _db.SaveChangesAsync(ct);
             }
 
-            // Resolve usernames AFTER cleaning.
-            // This is important because SectorValuer cleaning may populate ExtractRows.Valuer.
-            var resolvedCount = await ResolveBatchValuerUsernamesAsync(batch.Id, ct);
+            // Username resolution is now handled by sp_VVS_Clean_ResolveUsername
+            // which runs as part of RunFullCleaningOnceAsync (step "ResolveUsername").
+            // We just count how many rows were resolved by the SP.
+            var resolvedCount = await _db.ExtractRows
+                .CountAsync(r => r.BatchId == batch.Id
+                    && r.Username != null && r.Username != "", ct);
 
             // Keep Assignments populated for old screens.
             // New source of truth remains ExtractRows.Username.
@@ -394,6 +397,7 @@ namespace Valuer_Verification_System.Services.Upload
     CancellationToken ct)
         {
             var existingAssignments = await _db.Assignments
+                .AsNoTracking()
                 .Where(a => a.ExtractRow.BatchId == batchId)
                 .ToListAsync(ct);
 
@@ -403,10 +407,22 @@ namespace Valuer_Verification_System.Services.Upload
                 await _db.SaveChangesAsync(ct);
             }
 
+            // The SP ran via raw SQL and updated Username directly in the DB.
+            // EF's change tracker still holds stale entities with Username = null.
+            // Detach all tracked ExtractRow entities so the query below reads
+            // fresh data from the DB rather than the stale tracked versions.
+            var staleEntries = _db.ChangeTracker.Entries<ExtractRow>()
+                .Where(e => e.Entity.BatchId == batchId)
+                .ToList();
+
+            foreach (var entry in staleEntries)
+                entry.State = Microsoft.EntityFrameworkCore.EntityState.Detached;
+
             var rows = await _db.ExtractRows
+                .AsNoTracking()
                 .Where(r =>
                     r.BatchId == batchId &&
-                    !string.IsNullOrWhiteSpace(r.Username))
+                    r.Username != null && r.Username != "")
                 .ToListAsync(ct);
 
             var assignments = rows
@@ -420,7 +436,7 @@ namespace Valuer_Verification_System.Services.Upload
                 .Select(r => new Assignment
                 {
                     ExtractRowId = r.Id,
-                    AssignedToValuer = r.Username!.Trim(),
+                    AssignedToValuer = (r.Username ?? "").Trim(),
                     AssignedBy = "folder-job",
                     AssignedAtUtc = DateTime.UtcNow,
                     CreatedBy = "folder-job",
