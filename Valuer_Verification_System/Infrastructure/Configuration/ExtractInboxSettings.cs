@@ -13,6 +13,7 @@
                 @"^LIS_SV_(\d{8})_To_(\d{8})\.(xls|xlsx|csv)$";
 
             public bool AutoCleanAfterImport { get; set; } = true;
-        }
+        public bool AllowManualRun { get; set; } = false;
+    }
     }
 

@@ -2,6 +2,7 @@
 
 @{
     ViewData["Title"] = "Automatic Extract Intake";
+    var latestBatch = Model.Batches.FirstOrDefault();
 }
 
 <style>
@@ -50,6 +51,7 @@
         border-radius: 14px;
         padding: 18px;
         box-shadow: 0 8px 18px rgba(15, 23, 42, .06);
+        margin-bottom: 18px;
     }
 
         .card h2 {
@@ -72,7 +74,7 @@
         padding: 13px 15px;
         border-radius: 10px;
         font-weight: 800;
-        margin-top: 12px;
+        margin-bottom: 12px;
     }
 
         .alert.ok {
@@ -235,6 +237,20 @@
         background: #16a34a;
     }
 
+    .cleaning-progress-outer {
+        background: #e5e7eb;
+        border-radius: 999px;
+        overflow: hidden;
+        height: 18px;
+    }
+
+    .cleaning-progress-inner {
+        width: 0%;
+        height: 18px;
+        background: #0f766e;
+        transition: width .25s ease;
+    }
+
     .details {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -278,6 +294,8 @@
         font-weight: 900;
         text-decoration: none;
         font-size: 13px;
+        border: 0;
+        cursor: pointer;
     }
 
         .btn.primary {
@@ -342,6 +360,21 @@
         padding: 12px 16px;
         font-weight: 900;
     }
+
+    @@media (max-width: 900px) {
+        .grid,
+        .details {
+            grid-template-columns: 1fr;
+        }
+
+        .stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .batch-head {
+            flex-direction: column;
+        }
+    }
 </style>
 
 <div class="intake-page">
@@ -353,15 +386,16 @@
                 Monitor files detected by the folder job, import status, cleaning status,
                 Project Manager approval and Sector Manager notification progress.
             </p>
+
             @if (Model.CanRunFolderImportNow)
             {
-                @if (Model.ImportIsRunning)
+                if (Model.ImportIsRunning)
                 {
                     <div class="import-running">
                         <i class="bi bi-hourglass-split"></i>
-                        Folder import is currently running.
+                        Uploading and cleaning is currently running.
                         Started at @(Model.ImportStartedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "-") UTC
-                        on @Model.ImportStartedBy.
+                        by @Model.ImportStartedBy.
                     </div>
                 }
                 else
@@ -371,9 +405,9 @@
 
                         <button type="submit"
                                 class="btn-run-now"
-                                onclick="return confirm('Run folder import now? This will scan the configured folder and import any new extract files.');">
+                                onclick="return confirm('Start uploading and cleaning now? This will scan the configured folder, import new extract files, and run all cleaning steps.');">
                             <i class="bi bi-play-circle-fill"></i>
-                            Run Folder Import Now
+                            Start Uploading and Cleaning
                         </button>
                     </form>
                 }
@@ -393,6 +427,7 @@
                 @TempData["ExtractIntakeError"]
             </div>
         }
+
         <div class="grid">
             <div class="card">
                 <h2>Configured Extract Folder</h2>
@@ -403,11 +438,15 @@
 
                 @if (Model.FolderExists)
                 {
-                    <div class="alert ok">Folder exists and can be monitored.</div>
+                    <div class="alert ok" style="margin-top:12px;margin-bottom:0;">
+                        Folder exists and can be monitored.
+                    </div>
                 }
                 else
                 {
-                    <div class="alert err">Folder does not exist or is not configured correctly.</div>
+                    <div class="alert err" style="margin-top:12px;margin-bottom:0;">
+                        Folder does not exist or is not configured correctly.
+                    </div>
                 }
             </div>
 
@@ -442,7 +481,8 @@
                 }
             </div>
         </div>
-        <div class="card" style="margin-bottom:18px;">
+
+        <div class="card">
             <h2>Folder Import Audit Log</h2>
 
             @if (!Model.Audits.Any())
@@ -509,6 +549,52 @@
                 </table>
             }
         </div>
+
+        <div class="card">
+            <h2>Upload and Cleaning Progress</h2>
+
+            @if (latestBatch is null)
+            {
+                <p class="small-muted">
+                    No batch found yet. Click <strong>Start Uploading and Cleaning</strong> to import and clean the extract.
+                </p>
+            }
+            else
+            {
+                <div class="actions" style="margin-bottom:12px;">
+                    <button type="button"
+                            class="btn-run-now"
+                            onclick="startCleaningProgress(@latestBatch.BatchId)">
+                        <i class="bi bi-bar-chart-line-fill"></i>
+                        View Latest Cleaning Progress
+                    </button>
+                </div>
+
+                <div id="cleaningProgressWrap" style="display:none;">
+                    <div class="cleaning-progress-outer">
+                        <div id="cleaningProgressBar" class="cleaning-progress-inner"></div>
+                    </div>
+
+                    <p id="cleaningProgressText" class="small-muted" style="margin-top:8px;">
+                        Waiting...
+                    </p>
+
+                    <table style="margin-top:12px;">
+                        <thead>
+                            <tr>
+                                <th>Step</th>
+                                <th>Status</th>
+                                <th>Rows</th>
+                                <th>Duration</th>
+                                <th>Message</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cleaningStepsBody"></tbody>
+                    </table>
+                </div>
+            }
+        </div>
+
         @if (!Model.Batches.Any())
         {
             <div class="card">
@@ -540,6 +626,10 @@
                             else if (string.Equals(b.ExtractCleaningStatus, "Failed", StringComparison.OrdinalIgnoreCase))
                             {
                                 <span class="pill bad">Cleaning Failed</span>
+                            }
+                            else if (string.Equals(b.ExtractCleaningStatus, "Running", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <span class="pill info">Cleaning Running</span>
                             }
                             else
                             {
@@ -581,7 +671,7 @@
                     </div>
 
                     <div style="text-align:right;">
-                        <div class="small-muted">Progress</div>
+                        <div class="small-muted">Verification Progress</div>
                         <strong style="font-size:22px;">@b.ProgressPercent.ToString("N2")%</strong>
                         <div class="progress-wrap" style="width:180px;">
                             <div class="progress-bar" style="width:@b.ProgressPercent%;"></div>
@@ -701,6 +791,12 @@
                     }
 
                     <div class="actions">
+                        <button type="button"
+                                class="btn gray"
+                                onclick="startCleaningProgress(@b.BatchId)">
+                            View Cleaning Progress
+                        </button>
+
                         <a class="btn primary" href="/ExtractApproval/Batch/@b.BatchId">
                             Open Approval Page
                         </a>
@@ -721,3 +817,90 @@
         }
     </div>
 </div>
+
+<script>
+    let currentBatchId = null;
+    let progressTimer = null;
+
+    function startCleaningProgress(batchId) {
+        currentBatchId = batchId;
+
+        const wrap = document.getElementById('cleaningProgressWrap');
+        if (!wrap) return;
+
+        wrap.style.display = 'block';
+
+        if (progressTimer) {
+            clearInterval(progressTimer);
+        }
+
+        loadCleaningProgress();
+
+        progressTimer = setInterval(loadCleaningProgress, 2000);
+
+        wrap.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+        });
+    }
+
+    async function loadCleaningProgress() {
+        if (!currentBatchId) return;
+
+        const response = await fetch(`/ExtractIntake/Progress/${currentBatchId}`);
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+
+        const bar = document.getElementById('cleaningProgressBar');
+        const text = document.getElementById('cleaningProgressText');
+        const body = document.getElementById('cleaningStepsBody');
+
+        if (!bar || !text || !body) return;
+
+        const percent = data.percent ?? 0;
+
+        bar.style.width = `${percent}%`;
+
+        text.textContent =
+            `${data.extractCleaningStatus ?? 'Running'} - ${data.completedSteps ?? 0}/${data.totalSteps ?? 0} steps complete (${percent}%)`;
+
+        body.innerHTML = '';
+
+        (data.steps ?? []).forEach(step => {
+            const tr = document.createElement('tr');
+
+            const status = step.finishedAtUtc
+                ? (step.success ? 'Complete' : 'Failed')
+                : 'Running';
+
+            const duration = step.durationMs
+                ? `${(step.durationMs / 1000).toFixed(1)} sec`
+                : '-';
+
+            tr.innerHTML = `
+                <td>${escapeHtml(step.stepName ?? '')}</td>
+                <td>${escapeHtml(status)}</td>
+                <td>${step.rowsAffected ?? 0}</td>
+                <td>${escapeHtml(duration)}</td>
+                <td>${escapeHtml(step.message ?? step.errorMessage ?? '')}</td>
+            `;
+
+            body.appendChild(tr);
+        });
+
+        if (data.extractCleaningStatus === 'Cleaned' || data.extractCleaningStatus === 'Failed') {
+            clearInterval(progressTimer);
+        }
+    }
+
+    function escapeHtml(value) {
+        return String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+</script>

@@ -309,6 +309,24 @@ namespace Valuer_Verification_System.Services.Notice
 
             foreach (var step in StepNames)
             {
+                var startedAt = DateTime.UtcNow;
+
+                var audit = new CleaningStepAudit
+                {
+                    BatchId = batchId,
+                    StepName = step,
+                    StartedAtUtc = startedAt,
+                    Success = false,
+                    RowsAffected = 0,
+                    Message = $"{step} started.",
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _db.CleaningStepAudits.Add(audit);
+                await _db.SaveChangesAsync(ct);
+
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+
                 var stepResult = await RunStepAsync(
                     batchId,
                     step,
@@ -316,6 +334,26 @@ namespace Valuer_Verification_System.Services.Notice
                     lisMasterTable,
                     sapTable,
                     ct);
+
+                sw.Stop();
+
+                audit.FinishedAtUtc = DateTime.UtcNow;
+                audit.DurationMs = sw.ElapsedMilliseconds;
+                audit.Success = stepResult.Success;
+                audit.RowsAffected = stepResult.RowsAffected;
+
+                if (stepResult.Success)
+                {
+                    audit.Message =
+                        $"{step} complete. Rows affected: {stepResult.RowsAffected:N0}. Duration: {FormatDuration(sw.ElapsedMilliseconds)}.";
+                }
+                else
+                {
+                    audit.Message = $"{step} failed.";
+                    audit.ErrorMessage = stepResult.Error;
+                }
+
+                await _db.SaveChangesAsync(ct);
 
                 if (!stepResult.Success)
                 {
@@ -336,14 +374,44 @@ namespace Valuer_Verification_System.Services.Notice
                 }
 
                 totalRowsAffected += stepResult.RowsAffected;
-                messages.Add($"{step}: {stepResult.RowsAffected:N0}");
+                messages.Add($"{step}: {stepResult.RowsAffected:N0} in {FormatDuration(sw.ElapsedMilliseconds)}");
             }
+
+            var createStartedAt = DateTime.UtcNow;
+
+            var createAudit = new CleaningStepAudit
+            {
+                BatchId = batchId,
+                StepName = "CreateWeekTable",
+                StartedAtUtc = createStartedAt,
+                Success = false,
+                RowsAffected = 0,
+                Message = "CreateWeekTable started.",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _db.CleaningStepAudits.Add(createAudit);
+            await _db.SaveChangesAsync(ct);
+
+            var createSw = System.Diagnostics.Stopwatch.StartNew();
 
             var createTableResult = await CreateWeekTableAsync(
                 weekTableName,
                 extractionDate,
                 ct);
 
+            createSw.Stop();
+
+            createAudit.FinishedAtUtc = DateTime.UtcNow;
+            createAudit.DurationMs = createSw.ElapsedMilliseconds;
+            createAudit.Success = createTableResult.Success;
+            createAudit.RowsAffected = createTableResult.RowsAffected;
+            createAudit.Message = createTableResult.Success
+                ? $"CreateWeekTable complete. Rows affected: {createTableResult.RowsAffected:N0}. Duration: {FormatDuration(createSw.ElapsedMilliseconds)}."
+                : "CreateWeekTable failed.";
+            createAudit.ErrorMessage = createTableResult.Success ? null : createTableResult.Error;
+
+            await _db.SaveChangesAsync(ct);
             if (!createTableResult.Success)
             {
                 batch.ExtractCleaningStatus = "Failed";
@@ -383,6 +451,19 @@ namespace Valuer_Verification_System.Services.Notice
                 RowsAffected = totalRowsAffected,
                 Error = batch.ExtractCleaningMessage
             };
+        }
+
+        private static string FormatDuration(long milliseconds)
+        {
+            var ts = TimeSpan.FromMilliseconds(milliseconds);
+
+            if (ts.TotalSeconds < 1)
+                return $"{milliseconds} ms";
+
+            if (ts.TotalMinutes < 1)
+                return $"{ts.TotalSeconds:N1} sec";
+
+            return $"{ts.TotalMinutes:N1} min";
         }
         public async Task<bool> WeekTableExistsAsync(string weekTableName, CancellationToken ct)
         {

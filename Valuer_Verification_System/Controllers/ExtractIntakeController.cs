@@ -2,8 +2,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Valuer_Verification_System.Data;
+using Valuer_Verification_System.Infrastructure.Configuration;
 using Valuer_Verification_System.Models.Data;
 using Valuer_Verification_System.Models.ViewModels;
+using Valuer_Verification_System.Services.Notice;
 using Valuer_Verification_System.Services.Upload;
 
 namespace Valuer_Verification_System.Controllers
@@ -15,31 +17,56 @@ namespace Valuer_Verification_System.Controllers
         private readonly IConfiguration _config;
         private readonly IExtractFolderImportService _folderImport;
         private readonly IExtractFolderImportLock _folderImportLock;
+        private readonly INoticeCleaningService _cleaning;
+        private readonly ExtractInboxSettings _settings;
         public ExtractIntakeController(
             VvsDbContext db,
             IConfiguration config,
-            IExtractFolderImportService folderImport,IExtractFolderImportLock folderImportLock)
+            IExtractFolderImportService folderImport,IExtractFolderImportLock folderImportLock,INoticeCleaningService cleaningService
+            , Microsoft.Extensions.Options.IOptions<ExtractInboxSettings> settings)
         {
             _db = db;
             _config = config;
             _folderImport = folderImport;
-            _folderImportLock = folderImportLock;   
+            _folderImportLock = folderImportLock;
+            _settings = settings.Value;
+            _cleaning = cleaningService;
         }
 
-                        private bool CanRunFolderImportNow()
-                {
-                    var role = User.FindFirst("Role")?.Value
-                               ?? User.FindFirst("Position")?.Value
-                               ?? User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value
-                               ?? "";
+        //        private bool CanRunFolderImportNow()
+        //{
+        //    var role = User.FindFirst("Role")?.Value
+        //               ?? User.FindFirst("Position")?.Value
+        //               ?? User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value
+        //               ?? "";
 
-                    var userName = User.Identity?.Name ?? "";
+        //    var userName = User.Identity?.Name ?? "";
 
-                    return role.Equals("Admin", StringComparison.OrdinalIgnoreCase)
-                        || role.Equals("Syscon", StringComparison.OrdinalIgnoreCase)
-                        || role.Contains("DEPUTY DIRECTOR", StringComparison.OrdinalIgnoreCase)
-                        || userName.Contains("Syscon", StringComparison.OrdinalIgnoreCase);
-                }
+        //    return role.Equals("Admin", StringComparison.OrdinalIgnoreCase)
+        //        || role.Equals("Syscon", StringComparison.OrdinalIgnoreCase)
+        //        || role.Contains("DEPUTY DIRECTOR", StringComparison.OrdinalIgnoreCase)
+        //        || userName.Contains("Syscon", StringComparison.OrdinalIgnoreCase);
+        //}
+
+        private bool CanRunFolderImportNow()
+        {
+            if (!_settings.AllowManualRun)
+                return false;
+
+            var position = User.FindFirst("Position")?.Value
+                ?? User.FindFirst("Role")?.Value
+                ?? User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value
+                ?? "";
+
+            var userName = User.Identity?.Name ?? "";
+
+            return position.Equals("Admin", StringComparison.OrdinalIgnoreCase)
+                || position.Equals("Syscon", StringComparison.OrdinalIgnoreCase)
+                || position.Contains("DEPUTY DIRECTOR", StringComparison.OrdinalIgnoreCase)
+                || position.Contains("DATA", StringComparison.OrdinalIgnoreCase)
+                || userName.Contains("10112533", StringComparison.OrdinalIgnoreCase)
+                || userName.Contains("Syscon", StringComparison.OrdinalIgnoreCase);
+        }
 
         [HttpGet("/ExtractIntake")]
         public async Task<IActionResult> Index(CancellationToken ct)
@@ -268,6 +295,52 @@ namespace Valuer_Verification_System.Controllers
             }
 
             return RedirectToAction(nameof(Index));
+        }
+        [HttpGet("/ExtractIntake/Progress/{batchId:int}")]
+        public async Task<IActionResult> Progress(int batchId, CancellationToken ct)
+        {
+            var batch = await _db.Batches
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == batchId, ct);
+
+            if (batch is null)
+                return NotFound();
+
+            var steps = await _db.CleaningStepAudits
+                .AsNoTracking()
+                .Where(x => x.BatchId == batchId)
+                .OrderBy(x => x.Id)
+                .Select(x => new
+                {
+                    x.StepName,
+                    x.StartedAtUtc,
+                    x.FinishedAtUtc,
+                    x.DurationMs,
+                    x.Success,
+                    x.RowsAffected,
+                    x.Message,
+                    x.ErrorMessage
+                })
+                .ToListAsync(ct);
+
+            var totalSteps = _cleaning.StepNames.Count + 1; // + CreateWeekTable
+            var completedSteps = steps.Count(x => x.FinishedAtUtc != null);
+
+            var percent = totalSteps <= 0
+                ? 0
+                : Math.Round((decimal)completedSteps * 100m / totalSteps, 2);
+
+            return Json(new
+            {
+                batchId,
+                batch.BatchName,
+                batch.ExtractCleaningStatus,
+                batch.ExtractCleaningMessage,
+                percent,
+                completedSteps,
+                totalSteps,
+                steps
+            });
         }
     }
 

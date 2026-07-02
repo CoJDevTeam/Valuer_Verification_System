@@ -22,7 +22,7 @@ namespace Valuer_Verification_System.Data
         public DbSet<NoticeQaApproval> NoticeQaApprovals => Set<NoticeQaApproval>();
         public DbSet<NoticeQaSample> NoticeQaSamples => Set<NoticeQaSample>();
         public DbSet<ExtractFolderImportAudit> ExtractFolderImportAudits => Set<ExtractFolderImportAudit>();
-
+        public DbSet<CleaningStepAudit> CleaningStepAudits => Set<CleaningStepAudit>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -180,6 +180,13 @@ namespace Valuer_Verification_System.Data
                 e.HasIndex(x => x.StartedAtUtc);
                 e.HasIndex(x => x.RunType);
                 e.HasIndex(x => x.Success);
+            });
+
+            modelBuilder.Entity<CleaningStepAudit>(e =>
+            {
+                e.HasIndex(x => x.BatchId);
+                e.HasIndex(x => x.ImportAuditId);
+                e.HasIndex(x => x.StepName);
             });
         }
 

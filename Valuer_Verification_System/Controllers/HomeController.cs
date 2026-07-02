@@ -25,19 +25,41 @@ namespace Valuer_Verification_System.Controllers
         [HttpGet("/Home/Index")]
         public async Task<IActionResult> Index(CancellationToken ct)
         {
+            await SetUserContextAsync(ct);
 
-            // Role routing
-            if (User.IsInRole("Valuer"))
+            var position = GetUserPositionOrRole();
+
+            // Role / position routing without User.IsInRole()
+            if (HasAppRole("Valuer"))
                 return RedirectToAction("Dashboard", "Valuer");
 
-            if (User.IsInRole("Manager"))
+            if (HasAppRole("Manager", "Sector Manager"))
                 return RedirectToAction("Dashboard", "Manager");
 
-            await SetUserContextAsync(ct);
             var vm = await _dash.BuildAsync(ct);
             return View(vm);
         }
 
+
+        private string GetUserPositionOrRole()
+        {
+            return User.FindFirst("Position")?.Value
+                ?? User.FindFirst("Role")?.Value
+                ?? User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value
+                ?? "";
+        }
+
+        private bool HasAppRole(params string[] allowedRoles)
+        {
+            var role = GetUserPositionOrRole();
+
+            if (string.IsNullOrWhiteSpace(role))
+                return false;
+
+            return allowedRoles.Any(x =>
+                role.Equals(x, StringComparison.OrdinalIgnoreCase) ||
+                role.Contains(x, StringComparison.OrdinalIgnoreCase));
+        }
         // Shown automatically when RequirePageAccess returns 403
         [HttpGet("/Home/AccessDenied")]
         public async Task<IActionResult> AccessDenied(CancellationToken ct)
