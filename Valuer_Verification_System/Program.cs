@@ -86,6 +86,8 @@ builder.Services.AddScoped<INoticeCleaningService, NoticeCleaningService>();
 builder.Services.AddScoped<ILatestCleaningTableResolver,LatestCleaningTableResolver>();
 
 builder.Services.AddScoped<IExtractApprovalNotificationService,ExtractApprovalNotificationService>();
+
+builder.Services.AddScoped<IExtractCleaningService, ExtractCleaningService>();
 //---------------------------------Stats ---------------------------------
 builder.Services.AddScoped<ISection78StatsService,Section78StatsService>();
 

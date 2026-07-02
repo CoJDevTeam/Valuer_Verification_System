@@ -94,7 +94,7 @@ body {
 /* ── MAIN CONTENT ───────────────────────────────── */
 .dash-body {
     padding: 2rem 2.5rem;
-    max-width: 1400px;
+    max-width: 100%;
     margin: 0 auto;
 }
 
@@ -815,3 +815,110 @@ body {
     animation-delay: 0.30s;
 }
 
+/* ── FULL PAGE ──────────────────────────────────── */
+html, body {
+    width: 100%;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+.dash-header {
+    width: 100%;
+    left: 0;
+    right: 0;
+}
+
+@media (min-width: 1400px) {
+    .dash-body {
+        padding: 2rem 3rem;
+    }
+
+    .kpi-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+@media (min-width: 1800px) {
+    .dash-body {
+        padding: 2rem 4rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .dash-header {
+        padding: 0 1rem;
+    }
+
+    .dash-body {
+        padding: 1rem 0.75rem;
+    }
+
+    .selector-card {
+        padding: 1rem;
+    }
+
+    .progress-section {
+        padding: 1rem;
+    }
+
+    .action-panel {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .batch-info-strip {
+        gap: 1rem;
+        padding: 10px 14px;
+    }
+
+    .table-section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .stats-row {
+        flex-direction: column;
+    }
+
+        .stats-row .btn-gold,
+        .stats-row .btn-outline-gold,
+        .stats-row .btn-dark-sm {
+            width: 100%;
+            justify-content: center;
+        }
+}
+
+@media (max-width: 480px) {
+    .dash-header .brand-name {
+        font-size: 0.85rem;
+    }
+
+    .header-badge {
+        display: none;
+    }
+
+    .page-title {
+        font-size: 1.3rem;
+    }
+
+    .kpi-value {
+        font-size: 1.8rem;
+    }
+
+    .percent-badge {
+        font-size: 1.2rem;
+    }
+
+    .progress-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .btn-gold,
+    .btn-outline-gold,
+    .btn-dark-sm {
+        width: 100%;
+        justify-content: center;
+    }
+}

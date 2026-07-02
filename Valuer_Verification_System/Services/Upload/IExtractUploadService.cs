@@ -4,6 +4,7 @@ using Valuer_Verification_System.Infrastructure.Configuration;
 using Valuer_Verification_System.Infrastructure.Configuration.Email;
 using Valuer_Verification_System.Infrastructure.Storage;
 using Valuer_Verification_System.Models.Data;
+using Valuer_Verification_System.Services.Notice;
 
 namespace Valuer_Verification_System.Services.Upload
 {
@@ -18,12 +19,14 @@ namespace Valuer_Verification_System.Services.Upload
         private readonly VvsDbContext _db;
         private readonly IStorageService _storage;
         private readonly IEmailService _email;
+        private readonly IExtractCleaningService _cleaning;
 
-        public ExtractUploadService(VvsDbContext db, IStorageService storage, IEmailService email)
+        public ExtractUploadService(VvsDbContext db, IStorageService storage, IEmailService email, IExtractCleaningService cleaning)
         {
             _db = db;
             _storage = storage;
             _email = email;
+            _cleaning = cleaning;
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -101,20 +104,18 @@ namespace Valuer_Verification_System.Services.Upload
             // For split properties (same ValuationKey, SplitInd = P/Y),
             // assign only the PARENT row (SplitInd = 'P') or the first row
             // per ValuationKey — one assignment per property, not per split line.
-            var assignments = rows
-                .Where(r => !string.IsNullOrWhiteSpace(r.Valuer))
-                .GroupBy(r => r.ValuationKey)
-                .Select(g =>
-                    // Prefer the parent row (SplitInd = 'P' or null/empty), else first
-                    g.FirstOrDefault(r =>
-                        string.IsNullOrWhiteSpace(r.ValuationSplitInd) ||
-                        r.ValuationSplitInd.Trim().Equals("P", StringComparison.OrdinalIgnoreCase))
-                    ?? g.First())
-                .Where(r => r.Id > 0)   // must be saved (has PK)
+            await _cleaning.CleanSectorValuerAndResolveUsernameAsync(batch.Id, uploadedBy, ct);
+
+            var cleanedRows = await _db.ExtractRows
+                .Where(r => r.BatchId == batch.Id)
+                .ToListAsync(ct);
+
+            var assignments = cleanedRows
+                .Where(r => !string.IsNullOrWhiteSpace(r.Username))
                 .Select(r => new Assignment
                 {
                     ExtractRowId = r.Id,
-                    AssignedToValuer = r.Valuer!.Trim(),
+                    AssignedToValuer = r.Username!.Trim(),
                     AssignedBy = uploadedBy,
                     AssignedAtUtc = DateTime.UtcNow,
                     CreatedBy = uploadedBy,

@@ -33,6 +33,9 @@ body {
     font-family: 'Inter',sans-serif;
     color: var(--ink);
     font-size: 14px;
+    width: 100%;
+    min-height: 100vh;
+    overflow-x: hidden;
 }
 
 a {
