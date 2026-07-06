@@ -1,0 +1,189 @@
+﻿@model Valuer_Verification_System.Models.ViewModels.ValuerBulkInboxVm
+
+@{
+    ViewData["Title"] = "Bulk Verification";
+}
+
+<style>
+    .bulk-page {
+        padding: 24px;
+        background: #f5f6f8;
+        min-height: 100vh;
+        font-family: Segoe UI, Arial, sans-serif;
+    }
+
+    .bulk-shell {
+        max-width: 1280px;
+        margin: 0 auto;
+    }
+
+    .hero {
+        background: #111827;
+        color: white;
+        padding: 24px 28px;
+        border-radius: 16px;
+        margin-bottom: 18px;
+    }
+
+    .hero h1 {
+        margin: 0;
+        font-size: 26px;
+        font-weight: 900;
+    }
+
+    .hero p {
+        margin: 8px 0 0;
+        color: #d1d5db;
+    }
+
+    .card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 18px;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, .06);
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th {
+        background: #111827;
+        color: white;
+        padding: 10px;
+        text-align: left;
+        font-size: 13px;
+    }
+
+    td {
+        border-bottom: 1px solid #e5e7eb;
+        padding: 10px;
+        font-size: 13px;
+        vertical-align: top;
+    }
+
+    .num {
+        text-align: right;
+    }
+
+    .pill {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 900;
+    }
+
+    .pill.ok {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .pill.warn {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .btn {
+        display: inline-block;
+        padding: 9px 13px;
+        border-radius: 10px;
+        font-weight: 900;
+        text-decoration: none;
+        font-size: 13px;
+    }
+
+    .btn.primary {
+        background: #111827;
+        color: white;
+    }
+
+    .empty {
+        padding: 22px;
+        background: #f9fafb;
+        border-radius: 12px;
+        color: #6b7280;
+        font-weight: 700;
+    }
+</style>
+
+<div class="bulk-page">
+    <div class="bulk-shell">
+
+        <div class="hero">
+            <h1>Bulk Verification</h1>
+            <p>
+                Review grouped properties and verify multiple matching records with one click.
+                Only safe groups using the same Premise ID and Unit Key are shown here.
+            </p>
+        </div>
+
+        <div class="card">
+            <h2>My Bulk Groups</h2>
+
+            @if (!Model.Groups.Any())
+            {
+                <div class="empty">
+                    No bulk groups found for your inbox.
+                </div>
+            }
+            else
+            {
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Property</th>
+                            <th>Premise ID</th>
+                            <th>Unit Key</th>
+                            <th>Town</th>
+                            <th>Unit</th>
+                            <th class="num">Rows</th>
+                            <th class="num">Pending</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var g in Model.Groups)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@g.PropertyDescription</strong>
+                                </td>
+                                <td>@g.PremiseId</td>
+                                <td>@g.UnitKey</td>
+                                <td>@g.TownNameDesc</td>
+                                <td>@g.UnitType @g.UnitNo</td>
+                                <td class="num">@g.RowCount</td>
+                                <td class="num">@g.PendingCount</td>
+                                <td>
+                                    @if (g.IsSafeForBulk)
+                                    {
+                                        <span class="pill ok">Ready</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="pill warn">@g.SafetyMessage</span>
+                                    }
+                                </td>
+                                <td>
+                                    <a class="btn primary"
+                                           asp-controller="ValuerBulk"
+                                           asp-action="Details"
+                                           asp-route-batchId="@g.BatchId"
+                                           asp-route-premiseId="@g.PremiseId"
+                                           asp-route-unitKey="@g.UnitKey">
+                                        View
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+    </div>
+</div>

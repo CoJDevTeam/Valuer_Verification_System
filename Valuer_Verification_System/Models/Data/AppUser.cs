@@ -14,6 +14,14 @@
 
         public bool Active { get; set; }
 
+      
+
+        public string FirstName { get; set; } = "";
+        public string SecondName { get; set; } = "";
+        public string Surname { get; set; } = "";
+        public string Position { get; set; } = "";
+    
+
         // ── Convenience role checks ──────────────────────────────────────────
 
         public bool IsDataManager => Role.Equals("Data Manager", StringComparison.OrdinalIgnoreCase);

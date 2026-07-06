@@ -1,20 +1,21 @@
 ﻿using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.EntityFrameworkCore;
 using Valuer_Verification_System.Data;
+using Valuer_Verification_System.Domain.Dates;
+using Valuer_Verification_System.Domain.WeekWindows;
 using Valuer_Verification_System.Infrastructure.Configuration;
-
+using Valuer_Verification_System.Infrastructure.Configuration.Email;
+using Valuer_Verification_System.Infrastructure.Configuration.Filters;
+using Valuer_Verification_System.Infrastructure.Storage;
+using Valuer_Verification_System.Services.Home;
+using Valuer_Verification_System.Services.Manager;
 using Valuer_Verification_System.Services.Notice;
+using Valuer_Verification_System.Services.Notifications;
 using Valuer_Verification_System.Services.Permissions;
 using Valuer_Verification_System.Services.Stats;
 using Valuer_Verification_System.Services.Upload;
-using Valuer_Verification_System.Infrastructure.Configuration.Email;
-using Valuer_Verification_System.Infrastructure.Storage;
-using Valuer_Verification_System.Domain.Dates;
-using Valuer_Verification_System.Domain.WeekWindows;
 using Valuer_Verification_System.Services.Valuer;
-using Valuer_Verification_System.Services.Manager;
-using Valuer_Verification_System.Services.Home;
-using Valuer_Verification_System.Services.Notifications;
+using Valuer_Verification_System.Services.Verifications;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +25,12 @@ builder.Services.AddDbContext<VvsDbContext>(options =>
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
+builder.Services.AddScoped<AppUserContextFilter>();
+
+builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.Add<AppUserContextFilter>();
+});
 
 //-----------------Email--------------------------------------
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
@@ -96,6 +103,8 @@ builder.Services.AddScoped<IStatsExportService,StatsExportService>();
 //------------------------------Home--------------------------------------------
 
 builder.Services.AddScoped<IDataTeamDashboardService,DataTeamDashboardService>();
+
+builder.Services.AddScoped<IValuerBulkVerificationService, ValuerBulkVerificationService>();
 
 //----------------------------Notifications--------------------------------
 builder.Services.AddScoped<INotificationService,NotificationService>();

@@ -6,248 +6,278 @@
 
 <div class="rd-wrap">
 
-  @* Hidden span — JS reads this to populate the modal header *@
-  <span id="rowDetailsValuationKey" data-vkey="@Model.ValuationKey" style="display:none;">@Model.ValuationKey</span>
+    @* Hidden span — JS reads this to populate the modal header *@
+    <span id="rowDetailsValuationKey" data-vkey="@Model.ValuationKey" style="display:none;">@Model.ValuationKey</span>
 
-  @* ── Valuation Key + Decision ── *@
-  <div class="rd-vkey">@Model.ValuationKey</div>
+    @* ── Valuation Key + Decision ── *@
+    <div class="rd-vkey">@Model.ValuationKey</div>
 
-  <div style="margin-bottom:.85rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">
-    @if (Model.Decision == VerificationDecision.Pending)
-    { <span class="rd-decision rd-d-pending">⏳ Pending</span> }
-    else if (Model.Decision == VerificationDecision.Yes)
-    { <span class="rd-decision rd-d-yes">✓ Verified — Yes</span> }
-    else
-    { <span class="rd-decision rd-d-no">✕ Rejected — No</span> }
+    <div style="margin-bottom:.85rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">
+        @if (Model.Decision == VerificationDecision.Pending)
+        {
+            <span class="rd-decision rd-d-pending">⏳ Pending</span>
+        }
+        else if (Model.Decision == VerificationDecision.Yes)
+        {
 
-    @if (!string.IsNullOrWhiteSpace(Model.DecisionComment))
-    { <span style="font-size:.75rem;color:#666;">@Model.DecisionComment</span> }
+            <span class="rd-decision rd-d-yes">✓ Verified — Yes</span>
+        }
+        else
+        {
 
-    @if (Model.DecisionAtUtc.HasValue)
-    { <span style="font-size:.7rem;color:#aaa;">@Model.DecisionAtUtc.Value.ToString("yyyy-MM-dd HH:mm") UTC</span> }
-  </div>
+            <span class="rd-decision rd-d-no">✕ Rejected — No</span>
+        }
 
-  @* ════════════════════════════════════════════════════════
+        @if (!string.IsNullOrWhiteSpace(Model.DecisionComment))
+        {
+            <span style="font-size:.75rem;color:#666;">@Model.DecisionComment</span>
+        }
+
+        @if (Model.DecisionAtUtc.HasValue)
+        {
+            <span style="font-size:.7rem;color:#aaa;">@Model.DecisionAtUtc.Value.ToString("yyyy-MM-dd HH:mm") UTC</span>
+        }
+    </div>
+
+    @* ════════════════════════════════════════════════════════
      KEY DETAILS — highlighted box with the most important fields
      ════════════════════════════════════════════════════════ *@
-  <div class="rd-keybox">
-    <div class="rd-keybox-title">📋 Key Property Details</div>
+    <div class="rd-keybox">
+        <div class="rd-keybox-title">📋 Key Property Details</div>
 
-    @* ── Top highlight fields: Valuation Key, Premise ID, Town, Valuer/Sector ── *@
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem;margin-bottom:.65rem;">
-      @KFHighlight("🔑 Valuation Key",   Model.ValuationKey,                "key")
-      @* @KFHighlight("📍 Premise ID",      Model.PremiseId,                   "key") *@
-      @KFHighlight("🏙 Town / Area",      Model.TownNameDesc,                "")
-      @KFHighlight("👤 Valuer",           Model.Valuer ?? Model.AssignedTo,  "")
-    </div>
+        @* ── Top highlight fields: Valuation Key, Premise ID, Town, Valuer/Sector ── *@
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem;margin-bottom:.65rem;">
+            @KFHighlight("🔑 Valuation Key", Model.ValuationKey, "key")
+            @* @KFHighlight("📍 Premise ID",      Model.PremiseId,                   "key") *@
+            @KFHighlight("🏙 Town / Area", Model.TownNameDesc, "")
+        </div>
 
-    @* ── Second row: Sector + Category (all splits joined) ── *@
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem;margin-bottom:.65rem;">
-      @KFHighlight("🗂 Sector", Model.Sector, "")
-      @KFHighlight("🏷 Category",
-        Model.IsMultipurpose && Model.SplitRows.Any()
-          ? string.Join(" / ", Model.SplitRows.Select(s => s.CatDesc ?? s.CatCode ?? "—").Distinct())
-          : (Model.CatDesc ?? Model.PropertyCategory ?? "—"),
-        "")
-    </div>
+        @* ── Second row: Sector + Category (all splits joined) ── *@
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem;margin-bottom:.65rem;">
+            @KFHighlight("🗂 Sector", Model.Sector, "")
+            @KFHighlight("🏷 Category",
+              Model.IsMultipurpose && Model.SplitRows.Any()
+                ? string.Join(" / ", Model.SplitRows.Select(s => s.CatDesc ?? s.CatCode ?? "—").Distinct())
+                : (Model.CatDesc ?? Model.PropertyCategory ?? "—"),
+              "")
+        </div>
 
-    @* ── All 9 requested fields ── *@
-    <div class="rd-keygrid">
-    @*   @KF("Property Description", Model.PropertyDesc ?? Model.PropertyDescription)
+        @* ── All 9 requested fields ── *@
+        <div class="rd-keygrid">
+            @*   @KF("Property Description", Model.PropertyDesc ?? Model.PropertyDescription)
       @KF("Stand No",             Model.StandNo) *@
-      @KFMoney("Market Value",    Model.MarketValue)
+            @KFMoney("Market Value", Model.MarketValue)
             @KF("Rateable Area", Model.RateableArea.HasValue ? $"{Model.RateableArea.Value:N0} m²" : null)
-      @KF("Legal Area",           Model.LegalArea)
-      @KF("Valuation Date",       Model.ValuationDate?.ToString("yyyy/MM/dd"))
-      @KF("WEF Date",             Model.WefDate?.ToString("yyyy/MM/dd"))
-      @KF("Unit Key",             Model.UnitKey,      "key")
+            @KF("Legal Area", Model.LegalArea)
+            @KF("Valuation Date", Model.ValuationDate?.ToString("yyyy/MM/dd"))
+            @KF("WEF Date", Model.WefDate?.ToString("yyyy/MM/dd"))
+            @KF("Unit Key", Model.UnitKey, "key")
+        </div>
     </div>
-  </div>
 
-  @* ════════════════════════════════════════════════════════
+    @* ════════════════════════════════════════════════════════
      SPLIT / MULTIPURPOSE ROWS  (shown right after key details)
      ════════════════════════════════════════════════════════ *@
-  @if (Model.IsMultipurpose && Model.SplitRows.Any())
-  {
-    <div class="rd-section">⚡ Split / Multipurpose Rows (@Model.SplitRows.Count)</div>
-    <table class="split-table">
-      <thead>
-        <tr>
-          <th>Split No</th>
-          <th>Ind</th>
-          <th>Cat Code</th>
-          <th>Category (CatDesc)</th>
-          <th>Market Value</th>
-          <th>Legal Area / Extent</th>
-          <th>Valuation Date</th>
-        </tr>
-      </thead>
-      <tbody>
-        @foreach (var s in Model.SplitRows)
-        {
-          var isCurrent = s.ExtractRowId == Model.ExtractRowId;
-          var ind = s.ValuationSplitInd?.Trim().ToUpper();
-          <tr class="@(isCurrent ? "current-row" : "")">
-            <td style="font-family:monospace;font-size:.75rem;">@(s.ValuationSplitNo ?? "—")</td>
-            <td>
-              @if (ind == "P")
-              { <span class="split-ind si-p">P</span> }
-              else if (ind == "Y")
-              { <span class="split-ind si-y">Y</span> }
-              else
-              { <span class="split-ind si-none">—</span> }
-            </td>
-            <td><span style="font-family:monospace;font-size:.75rem;">@(s.CatCode ?? "—")</span></td>
-            <td>@(s.CatDesc ?? "—")</td>
-            <td style="font-weight:700;color:#1a8a4a;">
-              @(s.MarketValue.HasValue ? $"R {s.MarketValue.Value:N0}" : "—")
-            </td>
+    @if (Model.IsMultipurpose && Model.SplitRows.Any())
+    {
+        <div class="rd-section">⚡ Split / Multipurpose Rows (@Model.SplitRows.Count)</div>
+        <table class="split-table">
+            <thead>
+                <tr>
+                    <th>Split No</th>
+                    <th>Ind</th>
+                    <th>Cat Code</th>
+                    <th>Category (CatDesc)</th>
+                    <th>Market Value</th>
+                    <th>Legal Area / Extent</th>
+                    <th>Valuation Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in Model.SplitRows)
+                {
+                    var isCurrent = s.ExtractRowId == Model.ExtractRowId;
+                    var ind = s.ValuationSplitInd?.Trim().ToUpper();
+                    <tr class="@(isCurrent ? "current-row" : "")">
+                        <td style="font-family:monospace;font-size:.75rem;">@(s.ValuationSplitNo ?? "—")</td>
+                        <td>
+                            @if (ind == "P")
+                            {
+                                <span class="split-ind si-p">P</span>
+                            }
+                            else if (ind == "Y")
+                            {
+
+                                <span class="split-ind si-y">Y</span>
+                            }
+                            else
+                            {
+
+                                <span class="split-ind si-none">—</span>
+                            }
+                        </td>
+                        <td><span style="font-family:monospace;font-size:.75rem;">@(s.CatCode ?? "—")</span></td>
+                        <td>@(s.CatDesc ?? "—")</td>
+                        <td style="font-weight:700;color:#1a8a4a;">
+                            @(s.MarketValue.HasValue ? $"R {s.MarketValue.Value:N0}" : "—")
+                        </td>
                         <td>@CleanArea(s.Extent ?? s.LegalArea)</td>
-            <td style="font-size:.75rem;">@(s.ValuationDate?.ToString("yyyy/MM/dd") ?? "—")</td>
-          </tr>
-        }
-      </tbody>
-    </table>
+                        <td style="font-size:.75rem;">@(s.ValuationDate?.ToString("yyyy/MM/dd") ?? "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
   
-      var splitTotal = Model.SplitRows.Sum(s => s.MarketValue ?? 0);
+        var splitTotal = Model.SplitRows.Sum(s => s.MarketValue ?? 0);
     
-    <div class="split-total">Total Market Value: R @splitTotal.ToString("N0")</div>
-  }
+        <div class="split-total">Total Market Value: R @splitTotal.ToString("N0")</div>
+    }
 
-  @* ── PROPERTY IDENTIFICATION ── *@
-  <div class="rd-section">🏠 Property Identification</div>
-  <div class="rd-grid">
-    @F("Valuation Roll Key",  Model.ValuationRollKey)
-    @F("SG ID",               Model.SgId,             "key")
-    @F("Property ID",         Model.PropertyId,       "key")
-    @F("Erf",                 Model.Erf)
-    @F("Portion",             Model.Ptn)
-    @F("RE",                  Model.Re)
-    @F("Valuation Type",      Model.ValuationType)
-    @F("Status Subtype",      Model.StatusSubtype)
-    @F("Status Code",         Model.StatusCode)
-  </div>
-
-  @* ── UNIT & RIGHTS ── *@
-  <div class="rd-section">🔑 Unit &amp; Rights</div>
-  <div class="rd-grid">
-    @F("Unit Type",           Model.UnitType)
-    @F("Unit No",             Model.UnitNo)
-    @F("Unit Rights Key",     Model.UnitRightsKey,      "key")
-    @F("Rights Premise",      Model.RightsPremise)
-    @F("Rights Premise Size", Model.RightsPremiseSize?.ToString("N0"))
-    @F("Rights Status",       Model.RightsStatus)
-    @F("Right Description",   Model.RightDescription)
-  </div>
-
-  @* ── OWNER & ADDRESS ── *@
-  <div class="rd-section">📬 Owner &amp; Address</div>
-  <div class="rd-grid">
-    @F("Owner Name",          Model.OwnerName)
-    @F("Physical Address",    Model.PhysicalAddress ?? Model.PremiseAddress)
-    @F("Addr 1",              Model.Addr1)
-    @F("Addr 2",              Model.Addr2)
-    @F("Addr 3",              Model.Addr3)
-    @F("Addr 4",              Model.Addr4)
-    @F("Addr 5",              Model.Addr5)
-    @F("Email Address",       Model.EmailAddr)
-    @F("Email Indicator",     Model.EmailInd)
-  </div>
-
-  @* ── FLAGS & REMARKS ── *@
-  <div class="rd-section">🚩 Flags &amp; Remarks</div>
-  <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.65rem;">
-    @Flag("Send Notice", Model.SendNotice)
-    @Flag("COJ Owned",   Model.CojOwned)
-    @Flag("Usable",      Model.Usable)
-    @Flag("SAP Data",    Model.SapData)
-  </div>
-  @if (!string.IsNullOrWhiteSpace(Model.RemarkDesc ?? Model.Remarks))
-  {
-    <div class="rd-field">
-      <div class="rd-label">Remarks</div>
-      <div class="rd-value">@(Model.RemarkDesc ?? Model.Remarks)</div>
+    @* ── PROPERTY IDENTIFICATION ── *@
+    <div class="rd-section">🏠 Property Identification</div>
+    <div class="rd-grid">
+        @F("Valuation Roll Key", Model.ValuationRollKey)
+        @F("SG ID", Model.SgId, "key")
+        @F("Property ID", Model.PropertyId, "key")
+        @F("Erf", Model.Erf)
+        @F("Portion", Model.Ptn)
+        @F("RE", Model.Re)
+        @F("Valuation Type", Model.ValuationType)
+        @F("Status Subtype", Model.StatusSubtype)
+        @F("Status Code", Model.StatusCode)
     </div>
-  }
 
-  @* ── DATES ── *@
-  <div class="rd-section">📅 Dates</div>
-  <div class="rd-grid">
-    @F("Extraction Date",  Model.ExtractionDate?.ToString("yyyy/MM/dd"))
-    @F("Capture Period",   Model.SvCapturePeriod)
-    @F("Review Opens",     Model.ReviewOpenDate?.ToString("yyyy/MM/dd"))
-    @F("Review Closes",    Model.ReviewCloseDate?.ToString("yyyy/MM/dd"))
-  </div>
+    @* ── UNIT & RIGHTS ── *@
+    <div class="rd-section">🔑 Unit &amp; Rights</div>
+    <div class="rd-grid">
+        @F("Unit Type", Model.UnitType)
+        @F("Unit No", Model.UnitNo)
+        @F("Unit Rights Key", Model.UnitRightsKey, "key")
+        @F("Rights Premise", Model.RightsPremise)
+        @F("Rights Premise Size", Model.RightsPremiseSize?.ToString("N0"))
+        @F("Rights Status", Model.RightsStatus)
+        @F("Right Description", Model.RightDescription)
+    </div>
 
-  @* ── ASSIGNMENT & BATCH ── *@
-  <div class="rd-section">👤 Assignment &amp; Valuer</div>
-  <div class="rd-grid">
-    @F("Batch",         Model.BatchName)
-    @F("Sector",        Model.Sector)
-    @F("Valuer (LIS)",  Model.Valuer)
-    @F("Assigned To",   Model.AssignedTo ?? "Unassigned")
-  </div>
+    @* ── OWNER & ADDRESS ── *@
+    <div class="rd-section">📬 Owner &amp; Address</div>
+    <div class="rd-grid">
+        @F("Owner Name", Model.OwnerName)
+        @F("Physical Address", Model.PhysicalAddress ?? Model.PremiseAddress)
+        @F("Addr 1", Model.Addr1)
+        @F("Addr 2", Model.Addr2)
+        @F("Addr 3", Model.Addr3)
+        @F("Addr 4", Model.Addr4)
+        @F("Addr 5", Model.Addr5)
+        @F("Email Address", Model.EmailAddr)
+        @F("Email Indicator", Model.EmailInd)
+    </div>
+
+    @* ── FLAGS & REMARKS ── *@
+    <div class="rd-section">🚩 Flags &amp; Remarks</div>
+    <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.65rem;">
+        @Flag("Send Notice", Model.SendNotice)
+        @Flag("COJ Owned", Model.CojOwned)
+        @Flag("Usable", Model.Usable)
+        @Flag("SAP Data", Model.SapData)
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.RemarkDesc ?? Model.Remarks))
+    {
+        <div class="rd-field">
+            <div class="rd-label">Remarks</div>
+            <div class="rd-value">@(Model.RemarkDesc ?? Model.Remarks)</div>
+        </div>
+    }
+
+    @* ── DATES ── *@
+    <div class="rd-section">📅 Dates</div>
+    <div class="rd-grid">
+        @F("Extraction Date", Model.ExtractionDate?.ToString("yyyy/MM/dd"))
+        @F("Capture Period", Model.SvCapturePeriod)
+        @F("Review Opens", Model.ReviewOpenDate?.ToString("yyyy/MM/dd"))
+        @F("Review Closes", Model.ReviewCloseDate?.ToString("yyyy/MM/dd"))
+    </div>
+
+    @* ── ASSIGNMENT & BATCH ── *@
+    <div class="rd-section">👤 Assignment &amp; Valuer</div>
+    <div class="rd-grid">
+        @F("Batch", Model.BatchName)
+        @F("Sector", Model.Sector)
+        @F("Valuer", ExtractFullName(Model.Valuer))
+    </div>
 
 </div>
 
 @functions {
-  @* HIGHLIGHT field — larger, used for the top-4 prominent fields *@
-  IHtmlContent KFHighlight(string label, string? value, string? extra = null)
-  {
-    var cls     = string.IsNullOrWhiteSpace(value) ? "empty" : (extra ?? "");
-    var display = string.IsNullOrWhiteSpace(value) ? "—" : value;
-    return new HtmlString($@"
+    @* HIGHLIGHT field — larger, used for the top-4 prominent fields *@
+    IHtmlContent KFHighlight(string label, string? value, string? extra = null)
+    {
+        var cls = string.IsNullOrWhiteSpace(value) ? "empty" : (extra ?? "");
+        var display = string.IsNullOrWhiteSpace(value) ? "—" : value;
+        return new HtmlString($@"
       <div class=""rd-highlight-field"">
         <div class=""rd-keylbl"">{label}</div>
         <div class=""rd-highlight-val {cls}"">{System.Web.HttpUtility.HtmlEncode(display)}</div>
       </div>");
-  }
+    }
 
-  @* Standard field chip *@
-  IHtmlContent F(string label, string? value, string? extra = null)
-  {
-    var cls     = string.IsNullOrWhiteSpace(value) ? "empty" : (extra ?? "");
-    var display = string.IsNullOrWhiteSpace(value) ? "—" : value;
-    return new HtmlString($@"
+    @* Standard field chip *@
+    IHtmlContent F(string label, string? value, string? extra = null)
+    {
+        var cls = string.IsNullOrWhiteSpace(value) ? "empty" : (extra ?? "");
+        var display = string.IsNullOrWhiteSpace(value) ? "—" : value;
+        return new HtmlString($@"
       <div class=""rd-field"">
         <div class=""rd-label"">{label}</div>
         <div class=""rd-value {cls}"">{System.Web.HttpUtility.HtmlEncode(display)}</div>
       </div>");
-  }
+    }
 
-  @* KEY BOX field chip *@
-  IHtmlContent KF(string label, string? value, string? extra = null)
-  {
-    var cls     = string.IsNullOrWhiteSpace(value) ? "empty" : (extra ?? "");
-    var display = string.IsNullOrWhiteSpace(value) ? "—" : value;
-    return new HtmlString($@"
+    @* KEY BOX field chip *@
+    IHtmlContent KF(string label, string? value, string? extra = null)
+    {
+        var cls = string.IsNullOrWhiteSpace(value) ? "empty" : (extra ?? "");
+        var display = string.IsNullOrWhiteSpace(value) ? "—" : value;
+        return new HtmlString($@"
       <div class=""rd-keyfield"">
         <div class=""rd-keylbl"">{label}</div>
         <div class=""rd-keyval {cls}"">{System.Web.HttpUtility.HtmlEncode(display)}</div>
       </div>");
-  }
+    }
 
-  @* KEY BOX money field *@
-  IHtmlContent KFMoney(string label, decimal? value, string suffix = "")
-  {
-    var cls     = value.HasValue ? "money" : "empty";
-    var display = value.HasValue ? $"R {value.Value:N0}{suffix}" : "—";
-    return new HtmlString($@"
+    @* KEY BOX money field *@
+    IHtmlContent KFMoney(string label, decimal? value, string suffix = "")
+    {
+        var cls = value.HasValue ? "money" : "empty";
+        var display = value.HasValue ? $"R {value.Value:N0}{suffix}" : "—";
+        return new HtmlString($@"
       <div class=""rd-keyfield"">
         <div class=""rd-keylbl"">{label}</div>
         <div class=""rd-keyval {cls}"">{System.Web.HttpUtility.HtmlEncode(display)}</div>
       </div>");
-  }
+    }
 
-  @* Flag chip *@
-  IHtmlContent Flag(string label, string? value)
-  {
-    var v   = value?.Trim().ToUpper();
-    var cls = v == "Y" ? "flag-y" : v == "N" ? "flag-n" : "flag-x";
-    var ico = v == "Y" ? "✓" : v == "N" ? "✕" : "—";
-    return new HtmlString(
-      $@"<span class=""flag-chip {cls}"">{ico} {System.Web.HttpUtility.HtmlEncode(label)}</span>");
-  }
+    @* Flag chip *@
+    IHtmlContent Flag(string label, string? value)
+    {
+        var v = value?.Trim().ToUpper();
+        var cls = v == "Y" ? "flag-y" : v == "N" ? "flag-n" : "flag-x";
+        var ico = v == "Y" ? "✓" : v == "N" ? "✕" : "—";
+        return new HtmlString(
+          $@"<span class=""flag-chip {cls}"">{ico} {System.Web.HttpUtility.HtmlEncode(label)}</span>");
+    }
+    // Extracts just the full name from bracket notation
+    // "jSibeko(Jabulani Sibeko)" → "Jabulani Sibeko"
+    // "Jabulani Sibeko"          → "Jabulani Sibeko" (no brackets, return as-is)
+    string ExtractFullName(string? valuer)
+    {
+        if (string.IsNullOrWhiteSpace(valuer)) return "—";
+        var start = valuer.IndexOf('(');
+        var end = valuer.LastIndexOf(')');
+        if (start >= 0 && end > start)
+            return valuer.Substring(start + 1, end - start - 1).Trim();
+        return valuer.Trim();
+    }
     string CleanArea(string? s)
     {
         if (string.IsNullOrWhiteSpace(s)) return "—";

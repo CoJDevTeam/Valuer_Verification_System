@@ -1,0 +1,390 @@
+﻿@model Valuer_Verification_System.Models.ViewModels.ValuerBulkDetailsVm
+@using Valuer_Verification_System.Models.Data
+@using Microsoft.AspNetCore.Html
+@{
+    ViewData["Title"] = "Bulk Verification — " + Model.PropertyDescription;
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+    <title>@ViewData["Title"]</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <link href="~/css/valuer/InboxCss1.css"    rel="stylesheet"/>
+    <link href="~/css/valuer/RowDetailsCss.css" rel="stylesheet"/>
+    <style>
+        /* ── FULL SCREEN ──────────────────────── */
+        html,body{width:100%;min-height:100vh;overflow-x:hidden;background:#f7f4ee;font-family:'Poppins',sans-serif;}
+
+        /* ── TOP BAR ──────────────────────────── */
+        .top-bar{
+            background:linear-gradient(135deg,#1c1c1c 0%,#2e2200 100%);
+            padding:0 32px;height:54px;
+            display:flex;align-items:center;justify-content:space-between;
+            position:sticky;top:0;z-index:200;
+        }
+        .top-bar__brand{display:flex;align-items:center;gap:10px;}
+        .top-bar__logo{width:30px;height:30px;background:#e6b000;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#1c1c1c;flex-shrink:0;}
+        .top-bar__name{font-size:13px;font-weight:800;color:#e6b000;}
+        .top-bar__dept{font-size:10px;color:rgba(255,255,255,.4);}
+        .top-bar__back{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:rgba(255,255,255,.65);text-decoration:none;padding:6px 12px;border:1px solid rgba(255,255,255,.15);border-radius:7px;transition:.15s;}
+        .top-bar__back:hover{color:#e6b000;border-color:rgba(230,176,0,.4);}
+
+        /* ── PAGE SHELL ───────────────────────── */
+        .page{max-width:1200px;margin:0 auto;padding:28px 32px 60px;}
+
+        /* ── HERO ─────────────────────────────── */
+        .hero{
+            background:linear-gradient(135deg,#1c1c1c 0%,#2e2200 100%);
+            border-radius:14px;padding:22px 26px;margin-bottom:20px;
+            border-top:4px solid #e6b000;
+        }
+        .hero-eyebrow{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#e6b000;margin-bottom:5px;}
+        .hero h1{margin:0 0 6px;font-size:1.4rem;font-weight:900;color:#fff;}
+        .hero p{margin:0;color:rgba(255,255,255,.55);font-size:12px;line-height:1.6;}
+        .hero-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;}
+        .hero-pill{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+        .hp-safe{background:rgba(26,138,74,.15);color:#86efac;border:1px solid rgba(26,138,74,.3);}
+        .hp-warn{background:rgba(192,39,45,.15);color:#fca5a5;border:1px solid rgba(192,39,45,.3);}
+        .hp-count{background:rgba(230,176,0,.15);color:#e6b000;border:1px solid rgba(230,176,0,.3);}
+
+        /* ── ALERTS ───────────────────────────── */
+        .alert-ok {padding:12px 16px;border-radius:10px;font-size:13px;font-weight:700;margin-bottom:14px;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}
+        .alert-err{padding:12px 16px;border-radius:10px;font-size:13px;font-weight:700;margin-bottom:14px;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;}
+
+        /* ── CARD shell (wraps rd-wrap sections) ─ */
+        .card{background:#fff;border:1.5px solid #e0d9ce;border-radius:14px;overflow:hidden;margin-bottom:18px;}
+        .card-head{
+            padding:13px 20px;border-bottom:1.5px solid #f0ece4;
+            display:flex;align-items:center;gap:8px;
+            background:#fafaf8;
+        }
+        .card-accent{width:3px;height:16px;background:#e6b000;border-radius:2px;flex-shrink:0;}
+        .card-title{font-size:13px;font-weight:700;color:#1c1c1c;}
+        .card-body{padding:18px 20px;}
+
+        /* ── ROWS TABLE ───────────────────────── */
+        .rows-table{width:100%;border-collapse:collapse;font-size:12px;}
+        .rows-table th{
+            background:linear-gradient(135deg,#1c1c1c,#2e2200);
+            color:rgba(255,255,255,.85);padding:10px 12px;
+            font-size:10px;font-weight:700;text-transform:uppercase;
+            letter-spacing:.06em;text-align:left;white-space:nowrap;
+        }
+        .rows-table td{padding:10px 12px;border-bottom:1px solid #f0ece4;vertical-align:middle;color:#374151;}
+        .rows-table tr:last-child td{border-bottom:none;}
+        .rows-table tr:hover td{background:#fafaf6;}
+        .rows-table .num{text-align:right;}
+        .vkey-mono{font-family:monospace;font-size:12px;font-weight:700;color:#1c1c1c;}
+        .vkey2{font-size:11px;color:#9a9a9a;margin-top:2px;font-family:monospace;}
+        .mv-val{font-weight:700;color:#1a8a4a;}
+        .mv-zero{color:#ccc;font-style:italic;}
+
+        /* ── Decision badges in table ──────────── */
+        .ds-pending{display:inline-flex;align-items:center;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:700;background:#fffbe6;color:#c49800;border:1px solid #f0d060;}
+        .ds-yes    {display:inline-flex;align-items:center;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:700;background:#f0faf4;color:#1a8a4a;border:1px solid #7ecba0;}
+        .ds-no     {display:inline-flex;align-items:center;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:700;background:#fff0f0;color:#c0272d;border:1px solid #fcc;}
+
+        /* ── BULK ACTION CARD ─────────────────── */
+        .action-safe{background:#f0faf4;border:1.5px solid #7ecba0;border-radius:12px;padding:16px 18px;}
+        .action-warn{background:#fffbe6;border:1.5px solid #f0d060;border-radius:12px;padding:16px 18px;}
+        .action-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;}
+        .action-safe .action-label{color:#1a8a4a;}
+        .action-warn .action-label{color:#c49800;}
+        .action-msg{font-size:13px;font-weight:600;margin-bottom:14px;line-height:1.5;}
+        .action-safe .action-msg{color:#166534;}
+        .action-warn .action-msg{color:#92400e;}
+
+        .form-label-txt{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#6b7280;margin-bottom:6px;}
+        .form-textarea{
+            width:100%;min-height:80px;
+            border:1.5px solid #e0d9ce;border-radius:8px;
+            padding:10px 12px;font-family:'Poppins',sans-serif;font-size:12px;
+            color:#1c1c1c;background:#fafaf8;resize:vertical;
+            transition:border-color .15s;
+        }
+        .form-textarea:focus{outline:none;border-color:#e6b000;background:#fff;}
+
+        .btn-verify-all{
+            background:linear-gradient(135deg,#1a8a4a,#166534);color:#fff;
+            border:0;border-radius:9px;padding:12px 22px;
+            font-family:'Poppins',sans-serif;font-size:13px;font-weight:800;
+            cursor:pointer;box-shadow:0 2px 12px rgba(26,138,74,.3);
+            transition:all .15s;display:inline-flex;align-items:center;gap:7px;
+        }
+        .btn-verify-all:hover{transform:translateY(-1px);box-shadow:0 5px 18px rgba(26,138,74,.4);}
+        .btn-back{
+            background:#f4f4f4;color:#1c1c1c;border:1.5px solid #e0d9ce;
+            border-radius:9px;padding:12px 20px;
+            font-family:'Poppins',sans-serif;font-size:13px;font-weight:700;
+            text-decoration:none;display:inline-flex;align-items:center;gap:6px;
+            transition:background .15s;
+        }
+        .btn-back:hover{background:#ede9df;}
+        .act-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+
+        /* ── TOTALS ROW ───────────────────────── */
+        .total-row td{font-weight:800;background:#f7f4ee;color:#1c1c1c;border-top:2px solid #e0d9ce;}
+
+        /* ── RESPONSIVE ───────────────────────── */
+        @@media(max-width:900px){.page{padding:16px 14px 40px;}.top-bar{padding:0 14px;}.top-bar__dept{display:none;}}
+        @@media(max-width:600px){.hero h1{font-size:1.1rem;}}
+    </style>
+</head>
+<body>
+
+<div class="top-bar">
+    <div class="top-bar__brand">
+        <div class="top-bar__logo">VVS</div>
+        <div>
+            <div class="top-bar__name">Valuation Services</div>
+            <div class="top-bar__dept">City of Johannesburg · Finance</div>
+        </div>
+    </div>
+    <a class="top-bar__back" href="/Valuer/Inbox?batchId=@Model.BatchId">← Back to Inbox</a>
+</div>
+
+<div class="page">
+
+
+    <div class="hero">
+        <div class="hero-eyebrow">Sectional Title Group · Bulk Verification</div>
+        <h1>@(string.IsNullOrWhiteSpace(Model.PropertyDescription) ? "Bulk Group" : Model.PropertyDescription)</h1>
+        <p>Review all linked records below. If all entries are correct, use <strong>Verify All As Correct</strong> to approve in one action.</p>
+        <div class="hero-badges">
+            <span class="hero-pill hp-count">📦 @Model.Rows.Count linked rows</span>
+            <span class="hero-pill hp-count">Unit Key: @Model.UnitKey</span>
+            @if (Model.IsSafeForBulk)
+            {
+                <span class="hero-pill hp-safe">✓ Safe for bulk</span>
+            }
+            else
+            {
+                <span class="hero-pill hp-warn">⚠ @Model.SafetyMessage</span>
+            }
+        </div>
+    </div>
+
+   
+    @if (TempData["BulkSuccess"] is not null)
+    {
+        <div class="alert-ok">✓ @TempData["BulkSuccess"]</div>
+    }
+    @if (TempData["BulkError"] is not null)
+    {
+        <div class="alert-err">⚠ @TempData["BulkError"]</div>
+    }
+
+
+    <div class="card">
+        <div class="card-head"><div class="card-accent"></div><div class="card-title">📋 Key Property Details</div></div>
+        <div class="card-body">
+
+        
+            <div class="rd-keybox" style="margin:0 0 .75rem;">
+                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem;margin-bottom:.65rem;">
+                    @KFH("🔑 Unit Key",     Model.UnitKey,          "key")
+                    @KFH("🏙 Town / Area",  Model.TownNameDesc,     "")
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem;margin-bottom:.65rem;">
+                    @KFH("🔑 Unit Type",    Model.UnitType,         "")
+                    @KFH("🔢 Unit No",      Model.UnitNo,           "")
+                </div>
+                <div class="rd-keygrid">
+                    @KF("Premise ID",        Model.PremiseId,        "key")
+                    @KF("Total Rows",        Model.Rows.Count.ToString())
+                    @KF("Pending",           Model.Rows.Count(x => x.Decision == VerificationDecision.Pending).ToString())
+                    @KFMoney("Total Market Value", Model.Rows.Sum(x => x.MarketValue ?? 0))
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+
+    <div class="card">
+        <div class="card-head"><div class="card-accent"></div><div class="card-title">⚡ Linked Property Rows (@Model.Rows.Count)</div></div>
+        <div style="overflow-x:auto;">
+            <table class="rows-table">
+                <thead>
+                    <tr>
+                        <th>Valuation Key</th>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th class="num">Market Value</th>
+                        <th class="num">Legal Area</th>
+                        <th>Rights Description</th>
+                        <th>Rights Status</th>
+                        <th>WEF Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in Model.Rows)
+                    {
+                        <tr>
+                            <td>
+                                <span class="vkey-mono">@r.ValuationKey</span>
+                                @if (!string.IsNullOrWhiteSpace(r.ValuationKey2))
+                                {
+                                    <div class="vkey2">@r.ValuationKey2</div>
+                                }
+                            </td>
+                            <td style="font-size:12px;max-width:220px;">@r.PropertyDescription</td>
+                            <td style="font-size:12px;">@r.Category</td>
+                            <td class="num">
+                                @if (r.MarketValue.HasValue && r.MarketValue.Value > 0)
+                                {
+                                    <span class="mv-val">R @r.MarketValue.Value.ToString("N0")</span>
+                                }
+                                else
+                                {
+                                    <span class="mv-zero">R 0</span>
+                                }
+                            </td>
+                            <td class="num">
+                                @if (r.RateableArea.HasValue)
+                                { <span>@r.RateableArea.Value.ToString("N0") m²</span> }
+                                else if (!string.IsNullOrWhiteSpace(r.LegalArea))
+                                { <span>@CleanArea(r.LegalArea)</span> }
+                                else
+                                { <span style="color:#ccc;">—</span> }
+                            </td>
+                            <td style="font-size:12px;">@(string.IsNullOrWhiteSpace(r.RightDescription) ? "—" : r.RightDescription)</td>
+                            <td style="font-size:12px;">@(string.IsNullOrWhiteSpace(r.RightsStatus) ? "—" : r.RightsStatus)</td>
+                            <td style="font-size:12px;white-space:nowrap;">@(r.WefDate?.ToString("yyyy-MM-dd") ?? "—")</td>
+                            <td>
+                                @if (r.Decision == VerificationDecision.Pending)
+                                { <span class="ds-pending">⏳ Pending</span> }
+                                else if (r.Decision == VerificationDecision.Yes)
+                                { <span class="ds-yes">✓ Yes</span> }
+                                else
+                                { <span class="ds-no">✕ No</span> }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td colspan="3" style="font-size:12px;">Total</td>
+                        <td class="num" style="color:#1a8a4a;">
+                            R @Model.Rows.Sum(x => x.MarketValue ?? 0).ToString("N0")
+                        </td>
+                        <td colspan="5"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+
+    <div class="card">
+        <div class="card-head"><div class="card-accent"></div><div class="card-title">✅ Bulk Verification Action</div></div>
+        <div class="card-body">
+            @if (Model.IsSafeForBulk)
+            {
+                <div class="action-safe">
+                    <div class="action-label">✓ Ready for bulk verification</div>
+                    <div class="action-msg">
+                        All @Model.Rows.Count records in this group share the same UnitKey, SgId, Town and Unit details.
+                        Clicking <strong>Verify All As Correct</strong> will mark all pending rows as <em>Yes</em>.
+                    </div>
+
+                    <form method="post" asp-controller="ValuerBulk" asp-action="VerifyAll">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="BatchId"   value="@Model.BatchId"/>
+                        <input type="hidden" name="PremiseId" value="@Model.PremiseId"/>
+                        <input type="hidden" name="UnitKey"   value="@Model.UnitKey"/>
+
+                        <label class="form-label-txt">Comment</label>
+                        <textarea class="form-textarea" name="Comment">Bulk verified as correct.</textarea>
+
+                        <div class="act-row">
+                            <button type="submit"
+                                    class="btn-verify-all"
+                                    onclick="return confirm('Confirm all @Model.Rows.Count rows in this group are correct?');">
+                                ✓ Verify All As Correct (@Model.Rows.Count rows)
+                            </button>
+                            <a class="btn-back" asp-controller="ValuerBulk" asp-action="Index" asp-route-batchId="@Model.BatchId">
+                                ← Back to Bulk Inbox
+                            </a>
+                            <a class="btn-back" href="/Valuer/Inbox?batchId=@Model.BatchId">
+                                ← Back to Inbox
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            }
+            else
+            {
+                <div class="action-warn">
+                    <div class="action-label">⚠ Manual verification required</div>
+                    <div class="action-msg">@Model.SafetyMessage — please verify these records individually.</div>
+                    <div class="act-row">
+                        <a class="btn-back" asp-controller="ValuerBulk" asp-action="Index" asp-route-batchId="@Model.BatchId">
+                            ← Back to Bulk Inbox
+                        </a>
+                        <a class="btn-back" href="/Valuer/Inbox?batchId=@Model.BatchId">
+                            ← Back to Inbox
+                        </a>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+</div><!-- /page -->
+
+@functions {
+    // Dark highlight field — same as modal's KFHighlight
+    IHtmlContent KFH(string label, string? value, string? extra = null)
+    {
+        var cls     = string.IsNullOrWhiteSpace(value) ? "empty" : (extra ?? "");
+        var display = string.IsNullOrWhiteSpace(value) ? "—" : value;
+        return new Microsoft.AspNetCore.Html.HtmlString($@"
+          <div class=""rd-highlight-field"">
+            <div class=""rd-keylbl"">{label}</div>
+            <div class=""rd-highlight-val {cls}"">{System.Web.HttpUtility.HtmlEncode(display)}</div>
+          </div>");
+    }
+
+    // Standard key box field — same as modal's KF
+    IHtmlContent KF(string label, string? value, string? extra = null)
+    {
+        var cls     = string.IsNullOrWhiteSpace(value) ? "empty" : (extra ?? "");
+        var display = string.IsNullOrWhiteSpace(value) ? "—" : value;
+        return new Microsoft.AspNetCore.Html.HtmlString($@"
+          <div class=""rd-keyfield"">
+            <div class=""rd-keylbl"">{label}</div>
+            <div class=""rd-keyval {cls}"">{System.Web.HttpUtility.HtmlEncode(display)}</div>
+          </div>");
+    }
+
+    // Money field
+    IHtmlContent KFMoney(string label, decimal value)
+    {
+        var cls     = value > 0 ? "money" : "empty";
+        var display = value > 0 ? $"R {value:N0}" : "—";
+        return new Microsoft.AspNetCore.Html.HtmlString($@"
+          <div class=""rd-keyfield"">
+            <div class=""rd-keylbl"">{label}</div>
+            <div class=""rd-keyval {cls}"">{display}</div>
+          </div>");
+    }
+
+    // Clean decimal area strings
+    string CleanArea(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return "—";
+        if (decimal.TryParse(s.Trim(),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var d))
+            return $"{d:N0} m²";
+        var t = s.Trim();
+        return t.Contains('.') ? t.TrimEnd('0').TrimEnd('.') : t;
+    }
+}
+</body>
+</html>

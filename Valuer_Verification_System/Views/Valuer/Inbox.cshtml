@@ -2,546 +2,817 @@
 @using Valuer_Verification_System.Models.Data
 @{
     ViewData["Title"] = "Valuer Inbox";
+    Layout = "~/Views/Shared/_Layout.cshtml";
 }
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Valuer Inbox — ValComp</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/css/jquery.dataTables.min.css" />
-    
-    <link href="~/css/valuer/inboxcss1.css" rel="stylesheet" />
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+    <title>Valuer Inbox — VVS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/css/jquery.dataTables.min.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"/>
+    <link href="~/css/valuer/InboxCss1.css" rel="stylesheet"/>
+    <style>
+        /* ── FULL SCREEN ──────────────────────────── */
+        html,body{width:100%;min-height:100vh;overflow-x:hidden;}
+        .dash-wrapper{max-width:100%;padding:28px 36px 60px;}
 
+        /* ── TOP BAR ──────────────────────────────── */
+        .top-bar{
+            background:linear-gradient(135deg,#1c1c1c 0%,#2e2200 100%);
+            padding:0 36px;height:54px;
+            display:flex;align-items:center;justify-content:space-between;
+            position:sticky;top:0;z-index:200;
+            margin:-28px -36px 28px;
+        }
+        .top-bar__brand{display:flex;align-items:center;gap:10px;}
+        .top-bar__logo{
+            width:30px;height:30px;background:#e6b000;border-radius:6px;
+            display:flex;align-items:center;justify-content:center;
+            font-size:11px;font-weight:900;color:#1c1c1c;flex-shrink:0;
+        }
+        .top-bar__name{font-size:13px;font-weight:800;color:#e6b000;letter-spacing:.02em;}
+        .top-bar__dept{font-size:10px;color:rgba(255,255,255,.4);}
+        .top-bar__user{font-size:11px;color:rgba(255,255,255,.6);
+            background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+            border-radius:20px;padding:4px 12px;}
+
+        /* ── SINGLE ROW ───────────────────────────── */
+        .type-single{
+            display:inline-flex;align-items:center;padding:4px 10px;
+            border-radius:6px;background:#f4f4f4;color:#6b6b6b;
+            font-size:10px;font-weight:700;text-transform:uppercase;
+            letter-spacing:.06em;border:1px solid #e2e2e2;
+        }
+
+        /* ── BULK GROUP ROW ───────────────────────── */
+        table.dataTable tbody tr.is-bulk{
+            background:linear-gradient(90deg,#fffbe6 0%,#fff 55%) !important;
+            border-left:4px solid #e6b000 !important;
+        }
+        table.dataTable tbody tr.is-bulk td{border-bottom-color:#fde68a !important;}
+        table.dataTable tbody tr.is-bulk:hover{
+            background:linear-gradient(90deg,#fff3cc 0%,#fffef5 55%) !important;
+        }
+
+        .bulk-cell{display:flex;flex-direction:column;gap:4px;min-width:100px;}
+        .bulk-badge{
+            display:inline-flex;align-items:center;gap:5px;
+            background:#1c1c1c;color:#e6b000;border:1px solid #3a2d00;
+            border-radius:6px;padding:4px 10px;
+            font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;
+            width:fit-content;
+        }
+        .bulk-count{
+            display:inline-flex;align-items:center;gap:4px;
+            background:#fef3c7;color:#92400e;border:1px solid #fde68a;
+            border-radius:20px;padding:2px 8px;
+            font-size:10px;font-weight:700;width:fit-content;
+        }
+        .bulk-count::before{
+            content:'';width:5px;height:5px;border-radius:50%;
+            background:currentColor;flex-shrink:0;
+        }
+
+        /* Progress mini bar inside bulk row */
+        .bulk-progress{margin-top:2px;width:90px;height:4px;background:#e2e2e2;border-radius:99px;overflow:hidden;}
+        .bulk-progress-fill{height:100%;background:#e6b000;border-radius:99px;}
+
+        /* ── BULK ACTION BUTTON ───────────────────── */
+        .btn-bulk{
+            background:linear-gradient(135deg,#f5cd4a,#e6b000) !important;
+            color:#1c1c1c !important;border:1px solid #c49800 !important;
+            font-weight:800 !important;font-size:12px !important;
+            padding:7px 14px !important;border-radius:8px !important;
+            box-shadow:0 2px 10px rgba(230,176,0,.35) !important;
+            display:inline-flex !important;align-items:center !important;
+            gap:5px !important;white-space:nowrap !important;
+            text-decoration:none !important;transition:all .18s !important;
+        }
+        .btn-bulk:hover{
+            transform:translateY(-2px) !important;
+            box-shadow:0 5px 20px rgba(230,176,0,.55) !important;
+            color:#1c1c1c !important;
+        }
+
+        /* ── BULK DONE STATE ──────────────────────── */
+        .bulk-done{
+            display:inline-flex;align-items:center;gap:5px;
+            background:#e8f8ef;color:#1a8a4a;border:1px solid #b2dfcc;
+            border-radius:8px;padding:5px 12px;
+            font-size:11px;font-weight:700;
+        }
+        .bulk-partial{
+            display:inline-flex;align-items:center;gap:5px;
+            background:#fff3d6;color:#b06800;border:1px solid #f0d078;
+            border-radius:8px;padding:5px 12px;
+            font-size:11px;font-weight:700;
+        }
+
+        /* ── STAT CHIP BULK ───────────────────────── */
+        .stat-chip-bulk{background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
+
+        /* ── MARKET VALUE (group shows sum) ───────── */
+        .mv-group{font-size:11px;color:#9a9a9a;display:block;margin-top:1px;}
+
+        /* ── NOTIFICATION DROPDOWN ────────────────── */
+        .notif-dropdown{
+            position:fixed;
+            top:62px;
+            right:18px;
+            width:380px;
+            max-width:calc(100vw - 32px);
+            max-height:calc(100vh - 80px);
+            background:#fff;
+            border:1.5px solid #e0d9ce;
+            border-radius:14px;
+            box-shadow:0 16px 48px rgba(0,0,0,.18),0 4px 16px rgba(0,0,0,.1);
+            z-index:9999;
+            overflow:hidden;
+            display:none;
+            flex-direction:column;
+            animation:notifIn .18s ease;
+        }
+        .notif-dropdown.open{display:flex;}
+        @@keyframes notifIn{
+            from{opacity:0;transform:translateY(-8px) scale(.97);}
+            to  {opacity:1;transform:translateY(0)   scale(1);}
+        }
+        .notif-dropdown__head{
+            display:flex;align-items:center;justify-content:space-between;
+            padding:14px 16px;border-bottom:1px solid #f0ece4;
+            background:#1c1c1c;flex-shrink:0;
+        }
+        .notif-dropdown__head-left{display:flex;align-items:center;gap:8px;}
+        .notif-dropdown__title{font-size:13px;font-weight:800;color:#fff;}
+        .notif-dropdown__badge{
+            background:#e6b000;color:#1c1c1c;
+            font-size:10px;font-weight:900;
+            padding:1px 7px;border-radius:20px;line-height:1.5;
+        }
+        .notif-dropdown__close{
+            background:rgba(255,255,255,.1);border:none;border-radius:50%;
+            width:26px;height:26px;cursor:pointer;color:#fff;
+            display:flex;align-items:center;justify-content:center;font-size:13px;
+            transition:.12s;
+        }
+        .notif-dropdown__close:hover{background:rgba(255,255,255,.2);}
+        .notif-dropdown__actions{
+            padding:10px 14px;border-bottom:1px solid #f0ece4;
+            display:flex;justify-content:flex-end;flex-shrink:0;
+        }
+        .notif-dropdown__list{overflow-y:auto;flex:1;}
+        .notif-dropdown__empty{
+            display:flex;flex-direction:column;align-items:center;
+            justify-content:center;padding:32px 20px;color:#9a9a9a;text-align:center;
+        }
+        .notif-dropdown__empty i{font-size:28px;margin-bottom:8px;display:block;}
+        .notif-dropdown__empty span{font-size:13px;}
+        .notif-dropdown__item{
+            display:flex;align-items:flex-start;gap:10px;
+            padding:12px 16px;border-bottom:1px solid #f5f2ec;
+            transition:background .12s;cursor:default;
+        }
+        .notif-dropdown__item:last-child{border-bottom:none;}
+        .notif-dropdown__item:hover{background:#fffbe6;}
+        .notif-dropdown__item.unread{background:#fffdf4;}
+        .notif-dropdown__item.unread:hover{background:#fff3cc;}
+        .notif-ico-wrap{
+            width:32px;height:32px;border-radius:50%;flex-shrink:0;
+            display:flex;align-items:center;justify-content:center;font-size:14px;
+            background:#f0ece4;
+        }
+        .notif-ico-wrap.unread{background:#fff3c7;}
+        .notif-dropdown__body{flex:1;min-width:0;}
+        .notif-dropdown__name{
+            font-size:12px;font-weight:700;color:#1c1c1c;
+            display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+        }
+        .notif-dropdown__msg{font-size:11px;color:#6b6b6b;margin-top:2px;line-height:1.5;}
+        .notif-dropdown__meta{
+            display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap;
+        }
+        .notif-dropdown__time{font-size:10px;color:#9a9a9a;}
+        .notif-dropdown__link{font-size:11px;color:#c49800;font-weight:600;text-decoration:none;}
+        .notif-dropdown__link:hover{color:#e6b000;text-decoration:underline;}
+        .notif-dropdown__mark{
+            background:none;border:none;cursor:pointer;
+            color:#9a9a9a;font-size:13px;padding:0;line-height:1;
+            margin-left:auto;flex-shrink:0;
+            transition:color .12s;
+        }
+        .notif-dropdown__mark:hover{color:#1a8a4a;}
+        .notif-dropdown__footer{
+            padding:12px 16px;border-top:1px solid #f0ece4;
+            text-align:center;flex-shrink:0;background:#fafaf8;
+        }
+        .notif-dropdown__footer a{
+            font-size:12px;font-weight:700;color:#c49800;text-decoration:none;
+        }
+        .notif-dropdown__footer a:hover{color:#e6b000;}
+
+        /* ── Overlay (closes panel on outside click) ── */
+        .notif-overlay{
+            position:fixed;inset:0;z-index:9998;
+            display:none;
+        }
+        .notif-overlay.open{display:block;}
+
+        /* ── RESPONSIVE ───────────────────────────── */
+        @@media(max-width:1100px){.dash-wrapper{padding:20px 18px 40px;}.top-bar{padding:0 18px;margin:-20px -18px 20px;}}
+        @@media(max-width:768px) {.dash-wrapper{padding:14px 12px 32px;}.top-bar{padding:0 12px;margin:-14px -12px 14px;}.top-bar__dept{display:none;}
+            .notif-dropdown{right:8px;width:calc(100vw - 16px);}
+        }
+    </style>
 </head>
 <body>
 
-    <!-- ============================  PAGE LOADER  ============================ -->
-    <div id="pageLoader">
-        <div class="loader-logo">Val<span>Veri</span></div>
-        <div class="loader-spinner"></div>
-        <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+<div id="pageLoader">
+    <div class="loader-logo">Val<span>Veri</span></div>
+    <div class="loader-spinner"></div>
+    <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+<div id="toastWrap"></div>
+
+<div class="dash-wrapper">
+
+
+    <div class="top-bar">
+        <div class="top-bar__brand">
+            <div class="top-bar__logo">VVS</div>
+            <div>
+                <div class="top-bar__name">Valuation Services</div>
+                <div class="top-bar__dept">City of Johannesburg · Finance</div>
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+        
+            <button id="bellBtn" type="button"
+                    onclick="toggleNotifPanel()"
+                    style="position:relative;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:6px 10px;cursor:pointer;color:rgba(255,255,255,.75);display:flex;align-items:center;gap:6px;font-size:13px;transition:.15s;"
+                    onmouseover="this.style.background='rgba(255,255,255,.15)'" onmouseout="this.style.background='rgba(255,255,255,.08)'">
+                <i class="bi bi-bell-fill" style="font-size:15px;"></i>
+                @if (Model.UnreadNotifications > 0)
+                {
+                    <span id="bellBadge"
+                          style="position:absolute;top:-5px;right:-5px;background:#e6b000;color:#1c1c1c;font-size:9px;font-weight:900;padding:1px 5px;border-radius:20px;line-height:1.4;min-width:16px;text-align:center;">
+                        @Model.UnreadNotifications
+                    </span>
+                }
+            </button>
+            <span style="font-size:11px;color:rgba(255,255,255,.6);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:4px 12px;">
+                @Model.ValuerName
+            </span>
+        </div>
     </div>
 
-    <!-- ============================  TOAST  ============================ -->
-    <div id="toastWrap"></div>
+    <header class="page-header">
+        <div>
+            <div class="page-eyebrow">Verification Workflow</div>
+            <h1 class="page-title">Valuer <span>Inbox</span></h1>
+           <div class="page-valuer">
+    Logged in as <strong>@(ViewBag.AppUserFullName ?? "Unknown User")</strong>
+</div>
+        </div>
+        <a class="btn btn-gold" href="/Valuer/Dashboard">← Dashboard</a>
+    </header>
 
-    <div class="dash-wrapper">
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success"><span class="alert-icon">✓</span><div class="alert-body">@TempData["Success"]</div></div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger"><span class="alert-icon">✕</span><div class="alert-body">@TempData["Error"]</div></div>
+    }
 
-        <!-- HEADER -->
-        <header class="page-header">
-            <div>
-                <div class="page-eyebrow">Valuation Verification System</div>
-                <h1 class="page-title">Valuer <span>Inbox</span></h1>
-                <div class="page-valuer">Logged in as <strong>@Model.ValuerName</strong></div>
+
+    <div id="notifOverlay" class="notif-overlay" onclick="closeNotifPanel()"></div>
+
+    <div id="notifDropdown" class="notif-dropdown">
+
+        <div class="notif-dropdown__head">
+            <div class="notif-dropdown__head-left">
+                <i class="bi bi-bell-fill" style="color:#e6b000;font-size:15px;"></i>
+                <span class="notif-dropdown__title">Notifications</span>
+                @if (Model.UnreadNotifications > 0)
+                {
+                    <span class="notif-dropdown__badge">@Model.UnreadNotifications</span>
+                }
             </div>
-            <a class="btn btn-gold" href="/Valuer/Dashboard">← Dashboard</a>
-        </header>
+            <button class="notif-dropdown__close" type="button" onclick="closeNotifPanel()" aria-label="Close">✕</button>
+        </div>
 
-        <!-- FLASH ALERTS -->
-        @if (TempData["Success"] != null)
-        {
-            <div class="alert alert-success"><span class="alert-icon">✓</span><div class="alert-body">@TempData["Success"]</div></div>
-        }
-        @if (TempData["Error"] != null)
-        {
-            <div class="alert alert-danger"><span class="alert-icon">✕</span><div class="alert-body">@TempData["Error"]</div></div>
-        }
-
-        <!-- UNREAD NOTIFICATIONS BANNER -->
         @if (Model.UnreadNotifications > 0)
         {
-            <div class="alert alert-warning">
-                <span class="alert-icon">🔔</span>
-                <div class="alert-body">
-                    <strong>Notifications:</strong> You have <strong>@Model.UnreadNotifications</strong> unread notification(s).
-                </div>
-                <form method="post" action="/Valuer/Notifications/MarkAllRead" style="margin:0; flex-shrink:0;">
+            <div class="notif-dropdown__actions">
+                <form method="post" action="/Valuer/Notifications/MarkAllRead" style="margin:0;">
                     @Html.AntiForgeryToken()
-                    <input type="hidden" name="batchId" value="@Model.BatchId" />
-                    <input type="hidden" name="filter" value="@Model.Filter" />
-                    <button class="btn btn-sm btn-mark-read" type="submit">Mark all read</button>
+                    <input type="hidden" name="batchId" value="@Model.BatchId"/>
+                    <input type="hidden" name="filter"  value="@Model.Filter"/>
+                    <button class="btn btn-sm btn-mark-read" type="submit">
+                        <i class="bi bi-check2-all"></i> Mark all read
+                    </button>
                 </form>
             </div>
         }
 
-        <!-- NOTIFICATIONS LIST -->
-        @if (Model.Notifications != null && Model.Notifications.Count > 0)
-        {
-            <div class="notif-card">
-                <div class="notif-header">
-                    <div class="notif-title-wrap">
-                        <div class="notif-dot"></div>
-                        <div class="notif-title">Latest Notifications</div>
-                    </div>
-                    <form method="post" action="/Valuer/Notifications/MarkAllRead" style="margin:0;">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="batchId" value="@Model.BatchId" />
-                        <input type="hidden" name="filter" value="@Model.Filter" />
-                        <button class="btn btn-sm btn-mark-read" type="submit">Mark all read</button>
-                    </form>
+
+        <div class="notif-dropdown__list">
+            @if (Model.Notifications.Count == 0)
+            {
+                <div class="notif-dropdown__empty">
+                    <i class="bi bi-bell-slash"></i>
+                    <span>No notifications</span>
                 </div>
-                @foreach (var n in Model.Notifications)
-                {
-                    <div class="notif-item">
-                        <div class="notif-item-left">
-                            <div class="notif-item-top">
-                                <span class="notif-item-name">@n.Title</span>
-                                @if (!n.IsRead)
-                                {
-                                    <span class="notif-badge-new">New</span>
-                                }
-                                <span class="notif-time">@n.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</span>
-                            </div>
-                            <div class="notif-msg">@n.Message</div>
+            }
+            @foreach (var n in Model.Notifications)
+            {
+                <div class="notif-dropdown__item @(!n.IsRead ? "unread" : "")">
+                    <div class="notif-ico-wrap @(!n.IsRead ? "unread" : "")">
+                        <i class="bi @(!n.IsRead ? "bi-bell-fill" : "bi-bell")"
+                           style="color:@(!n.IsRead ? "#e6b000" : "#9a9a9a");"></i>
+                    </div>
+                    <div class="notif-dropdown__body">
+                        <div class="notif-dropdown__name">
+                            @n.Title
+                            @if (!n.IsRead) { <span class="notif-badge-new">New</span> }
+                        </div>
+                        <div class="notif-dropdown__msg">@n.Message</div>
+                        <div class="notif-dropdown__meta">
+                            <span class="notif-dropdown__time">@n.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</span>
                             @if (!string.IsNullOrWhiteSpace(n.ActionUrl))
                             {
-                                <a href="@n.ActionUrl" class="notif-action-link">Open →</a>
+                                <a href="@n.ActionUrl" class="notif-dropdown__link">Open →</a>
                             }
                         </div>
-                        <div>
-                            <form method="post" action="/Valuer/Notifications/MarkRead" style="margin:0;">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@n.Id" />
-                                <input type="hidden" name="batchId" value="@Model.BatchId" />
-                                <input type="hidden" name="filter" value="@Model.Filter" />
-                                @if (!n.IsRead)
-                                {
-                                    <button class="btn btn-sm btn-mark-read" type="submit">Mark read</button>
-                                }
-                                else
-                                {
-                                    <button class="btn btn-sm btn-ghost" type="button" disabled style="opacity:.45;cursor:default;">Read</button>
-                                }
-                            </form>
-                        </div>
                     </div>
-                }
-            </div>
-        }
-
-        <!-- FILTER + STATS CARD -->
-        <div class="filter-card">
-            <div class="stat-chips">
-                <span class="stat-chip stat-chip-total">Total: @Model.Total</span>
-                <span class="stat-chip stat-chip-pending">Pending: @Model.Pending</span>
-                <span class="stat-chip stat-chip-yes">Yes: @Model.Yes</span>
-                <span class="stat-chip stat-chip-no">No: @Model.No</span>
-            </div>
-            <form method="get" action="/Valuer/Inbox" class="filter-row">
-                <select class="form-select select-batch" name="batchId">
-                    <option value="">All batches</option>
-                    @foreach (var b in Model.Batches)
+                    @if (!n.IsRead)
                     {
-                        var sel = (Model.BatchId.HasValue && Model.BatchId.Value == b.Id) ? "selected" : "";
-                        <option value="@b.Id" selected="@sel">
-                            @b.BatchName | @b.BatchDate.ToString("yyyy-MM-dd") | @b.WeekStart.ToString("yyyy-MM-dd") → @b.WeekEnd.ToString("yyyy-MM-dd") | Send: @b.NoticeSendDate.ToString("yyyy-MM-dd")
-                        </option>
+                        <form method="post" action="/Valuer/Notifications/MarkRead" style="margin:0;">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id"      value="@n.Id"/>
+                            <input type="hidden" name="batchId" value="@Model.BatchId"/>
+                            <input type="hidden" name="filter"  value="@Model.Filter"/>
+                            <button class="notif-dropdown__mark" type="submit" title="Mark read">
+                                <i class="bi bi-check2"></i>
+                            </button>
+                        </form>
                     }
-                </select>
-                <select class="form-select select-filter" name="filter">
-                    <option value="Pending" selected="@(Model.Filter == "Pending")">⏳ Pending</option>
-                    <option value="Yes" selected="@(Model.Filter == "Yes")">✔ Yes</option>
-                    <option value="No" selected="@(Model.Filter == "No")">✕ No</option>
-                    <option value="All" selected="@(Model.Filter == "All")">All</option>
-                </select>
-                <button class="btn btn-gold" type="submit">Apply</button>
-            </form>
+                </div>
+            }
         </div>
 
-        <!-- INBOX DATATABLE -->
-        <div class="panel">
-            <table id="inboxTable" class="dataTable" style="width:100%">
-                <thead>
-                    <tr>
-                        <th>Valuation Key</th>
-                        <th>Premise ID</th>
-                        <th>Property Description</th>
-                        <th>Market Value</th>
-                        <th>Category</th>
-                        
-                        <th>Status</th>
-                        <th style="width:210px;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var r in Model.Rows)
+        <div class="notif-dropdown__footer">
+            <a href="/Valuer/Inbox?batchId=@Model.BatchId&filter=All">
+                View all notifications →
+            </a>
+        </div>
+
+    </div>
+
+
+    <div class="filter-card">
+        <div class="stat-chips">
+            <span class="stat-chip stat-chip-total">Total: @Model.Total</span>
+            <span class="stat-chip stat-chip-pending">Pending: @Model.Pending</span>
+            <span class="stat-chip stat-chip-yes">Yes: @Model.Yes</span>
+            <span class="stat-chip stat-chip-no">No: @Model.No</span>
+            <span class="stat-chip stat-chip-bulk">📦 Bulk Groups: @Model.BulkGroupCount</span>
+        </div>
+        <form method="get" action="/Valuer/Inbox" class="filter-row">
+            <select class="form-select select-batch" name="batchId">
+                <option value="">All batches</option>
+                @foreach (var b in Model.Batches)
+                {
+                    var sel = (Model.BatchId.HasValue && Model.BatchId.Value == b.Id) ? "selected" : "";
+                    <option value="@b.Id" selected="@sel">
+                        @b.BatchName | @b.BatchDate.ToString("yyyy-MM-dd") | @b.WeekStart.ToString("yyyy-MM-dd") → @b.WeekEnd.ToString("yyyy-MM-dd") | Send: @b.NoticeSendDate.ToString("yyyy-MM-dd")
+                    </option>
+                }
+            </select>
+            <select class="form-select select-filter" name="filter">
+                <option value="Pending" selected="@(Model.Filter=="Pending")">⏳ Pending</option>
+                <option value="Yes"     selected="@(Model.Filter=="Yes")">✔ Yes</option>
+                <option value="No"      selected="@(Model.Filter=="No")">✕ No</option>
+                <option value="All"     selected="@(Model.Filter=="All")">All</option>
+            </select>
+            <button class="btn btn-gold" type="submit">Apply</button>
+        </form>
+    </div>
+
+
+    <div class="panel">
+        <table id="inboxTable" class="dataTable" style="width:100%">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Valuation Key</th>
+                    <th>Premise ID</th>
+                    <th>Property Description</th>
+                    <th>Market Value</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                    <th style="width:240px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Rows.Count > 0)
+                {
+                    foreach (var r in Model.Rows)
                     {
-                        <tr>
-                           @*  <td>@r.Sector</td> *@
-                            <td>@r.ValuationKey</td>
-                            <td><span class="vkey">@r.Premise_ID</span></td>
-                            <td><span class="prop-desc" title="@r.PropertyDescription">@r.PropertyDescription</span></td>
-                            <td data-order="@(r.MarketValue ?? 0)">@(r.MarketValue.HasValue ? $"R {r.MarketValue.Value:N2}" : "—")</td>
-                            <td>@r.Category</td>
-                            
+                        var rowCss = r.IsBulkGroup ? "is-bulk" : "";
+                        <tr class="@rowCss">
+
                             <td>
-                                @if (r.Decision == VerificationDecision.Pending)
+                                @if (r.IsBulkGroup)
                                 {
-                                    <span class="decision-badge d-pending">Pending</span>
-                                }
-                                else if (r.Decision == VerificationDecision.Yes)
-                                {
-                                    <span class="decision-badge d-yes">Yes</span>
+                                    <div class="bulk-cell">
+                                        <span class="bulk-badge">📦 ST Group</span>
+                                        <span class="bulk-count">@r.BulkRowCount linked</span>
+                                        @if (r.BulkRowCount > 0)
+                                        {
+                                            var pct = r.BulkPendingCount == 0 ? 100 :
+                                                      (int)((r.BulkYesCount * 100.0) / r.BulkRowCount);
+                                            <div class="bulk-progress">
+                                                <div class="bulk-progress-fill" style="width:@pct%"></div>
+                                            </div>
+                                        }
+                                    </div>
                                 }
                                 else
                                 {
-                                    <span class="decision-badge d-no">No</span>
-                                    @if (!string.IsNullOrWhiteSpace(r.DecisionComment))
+                                    <span class="type-single">Single</span>
+                                }
+                            </td>
+
+                  
+                            <td>
+                                <span class="vkey">@r.ValuationKey</span>
+                                @if (r.IsBulkGroup && !string.IsNullOrWhiteSpace(r.BulkUnitNo))
+                                {
+                                    <div style="font-size:10px;color:#9a9a9a;margin-top:1px;">Unit @r.BulkUnitNo</div>
+                                }
+                            </td>
+
+                            <td>
+                                <span class="vkey" style="font-size:11px;">@r.Premise_ID</span>
+                                @if (r.IsBulkGroup && !string.IsNullOrWhiteSpace(r.BulkTownNameDesc))
+                                {
+                                    <div class="prop-desc">@r.BulkTownNameDesc</div>
+                                }
+                            </td>
+
+                      
+                            <td>
+                                <span class="prop-desc" title="@r.PropertyDescription">@r.PropertyDescription</span>
+                            </td>
+
+                            <td data-order="@(r.MarketValue ?? 0)">
+                                @if (r.MarketValue.HasValue && r.MarketValue.Value > 0)
+                                {
+                                    <span>R @r.MarketValue.Value.ToString("N0")</span>
+                                    @if (r.IsBulkGroup) { <span class="mv-group">group total</span> }
+                                }
+                                else
+                                {
+                                    <span style="color:#9a9a9a;">—</span>
+                                }
+                            </td>
+
+                            <td>@r.Category</td>
+
+                     
+                            <td>
+                                @if (r.IsBulkGroup)
+                                {
+                                    if (r.BulkPendingCount > 0)
                                     {
-                                        <div class="d-no-comment">@r.DecisionComment</div>
+                                        <span class="decision-badge d-pending">@r.BulkPendingCount pending</span>
+                                    }
+                                    else if (r.BulkNoCount > 0)
+                                    {
+                                        <span class="decision-badge d-no">@r.BulkNoCount no</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="decision-badge d-yes">All verified</span>
+                                    }
+                                }
+                                else
+                                {
+                                    @if (r.Decision == VerificationDecision.Pending)
+                                    {
+                                        <span class="decision-badge d-pending">Pending</span>
+                                    }
+                                    else if (r.Decision == VerificationDecision.Yes)
+                                    {
+                                        <span class="decision-badge d-yes">Yes</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="decision-badge d-no">No</span>
+                                        @if (!string.IsNullOrWhiteSpace(r.DecisionComment))
+                                        { <div class="d-no-comment">@r.DecisionComment</div> }
                                     }
                                 }
                             </td>
+
+                       
                             <td>
                                 <div class="action-btns">
-                                    <button type="button"
-                                            class="btn btn-sm btn-outline-primary open-details-modal"
-                                            data-rowid="@r.ExtractRowId">
-                                        🔍 View
-                                    </button>
-                                    <button type="button"
-                                            class="btn btn-sm btn-yes open-yes-modal"
-                                            data-rowid="@r.ExtractRowId"
-                                            data-vkey="@r.ValuationKey">
-                                        ✓ Yes
-                                    </button>
-                                    <button type="button"
-                                            class="btn btn-sm btn-no open-no-modal"
-                                            data-rowid="@r.ExtractRowId"
-                                            data-vkey="@r.ValuationKey"
-                                            data-comment="@r.DecisionComment">
-                                        ✕ No
-                                    </button>
+                                    @if (r.IsBulkGroup)
+                                    {
+                                        if (r.BulkPendingCount > 0)
+                                        {
+                                            <a class="btn btn-sm btn-bulk"
+                                               href="/Valuer/Bulk/Details?batchId=@Model.BatchId&unitKey=@Uri.EscapeDataString(r.BulkUnitKey)">
+                                                📦 Review (@r.BulkRowCount)
+                                            </a>
+                                        }
+                                        else if (r.Decision == VerificationDecision.Yes || r.BulkYesCount == r.BulkRowCount)
+                                        {
+                                            <span class="bulk-done">✓ All verified</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="bulk-partial">⚠ Needs review</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <button type="button"
+                                                class="btn btn-sm btn-view open-details-modal"
+                                                data-rowid="@r.ExtractRowId">
+                                            🔍 View
+                                        </button>
+                                        @if (r.Decision == VerificationDecision.Pending)
+                                        {
+                                            <button type="button"
+                                                    class="btn btn-sm btn-yes open-yes-modal"
+                                                    data-rowid="@r.ExtractRowId"
+                                                    data-vkey="@r.ValuationKey">
+                                                ✓ Yes
+                                            </button>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-no open-no-modal"
+                                                    data-rowid="@r.ExtractRowId"
+                                                    data-vkey="@r.ValuationKey">
+                                                ✕ No
+                                            </button>
+                                        }
+                                    }
                                 </div>
                             </td>
+
                         </tr>
                     }
-                    @if (Model.Rows == null || Model.Rows.Count == 0)
-                    {
-                        <tr><td colspan="8" style="text-align:center;padding:40px;color:#9a9a9a;">No records found for the selected filters.</td></tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-
-    </div><!-- /dash-wrapper -->
-    <!-- ════════════════════════════════════════════════
-         DETAILS MODAL
-    ════════════════════════════════════════════════ -->
-    <div class="modal fade vvs-modal" id="rowDetailsModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
-            <div class="modal-content">
-
-                <!-- header -->
-                <div class="modal-hdr-details">
-                    <div class="modal-hdr-icon">🏠</div>
-                    <div class="modal-hdr-text">
-                        <div class="modal-hdr-title">Record Details</div>
-                        <div class="modal-hdr-sub">Valuation Key: <span id="detailsModalVKey">—</span> &nbsp;|&nbsp; Date: <span id="detailsModalDate">—</span></div>
-                    </div>
-                    <button type="button" class="modal-close-btn" data-bs-dismiss="modal" aria-label="Close">✕</button>
-                </div>
-
-                <!-- body -->
-                <div class="modal-body modal-body-details">
-                    <div id="rowDetailsBody" style="padding:24px;color:#9a9a9a;font-size:.83rem;">
-                        <div style="display:flex;align-items:center;gap:10px;">
-                            <div style="width:22px;height:22px;border:2.5px solid #f0f0f0;border-top-color:#e6b000;border-radius:50%;animation:ldSpin .8s linear infinite;flex-shrink:0;"></div>
-                            Loading record…
-                        </div>
-                    </div>
-                </div>
-
-                <!-- footer -->
-                <div class="modal-ftr-details">
-                    <span class="modal-ftr-hint">Review the record above then verify below.</span>
-                    <div style="display:flex;gap:9px;">
-                        <button type="button" class="btn-details-yes" id="detailsYesBtn">✓ Yes</button>
-                        <button type="button" class="btn-details-no" id="detailsNoBtn">✕ No</button>
-                        <button type="button" class="btn-details-close" data-bs-dismiss="modal">Close</button>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-    </div>
-
-
-    <!-- ════════════════════════════════════════════════
-         YES MODAL
-    ════════════════════════════════════════════════ -->
-    <div class="modal fade vvs-modal" id="yesModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered" style="max-width:460px;">
-            <div class="modal-content">
-                <form method="post" action="/Valuer/Verify">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" id="yesExtractRowId" name="ExtractRowId" />
-                    <input type="hidden" name="Decision" value="Yes" />
-                    <input type="hidden" name="Comment" value="Verified" />
-                    <input type="hidden" name="BatchId" value="@Model.BatchId" />
-                    <input type="hidden" name="Filter" value="@Model.Filter" />
-
-                    <!-- header -->
-                    <div class="modal-hdr-yes">
-                        <div class="modal-hdr-icon-yes">✓</div>
-                        <div>
-                            <div class="modal-hdr-title-yes">Approve Verification</div>
-                            <div class="modal-hdr-sub-yes">This record will be marked as verified</div>
-                        </div>
-                    </div>
-
-                    <!-- body -->
-                    <div class="modal-body-inner">
-                        <div class="modal-info-row">
-                            <div class="modal-info-field">
-                                <div class="mif-label">Valuation Key</div>
-                                <div class="mif-val" id="yesValuationKey">—</div>
-                            </div>
-                            <div class="modal-info-field">
-                                <div class="mif-label">Verified Date</div>
-                                <div class="mif-val" id="yesVerifiedDate">—</div>
-                            </div>
-                        </div>
-                        <div class="confirm-strip yes">
-                            <span class="confirm-strip-icon">✅</span>
-                            <div>This record will be marked <strong>Yes — Verified</strong>. A comment of <strong>"Verified"</strong> will be automatically saved.</div>
-                        </div>
-                    </div>
-
-                    <!-- footer -->
-                    <div class="modal-ftr-btns">
-                        <button type="button" class="btn-cancel" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn-confirm-yes">✓ Confirm Yes</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-
-    <!-- ════════════════════════════════════════════════
-         NO MODAL
-    ════════════════════════════════════════════════ -->
-    <div class="modal fade vvs-modal" id="noModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered" style="max-width:500px;">
-            <div class="modal-content">
-                <form method="post" action="/Valuer/Verify">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" id="noExtractRowId" name="ExtractRowId" />
-                    <input type="hidden" name="Decision" value="No" />
-                    <input type="hidden" name="BatchId" value="@Model.BatchId" />
-                    <input type="hidden" name="Filter" value="@Model.Filter" />
-
-                    <!-- header -->
-                    <div class="modal-hdr-no">
-                        <div class="modal-hdr-icon-no">✕</div>
-                        <div>
-                            <div class="modal-hdr-title-no">Reject Verification</div>
-                            <div class="modal-hdr-sub-no">A comment is required to reject this record</div>
-                        </div>
-                    </div>
-
-                    <!-- body -->
-                    <div class="modal-body-inner">
-                        <div class="modal-info-row">
-                            <div class="modal-info-field">
-                                <div class="mif-label">Valuation Key</div>
-                                <div class="mif-val" id="noValuationKey">—</div>
-                            </div>
-                            <div class="modal-info-field">
-                                <div class="mif-label">Date</div>
-                                <div class="mif-val" id="noVerifiedDate">—</div>
-                            </div>
-                        </div>
-
-                        <div style="margin-bottom:6px;">
-                            <label class="vvs-field-label" for="noComment">Rejection Reason <span style="color:#c0272d;">*</span></label>
-                            <textarea class="vvs-textarea" id="noComment" name="Comment" rows="4" required
-                                      placeholder="Describe why this record is being rejected…"></textarea>
-                            <div class="char-count"><span id="noCharCount">0</span> characters</div>
-                            <div class="vvs-field-hint">A detailed comment is required when selecting No.</div>
-                        </div>
-                    </div>
-
-                    <!-- footer -->
-                    <div class="modal-ftr-btns">
-                        <button type="button" class="btn-cancel" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn-confirm-no">✕ Confirm No</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-
-    <!-- jQuery + DataTables + Bootstrap -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-    <script>
-        /* ============================  TOAST  ============================ */
-        const tw = document.getElementById('toastWrap');
-        function showToast(title, msg, type = 'info', dur = 4000) {
-            const icons = { info: '💡', success: '✅', error: '❌', warning: '⚠️' };
-            const el = document.createElement('div');
-            el.className = `toast-pill t-${type}`;
-            el.innerHTML = `
-                <span class="toast-ico">${icons[type]||'💡'}</span>
-                <div class="toast-bd">
-                    <div class="toast-ttl">${title}</div>
-                    ${msg ? `<div class="toast-msg">${msg}</div>` : ''}
-                </div>
-                <button class="toast-x" onclick="dismissToast(this.parentElement)">×</button>`;
-            tw.appendChild(el);
-            setTimeout(() => dismissToast(el), dur);
-        }
-        function dismissToast(el) {
-            if (!el?.parentElement) return;
-            el.classList.add('t-out');
-            setTimeout(() => el.remove(), 300);
-        }
-
-        /* ============================  PAGE LOADER  ============================ */
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                document.getElementById('pageLoader').classList.add('hidden');
-                const count = document.querySelectorAll('#inboxTable tbody tr').length;
-                if (count > 0) {
-                    showToast('Inbox Ready', `${count} record${count !== 1 ? 's' : ''} loaded.`, 'success', 3500);
-                } else {
-                    showToast('No Records', 'No records match the current filter.', 'warning', 3500);
                 }
-            }, 1100);
-        });
+                else
+                {
+                    <tr>
+                        <td colspan="8" style="text-align:center;padding:40px;color:#9a9a9a;">
+                            No records found for the selected filters.
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 
-        /* ============================  DATATABLE — pageLength: 10  ============================ */
-        $(document).ready(function () {
-            if ($('#inboxTable').length) {
-                $('#inboxTable').DataTable({
-                    pageLength: 10,
-                    lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
-                    order: [[1, 'asc']],
-                    columnDefs: [{ orderable: false, targets: 7 }],
-                    language: {
-                        search: '',
-                        searchPlaceholder: '🔍 Search records…',
-                        lengthMenu: 'Show _MENU_ rows',
-                        info: 'Showing _START_–_END_ of _TOTAL_ records',
-                        infoFiltered: '(filtered from _MAX_)',
-                        paginate: { first: '«', last: '»', previous: '‹', next: '›' },
-                        emptyTable: 'No records available',
-                        zeroRecords: 'No matching records found'
-                    },
-                    dom: '<"dt-top"fl>rt<"dt-bot"ip>'
-                });
-            }
-        });
+</div><!-- /dash-wrapper -->
 
-        /* ============================  HELPERS  ============================ */
-        function todayYmd() {
-            const d = new Date();
-            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        }
-
-        let currentRowId = null;
-        let currentVKey  = null;
-
-        /* ============================  DETAILS MODAL  ============================ */
-        document.querySelectorAll('.open-details-modal').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                currentRowId = btn.getAttribute('data-rowid');
-                currentVKey  = null;
-
-                document.getElementById('detailsModalVKey').textContent = '—';
-                document.getElementById('detailsModalDate').textContent = todayYmd();
-                document.getElementById('rowDetailsBody').innerHTML =
-                    `<div style="padding:24px;display:flex;align-items:center;gap:10px;color:#9a9a9a;font-size:.82rem;">
+<div class="modal fade vvs-modal" id="rowDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-hdr-details">
+                <div class="modal-hdr-icon">🏠</div>
+                <div class="modal-hdr-text">
+                    <div class="modal-hdr-title">Record Details</div>
+                    <div class="modal-hdr-sub">Key: <span id="detailsModalVKey">—</span> &nbsp;|&nbsp; <span id="detailsModalDate">—</span></div>
+                </div>
+                <button type="button" class="modal-close-btn" data-bs-dismiss="modal">✕</button>
+            </div>
+            <div class="modal-body modal-body-details">
+                <div id="rowDetailsBody" style="padding:24px;color:#9a9a9a;font-size:.83rem;">
+                    <div style="display:flex;align-items:center;gap:10px;">
                         <div style="width:20px;height:20px;border:2.5px solid #f0f0f0;border-top-color:#e6b000;border-radius:50%;animation:ldSpin .8s linear infinite;flex-shrink:0;"></div>
                         Loading record…
-                    </div>`;
+                    </div>
+                </div>
+            </div>
+            <div class="modal-ftr-details">
+                <span class="modal-ftr-hint">Review the record above then verify.</span>
+                <div style="display:flex;gap:9px;">
+                    <button type="button" class="btn-details-yes" id="detailsYesBtn">✓ Yes</button>
+                    <button type="button" class="btn-details-no"  id="detailsNoBtn">✕ No</button>
+                    <button type="button" class="btn-details-close" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-                new bootstrap.Modal(document.getElementById('rowDetailsModal')).show();
+<div class="modal fade vvs-modal" id="yesModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:460px;">
+        <div class="modal-content">
+            <form method="post" action="/Valuer/Verify">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="yesExtractRowId" name="ExtractRowId"/>
+                <input type="hidden" name="Decision" value="Yes"/>
+                <input type="hidden" name="Comment"  value="Verified"/>
+                <input type="hidden" name="BatchId"  value="@Model.BatchId"/>
+                <input type="hidden" name="Filter"   value="@Model.Filter"/>
+                <div class="modal-hdr-yes">
+                    <div class="modal-hdr-icon-yes">✓</div>
+                    <div>
+                        <div class="modal-hdr-title-yes">Approve Verification</div>
+                        <div class="modal-hdr-sub-yes">Record: <span id="yesValuationKey">—</span></div>
+                    </div>
+                </div>
+                <div class="modal-body-inner">
+                    <div class="confirm-strip yes">
+                        <span class="confirm-strip-icon">✅</span>
+                        <div>This record will be marked <strong>Yes — Verified</strong>.</div>
+                    </div>
+                </div>
+                <div class="modal-ftr-btns">
+                    <button type="button" class="btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn-confirm-yes">✓ Confirm Yes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
-                try {
-                    const resp = await fetch(`/Valuer/RowDetails?extractRowId=${encodeURIComponent(currentRowId)}`, {
-                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                    });
-                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-                    const html = await resp.text();
-                    document.getElementById('rowDetailsBody').innerHTML = html;
-                    const vkEl = document.getElementById('rowDetailsValuationKey');
-                    currentVKey = (vkEl ? (vkEl.getAttribute('data-vkey') || vkEl.textContent) : '').trim();
-                    document.getElementById('detailsModalVKey').textContent = currentVKey || '—';
-                } catch {
-                    document.getElementById('rowDetailsBody').innerHTML =
-                        `<div style="padding:24px;color:#c0272d;font-size:.82rem;">⚠️ Failed to load record details. Please try again.</div>`;
-                    showToast('Load Failed', 'Could not fetch record details.', 'error');
-                }
-            });
-        });
+<div class="modal fade vvs-modal" id="noModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:500px;">
+        <div class="modal-content">
+            <form method="post" action="/Valuer/Verify">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="noExtractRowId" name="ExtractRowId"/>
+                <input type="hidden" name="Decision" value="No"/>
+                <input type="hidden" name="BatchId"  value="@Model.BatchId"/>
+                <input type="hidden" name="Filter"   value="@Model.Filter"/>
+                <div class="modal-hdr-no">
+                    <div class="modal-hdr-icon-no">✕</div>
+                    <div>
+                        <div class="modal-hdr-title-no">Reject Verification</div>
+                        <div class="modal-hdr-sub-no">Record: <span id="noValuationKey">—</span></div>
+                    </div>
+                </div>
+                <div class="modal-body-inner">
+                    <label class="vvs-field-label" for="noComment">Rejection reason <span style="color:#c0272d;">*</span></label>
+                    <textarea class="vvs-textarea" id="noComment" name="Comment" rows="4" required
+                              placeholder="Describe why this record is being rejected…"></textarea>
+                    <div class="char-count"><span id="noCharCount">0</span> characters</div>
+                    <div class="vvs-field-hint">A detailed comment is required when selecting No.</div>
+                </div>
+                <div class="modal-ftr-btns">
+                    <button type="button" class="btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn-confirm-no">✕ Confirm No</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
-        /* Details → YES */
-        document.getElementById('detailsYesBtn')?.addEventListener('click', () => {
-            if (!currentRowId) return;
-            document.getElementById('yesExtractRowId').value = currentRowId;
-            document.getElementById('yesValuationKey').textContent = currentVKey || '—';
-            document.getElementById('yesVerifiedDate').textContent = todayYmd();
-            new bootstrap.Modal(document.getElementById('yesModal')).show();
-        });
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+/* ── Toast ─────────────────────────────────────── */
+const tw=document.getElementById('toastWrap');
+function showToast(title,msg,type='info',dur=4000){
+    const icons={info:'💡',success:'✅',error:'❌',warning:'⚠️'};
+    const el=document.createElement('div');
+    el.className=`toast-pill t-${type}`;
+    el.innerHTML=`<span class="toast-ico">${icons[type]||'💡'}</span><div class="toast-bd"><div class="toast-ttl">${title}</div>${msg?`<div class="toast-msg">${msg}</div>`:''}</div><button class="toast-x" onclick="this.parentElement.remove()">×</button>`;
+    tw.appendChild(el);
+    setTimeout(()=>{el.classList.add('t-out');setTimeout(()=>el.remove(),300);},dur);
+}
 
-        /* Details → NO */
-        document.getElementById('detailsNoBtn')?.addEventListener('click', () => {
-            if (!currentRowId) return;
-            document.getElementById('noExtractRowId').value = currentRowId;
-            document.getElementById('noValuationKey').textContent = currentVKey || '—';
-            document.getElementById('noVerifiedDate').textContent = todayYmd();
-            document.getElementById('noComment').value = '';
-            document.getElementById('noCharCount').textContent = '0';
-            new bootstrap.Modal(document.getElementById('noModal')).show();
-            setTimeout(() => document.getElementById('noComment')?.focus(), 180);
-        });
+/* ── Page loader ───────────────────────────────── */
+window.addEventListener('load',()=>{
+    setTimeout(()=>{
+        document.getElementById('pageLoader')?.classList.add('hidden');
+        const rows=document.querySelectorAll('#inboxTable tbody tr').length;
+        const bulk=document.querySelectorAll('#inboxTable tbody tr.is-bulk').length;
+        if(rows>0) showToast('Inbox Ready',`${rows} row${rows!==1?'s':''} loaded — ${bulk} bulk group${bulk!==1?'s':''}.`,'success',4000);
+        else showToast('No Records','No records match the current filter.','warning',4000);
+    },1100);
+});
 
-        /* ============================  YES MODAL (from table row)  ============================ */
-        document.querySelectorAll('.open-yes-modal').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const rowId = btn.getAttribute('data-rowid');
-                const vkey  = btn.getAttribute('data-vkey');
-                document.getElementById('yesExtractRowId').value = rowId;
-                document.getElementById('yesValuationKey').textContent = vkey || '—';
-                document.getElementById('yesVerifiedDate').textContent = todayYmd();
-                new bootstrap.Modal(document.getElementById('yesModal')).show();
-                showToast('Verify Yes', `Opening confirmation for ${vkey}.`, 'info', 2000);
-            });
-        });
+/* ── DataTable ─────────────────────────────────── */
+$(function(){
+    if(!$('#inboxTable').length) return;
+    $('#inboxTable').DataTable({
+        pageLength:25,
+        lengthMenu:[[10,25,50,100],[10,25,50,100]],
+        order:[[0,'asc'],[3,'asc']],
+        columnDefs:[{orderable:false,targets:7}],
+        language:{
+            search:'',searchPlaceholder:'🔍 Search…',
+            lengthMenu:'Show _MENU_ rows',
+            info:'Showing _START_–_END_ of _TOTAL_ records',
+            infoFiltered:'(filtered from _MAX_)',
+            paginate:{first:'«',last:'»',previous:'‹',next:'›'},
+            emptyTable:'No records available',zeroRecords:'No matching records found'
+        },
+        dom:'<"dt-top"fl>rt<"dt-bot"ip>'
+    });
+});
 
-        /* ============================  NO MODAL (from table row)  ============================ */
-        document.querySelectorAll('.open-no-modal').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const rowId = btn.getAttribute('data-rowid');
-                const vkey  = btn.getAttribute('data-vkey');
-                document.getElementById('noExtractRowId').value = rowId;
-                document.getElementById('noValuationKey').textContent = vkey || '—';
-                document.getElementById('noVerifiedDate').textContent = todayYmd();
-                document.getElementById('noComment').value = '';
-                document.getElementById('noCharCount').textContent = '0';
-                new bootstrap.Modal(document.getElementById('noModal')).show();
-                setTimeout(() => document.getElementById('noComment')?.focus(), 180);
-                showToast('Reject Record', `Opening rejection form for ${vkey}.`, 'warning', 2000);
-            });
-        });
+/* ── Helpers ───────────────────────────────────── */
+function todayYmd(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 
-        /* ============================  CHAR COUNTER  ============================ */
-        document.getElementById('noComment')?.addEventListener('input', function () {
-            const len = this.value.length;
-            const el  = document.getElementById('noCharCount');
-            el.textContent = len;
-            el.style.color = len < 10 ? '#c0272d' : '#9a9a9a';
-        });
-    </script>
+let curRowId=null,curVKey=null;
 
+/* ── Details modal ─────────────────────────────── */
+document.querySelectorAll('.open-details-modal').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+        curRowId=btn.getAttribute('data-rowid');curVKey=null;
+        document.getElementById('detailsModalVKey').textContent='—';
+        document.getElementById('detailsModalDate').textContent=todayYmd();
+        document.getElementById('rowDetailsBody').innerHTML=`<div style="padding:24px;display:flex;align-items:center;gap:10px;color:#9a9a9a;font-size:.82rem;"><div style="width:20px;height:20px;border:2.5px solid #f0f0f0;border-top-color:#e6b000;border-radius:50%;animation:ldSpin .8s linear infinite;flex-shrink:0;"></div>Loading…</div>`;
+        new bootstrap.Modal(document.getElementById('rowDetailsModal')).show();
+        try{
+            const r=await fetch(`/Valuer/RowDetails?extractRowId=${encodeURIComponent(curRowId)}`,{headers:{'X-Requested-With':'XMLHttpRequest'}});
+            if(!r.ok) throw new Error('HTTP '+r.status);
+            const html=await r.text();
+            document.getElementById('rowDetailsBody').innerHTML=html;
+            const vkEl=document.getElementById('rowDetailsValuationKey');
+            curVKey=(vkEl?(vkEl.getAttribute('data-vkey')||vkEl.textContent):'').trim();
+            document.getElementById('detailsModalVKey').textContent=curVKey||'—';
+        }catch{
+            document.getElementById('rowDetailsBody').innerHTML=`<div style="padding:24px;color:#c0272d;font-size:.82rem;">⚠️ Failed to load details.</div>`;
+            showToast('Load Failed','Could not fetch record details.','error');
+        }
+    });
+});
+
+document.getElementById('detailsYesBtn')?.addEventListener('click',()=>{
+    if(!curRowId) return;
+    document.getElementById('yesExtractRowId').value=curRowId;
+    document.getElementById('yesValuationKey').textContent=curVKey||'—';
+    new bootstrap.Modal(document.getElementById('yesModal')).show();
+});
+document.getElementById('detailsNoBtn')?.addEventListener('click',()=>{
+    if(!curRowId) return;
+    document.getElementById('noExtractRowId').value=curRowId;
+    document.getElementById('noValuationKey').textContent=curVKey||'—';
+    document.getElementById('noComment').value='';
+    document.getElementById('noCharCount').textContent='0';
+    new bootstrap.Modal(document.getElementById('noModal')).show();
+    setTimeout(()=>document.getElementById('noComment')?.focus(),180);
+});
+
+/* ── Inline Yes/No buttons ─────────────────────── */
+document.querySelectorAll('.open-yes-modal').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+        const rowId=btn.getAttribute('data-rowid'),vkey=btn.getAttribute('data-vkey');
+        document.getElementById('yesExtractRowId').value=rowId;
+        document.getElementById('yesValuationKey').textContent=vkey||'—';
+        new bootstrap.Modal(document.getElementById('yesModal')).show();
+    });
+});
+document.querySelectorAll('.open-no-modal').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+        const rowId=btn.getAttribute('data-rowid'),vkey=btn.getAttribute('data-vkey');
+        document.getElementById('noExtractRowId').value=rowId;
+        document.getElementById('noValuationKey').textContent=vkey||'—';
+        document.getElementById('noComment').value='';document.getElementById('noCharCount').textContent='0';
+        new bootstrap.Modal(document.getElementById('noModal')).show();
+        setTimeout(()=>document.getElementById('noComment')?.focus(),180);
+    });
+});
+
+/* ── Char counter ──────────────────────────────── */
+document.getElementById('noComment')?.addEventListener('input',function(){
+    const l=this.value.length,el=document.getElementById('noCharCount');
+    el.textContent=l;el.style.color=l<10?'#c0272d':'#9a9a9a';
+});
+
+/* ── Notification bell dropdown ─────────────────── */
+function toggleNotifPanel(){
+    const dd=document.getElementById('notifDropdown');
+    const ov=document.getElementById('notifOverlay');
+    if(!dd) return;
+    const opening = !dd.classList.contains('open');
+    dd.classList.toggle('open', opening);
+    ov.classList.toggle('open', opening);
+}
+function closeNotifPanel(){
+    const dd=document.getElementById('notifDropdown');
+    const ov=document.getElementById('notifOverlay');
+    if(dd) dd.classList.remove('open');
+    if(ov) ov.classList.remove('open');
+}
+// Close on Escape key
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeNotifPanel(); });
+</script>
 </body>
 </html>

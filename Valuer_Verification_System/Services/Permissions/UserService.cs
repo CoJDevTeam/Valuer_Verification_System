@@ -63,39 +63,47 @@ namespace Valuer_Verification_System.Services.Permissions
                 try { return r.IsDBNull(r.GetOrdinal(col)) ? null : r.GetString(r.GetOrdinal(col)); }
                 catch { return null; }
             }
+
             int? Int(string col)
             {
-                try { return r.IsDBNull(r.GetOrdinal(col)) ? null : r.GetInt32(r.GetOrdinal(col)); }
+                try { return r.IsDBNull(r.GetOrdinal(col)) ? null : Convert.ToInt32(r.GetValue(r.GetOrdinal(col))); }
                 catch { return null; }
             }
+
             bool Bool(string col)
             {
-                try { return !r.IsDBNull(r.GetOrdinal(col)) && r.GetBoolean(r.GetOrdinal(col)); }
+                try { return !r.IsDBNull(r.GetOrdinal(col)) && Convert.ToBoolean(r.GetValue(r.GetOrdinal(col))); }
                 catch { return false; }
             }
 
-            // Full name: prefer "FullName" column, fall back to FirstName+LastName, then Username
-            var fullName = Str("FullName")
-                        ?? CombineNames(Str("FirstName"), Str("LastName"))
-                        ?? Str("Username")
-                        ?? string.Empty;
+            var firstName = Str("FirstName") ?? "";
+            var secondName = Str("SecondName") ?? "";
+            var surname = Str("Surname") ?? "";
+
+            var fullName = string.Join(" ", new[] { firstName, secondName, surname }
+                .Where(x => !string.IsNullOrWhiteSpace(x)))
+                .Trim();
+
+            if (string.IsNullOrWhiteSpace(fullName))
+                fullName = Str("FullName") ?? Str("Username") ?? "Unknown User";
 
             return new AppUser
             {
                 UserID = Int("UserID") ?? 0,
-                Username = Str("Username") ?? string.Empty,
-                UsernameOld = Str("UsernameOld") ?? string.Empty,
+                Username = Str("Username") ?? "",
+                UsernameOld = Str("UsernameOld") ?? "",
+
+                FirstName = firstName,
+                SecondName = secondName,
+                Surname = surname,
                 FullName = fullName,
-                Role = Str("Role") ?? string.Empty,
+
+                Position = Str("Position") ?? "",
+                Role = Str("Role") ?? "",
                 Active = Bool("Active")
             };
         }
 
-        private static string? CombineNames(string? first, string? last)
-        {
-            var combined = string.Join(" ", new[] { first?.Trim(), last?.Trim() }
-                               .Where(p => !string.IsNullOrEmpty(p)));
-            return string.IsNullOrWhiteSpace(combined) ? null : combined;
-        }
+       
     }
 }
