@@ -378,7 +378,7 @@ namespace Valuer_Verification_System.Services.Verifications
             {
                 row.Decision = VerificationDecision.Yes;
                 row.DecisionAtUtc = DateTime.UtcNow;
-              //  row.DecisionBy = username;
+                row.DecisionBy = username;
                 row.DecisionComment = string.IsNullOrWhiteSpace(vm.Comment)
                     ? "Bulk verified as correct."
                     : vm.Comment.Trim();

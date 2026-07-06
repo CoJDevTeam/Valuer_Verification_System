@@ -221,6 +221,61 @@ namespace Valuer_Verification_System.Migrations
                     b.ToTable("Batches");
                 });
 
+            modelBuilder.Entity("Valuer_Verification_System.Models.Data.CleaningStepAudit", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BatchId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long?>("DurationMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("FinishedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ImportAuditId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Message")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("RowsAffected")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("StepName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("Success")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("ImportAuditId");
+
+                    b.HasIndex("StepName");
+
+                    b.ToTable("CleaningStepAudits");
+                });
+
             modelBuilder.Entity("Valuer_Verification_System.Models.Data.EmailArchive", b =>
                 {
                     b.Property<int>("Id")
@@ -458,6 +513,10 @@ namespace Valuer_Verification_System.Migrations
 
                     b.Property<DateTime?>("DecisionAtUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("DecisionBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
 
                     b.Property<string>("DecisionComment")
                         .HasMaxLength(2000)
@@ -729,6 +788,9 @@ namespace Valuer_Verification_System.Migrations
 
                     b.HasIndex("SourceFileHashSha256", "SourceRowNumber")
                         .HasDatabaseName("IX_ExtractRows_SourceFile_RowNumber");
+
+                    b.HasIndex("BatchId", "Decision", "DecisionBy")
+                        .HasDatabaseName("IX_ExtractRows_BatchId_Decision_DecisionBy");
 
                     b.HasIndex("BatchId", "Sector", "Decision");
 

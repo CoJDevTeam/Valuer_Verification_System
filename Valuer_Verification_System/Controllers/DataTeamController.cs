@@ -72,27 +72,103 @@ namespace Valuer_Verification_System.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ProceedToClean(int batchId, CancellationToken ct)
         {
-            var batch = await _db.Batches.Include(b => b.WeekWindow)
-                                         .AsNoTracking()
-                                         .FirstOrDefaultAsync(b => b.Id == batchId, ct);
-            if (batch is null) return NotFound();
-
-            var extractionDate = await GetExtractionDateAsync(batchId, batch.BatchDate, ct);
-
-            var vm = new SendNoticeStep2Vm
-            {
-                BatchId = batch.Id,
-                WeekWindowId = batch.WeekWindowId,
-                ExtractionDate = extractionDate,
-                NoticeSendDate = batch.WeekWindow.NoticeSendDate,
-                WeekTableName = _cleaning.BuildWeekTableName(extractionDate)
-            };
+            var vm = await BuildValidateCleanVmAsync(batchId, ct);
+            return View("SendNoticeStep2", vm);
+        }
+        [HttpGet("/DataTeam/SendNotice/Step2/{batchId:int}")]
+        public async Task<IActionResult> SendNoticeStep2(int batchId, CancellationToken ct)
+        {
+            var vm = await BuildValidateCleanVmAsync(batchId, ct);
             return View("SendNoticeStep2", vm);
         }
 
-        [HttpGet("/DataTeam/SendNotice/Step2/{batchId:int}")]
-        public async Task<IActionResult> SendNoticeStep2(int batchId, CancellationToken ct)
-            => await ProceedToClean(batchId, ct);
+        private async Task<SendNoticeStep2Vm> BuildValidateCleanVmAsync(int batchId, CancellationToken ct)
+        {
+            var batch = await _db.Batches
+                .Include(b => b.WeekWindow)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(b => b.Id == batchId, ct);
+
+            if (batch is null)
+                throw new InvalidOperationException("Batch not found.");
+
+            var extractionDate = await GetExtractionDateAsync(batchId, batch.BatchDate, ct);
+
+            var weekTableName = !string.IsNullOrWhiteSpace(batch.CleanWeekTableName)
+                ? batch.CleanWeekTableName
+                : _cleaning.BuildWeekTableName(extractionDate);
+
+            var rows = _db.ExtractRows
+                .AsNoTracking()
+                .Where(r => r.BatchId == batchId);
+
+            return new SendNoticeStep2Vm
+            {
+                BatchId = batch.Id,
+                WeekWindowId = batch.WeekWindowId,
+                BatchName = batch.BatchName,
+                ExtractionDate = extractionDate,
+                NoticeSendDate = batch.WeekWindow.NoticeSendDate,
+                WeekTableName = weekTableName,
+
+                ExtractCleanedAtUtc = batch.ExtractCleanedAtUtc,
+                ExtractCleaningStatus = batch.ExtractCleaningStatus,
+                ExtractCleaningMessage = batch.ExtractCleaningMessage,
+
+                TotalRows = await rows.CountAsync(ct),
+                Pending = await rows.CountAsync(r => r.Decision == VerificationDecision.Pending, ct),
+                Yes = await rows.CountAsync(r => r.Decision == VerificationDecision.Yes, ct),
+                No = await rows.CountAsync(r => r.Decision == VerificationDecision.No, ct),
+
+                MissingSector = await rows.CountAsync(r => string.IsNullOrWhiteSpace(r.Sector), ct),
+                MissingPremiseId = await rows.CountAsync(r => string.IsNullOrWhiteSpace(r.PremiseId), ct),
+                MissingUsername = await rows.CountAsync(r =>
+                    !string.IsNullOrWhiteSpace(r.Valuer) &&
+                    string.IsNullOrWhiteSpace(r.Username), ct),
+
+                SendNoticeYes = await rows.CountAsync(r => r.SendNotice == "Y", ct),
+
+                WeekTableExists = await _cleaning.WeekTableExistsAsync(weekTableName, ct)
+            };
+        }
+
+        [HttpPost("/DataTeam/SendNotice/InsertWeekTable")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> InsertWeekTable(int batchId, CancellationToken ct)
+        {
+            var vm = await BuildValidateCleanVmAsync(batchId, ct);
+
+            if (!vm.ReadyToInsert)
+            {
+                TempData["Error"] = "Batch is not ready. Fix the failed validation checks first.";
+                return View("SendNoticeStep2", vm);
+            }
+
+            var createResult = await _cleaning.CreateWeekTableAsync(
+                batchId: vm.BatchId,
+                weekTableName: vm.WeekTableName,
+                extractionDate: vm.ExtractionDate,
+                ct: ct);
+
+            if (!createResult.Success)
+            {
+                TempData["Error"] = createResult.Error ?? "Failed to create week table.";
+                vm.WeekTableExists = false;
+                return View("SendNoticeStep2", vm);
+            }
+
+            var batch = await _db.Batches.FirstAsync(b => b.Id == batchId, ct);
+
+            batch.CleanWeekTableName = vm.WeekTableName;
+            batch.Status = BatchStatus.ReadyToSend;
+            batch.UpdatedAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync(ct);
+
+            TempData["Success"] = $"Week table prepared. {createResult.RowsAffected:N0} verified rows inserted.";
+
+            return RedirectToAction(nameof(PrintNotices), new { batchId });
+        }
 
         // ═════════════════════════════════════════════════════════════════════
         // STEP 2 – Cleaning AJAX calls
@@ -133,7 +209,7 @@ namespace Valuer_Verification_System.Controllers
             if (req is null || string.IsNullOrWhiteSpace(req.WeekTableName))
                 return BadRequest(new { success = false, error = "Table name required." });
 
-            var result = await _cleaning.CreateWeekTableAsync(req.WeekTableName, req.ExtractionDate, ct);
+            var result = await _cleaning.CreateWeekTableAsync(req.BatchId, req.WeekTableName, req.ExtractionDate, ct);
 
             // Advance batch to ReadyToSend so it appears in Step 3 dropdown
             if (result.Success && req.BatchId > 0)
@@ -180,32 +256,16 @@ namespace Valuer_Verification_System.Controllers
             if (batch is null)
                 return NotFound();
 
-            if (batch.ExtractCleanedAtUtc == null ||
-                !string.Equals(batch.ExtractCleaningStatus, "Cleaned", StringComparison.OrdinalIgnoreCase))
-            {
-                TempData["Error"] = "This batch has not been cleaned by the folder job yet.";
-
-                return RedirectToAction(
-                    nameof(SendNotice),
-                    new { batchId });
-            }
-
             if (string.IsNullOrWhiteSpace(batch.CleanWeekTableName))
             {
                 TempData["Error"] = "This batch does not have a clean week table name.";
-
-                return RedirectToAction(
-                    nameof(SendNotice),
-                    new { batchId });
+                return RedirectToAction(nameof(SendNotice), new { batchId });
             }
 
             if (batch.ManagersNotifiedAtUtc == null)
             {
                 TempData["Error"] = "Sector Managers must be notified before notices can be prepared.";
-
-                return RedirectToAction(
-                    nameof(SendNotice),
-                    new { batchId });
+                return RedirectToAction(nameof(SendNotice), new { batchId });
             }
 
             var pending = await _db.ExtractRows
@@ -218,38 +278,16 @@ namespace Valuer_Verification_System.Controllers
             if (pending > 0)
             {
                 TempData["Error"] = $"Cannot prepare notices. There are still {pending:N0} pending verification records.";
-
-                return RedirectToAction(
-                    nameof(SendNotice),
-                    new { batchId });
-            }
-
-            // This is the new replacement for the old cleaning process.
-            // It does NOT clean again.
-            // It only inserts already-cleaned and verified rows into the week table.
-            var insertResult = await _cleaning.InsertVerifiedRowsIntoWeekTableAsync(
-                batch.Id,
-                batch.CleanWeekTableName,
-                ct);
-
-            if (!insertResult.Success)
-            {
-                TempData["Error"] = insertResult.Error ?? "Failed to insert verified rows into the week table.";
-
-                return RedirectToAction(
-                    nameof(SendNotice),
-                    new { batchId });
+                return RedirectToAction(nameof(SendNotice), new { batchId });
             }
 
             if (batch.Status != BatchStatus.PrintedEmailPending &&
                 batch.Status != BatchStatus.Sent)
             {
                 batch.Status = BatchStatus.ReadyToSend;
+                batch.UpdatedAt = DateTime.UtcNow;
                 await _db.SaveChangesAsync(ct);
             }
-
-            TempData["Success"] =
-                $"Week table prepared successfully. {insertResult.RowsAffected:N0} verified rows inserted.";
 
             var vm = await BuildPrintVmAsync(batchId, ct);
             return View("SendNoticeStep3", vm);
@@ -410,28 +448,26 @@ namespace Valuer_Verification_System.Controllers
         // STEP 4 – Send Notices
         // ═════════════════════════════════════════════════════════════════════
 
+       
         [HttpGet("/DataTeam/SendNotice/Step4/{batchId:int}")]
         public async Task<IActionResult> ConfirmSendPage(
-     int batchId,
-     [FromQuery] string? weekTableName,
-     CancellationToken ct)
+    int batchId,
+    [FromQuery] string? weekTableName,
+    CancellationToken ct)
         {
             var qaApproved = await _qa.IsApprovedAsync(batchId, ct);
 
             if (!qaApproved)
             {
                 TempData["QaError"] = "Quality assurance must be approved before notices can be sent.";
-
-                return RedirectToAction(
-                    nameof(NoticeQa),
-                    new
-                    {
-                        batchId,
-                        weekTableName
-                    });
+                return RedirectToAction(nameof(NoticeQa), new { batchId, weekTableName });
             }
 
             var vm = await BuildSendVmAsync(batchId, ct);
+
+            if (!string.IsNullOrWhiteSpace(weekTableName))
+                vm.WeekTableName = weekTableName.Trim();
+
             return View("SendNoticeStep4", vm);
         }
 
@@ -446,7 +482,9 @@ namespace Valuer_Verification_System.Controllers
 
             var ww = batch.WeekWindow;
             var extractDate = await GetExtractionDateAsync(batchId, batch.BatchDate, ct);
-            var tableName = _cleaning.BuildWeekTableName(extractDate);
+            var tableName = !string.IsNullOrWhiteSpace(batch.CleanWeekTableName)
+    ? batch.CleanWeekTableName
+    : _cleaning.BuildWeekTableName(extractDate);
             var counts = await GetNoticeCounts(batchId, ct);
             var printFolder = _print.BuildOutputFolder(extractDate, batch.BatchName, tableName);
             var emailFolder = _send.BuildEmailFolder(extractDate, batch.BatchName, tableName);
@@ -535,7 +573,9 @@ namespace Valuer_Verification_System.Controllers
 
             var ww = sel.WeekWindow;
             var extractDate = await GetExtractionDateAsync(sel.Id, sel.BatchDate, ct);
-            var tableName = _cleaning.BuildWeekTableName(extractDate);
+            var tableName = !string.IsNullOrWhiteSpace(sel.CleanWeekTableName)
+          ? sel.CleanWeekTableName
+          : _cleaning.BuildWeekTableName(extractDate);
             var counts = await GetNoticeCounts(sel.Id, ct);
             var printFolder = _print.BuildOutputFolder(extractDate, sel.BatchName, tableName);
             var emailFolder = _send.BuildEmailFolder(extractDate, sel.BatchName, tableName);

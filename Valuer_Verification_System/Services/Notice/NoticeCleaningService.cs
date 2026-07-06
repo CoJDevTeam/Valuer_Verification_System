@@ -203,18 +203,42 @@ namespace Valuer_Verification_System.Services.Notice
         // ── Create week table on 118 server · SECTION_78_NOTICE ──────────────
 
         public async Task<CleaningStepResultVm> CreateWeekTableAsync(
-            string weekTableName,
-            DateOnly extractionDate,
-            CancellationToken ct)
+    int batchId,
+    string weekTableName,
+    DateOnly extractionDate,
+    CancellationToken ct)
         {
             var cs = _config.GetConnectionString("Section78Notice");
+
             if (string.IsNullOrWhiteSpace(cs))
+            {
                 return new CleaningStepResultVm
                 {
                     Success = false,
                     StepName = "CreateWeekTable",
                     Error = "Connection string 'Section78Notice' not found in appsettings."
                 };
+            }
+
+            if (batchId <= 0)
+            {
+                return new CleaningStepResultVm
+                {
+                    Success = false,
+                    StepName = "CreateWeekTable",
+                    Error = "BatchId is required."
+                };
+            }
+
+            if (string.IsNullOrWhiteSpace(weekTableName))
+            {
+                return new CleaningStepResultVm
+                {
+                    Success = false,
+                    StepName = "CreateWeekTable",
+                    Error = "Week table name is required."
+                };
+            }
 
             try
             {
@@ -222,7 +246,6 @@ namespace Valuer_Verification_System.Services.Notice
                 await conn.OpenAsync(ct);
 
                 await using var cmd = conn.CreateCommand();
-
                 cmd.CommandText = "sp_VVS_CreateWeekTable";
                 cmd.CommandType = System.Data.CommandType.StoredProcedure;
                 cmd.CommandTimeout = 600;
@@ -230,19 +253,36 @@ namespace Valuer_Verification_System.Services.Notice
                 cmd.Parameters.Add(new SqlParameter("@TableName", weekTableName));
                 cmd.Parameters.Add(new SqlParameter("@ExtractionDate", extractionDate.ToDateTime(TimeOnly.MinValue)));
 
+                // ✅ New parameter
+                cmd.Parameters.Add(new SqlParameter("@BatchId", batchId));
+
                 var rowsParam = new SqlParameter("@RowsAffected", System.Data.SqlDbType.Int)
-                { Direction = System.Data.ParameterDirection.Output };
+                {
+                    Direction = System.Data.ParameterDirection.Output
+                };
                 cmd.Parameters.Add(rowsParam);
 
                 await cmd.ExecuteNonQueryAsync(ct);
 
-                int rows = rowsParam.Value != DBNull.Value ? (int)rowsParam.Value : 0;
+                var rows = rowsParam.Value != DBNull.Value
+                    ? Convert.ToInt32(rowsParam.Value)
+                    : 0;
 
-                return new CleaningStepResultVm { Success = true, StepName = "CreateWeekTable", RowsAffected = rows };
+                return new CleaningStepResultVm
+                {
+                    Success = true,
+                    StepName = "CreateWeekTable",
+                    RowsAffected = rows
+                };
             }
             catch (Exception ex)
             {
-                return new CleaningStepResultVm { Success = false, StepName = "CreateWeekTable", Error = ex.Message };
+                return new CleaningStepResultVm
+                {
+                    Success = false,
+                    StepName = "CreateWeekTable",
+                    Error = ex.Message
+                };
             }
         }
         private static string CleanTableName(string tableName)
@@ -397,6 +437,7 @@ namespace Valuer_Verification_System.Services.Notice
             var createSw = System.Diagnostics.Stopwatch.StartNew();
 
             var createTableResult = await CreateWeekTableAsync(
+                batchId,
                 weekTableName,
                 extractionDate,
                 ct);
@@ -514,16 +555,7 @@ namespace Valuer_Verification_System.Services.Notice
                 };
             }
 
-            if (batch.ExtractCleanedAtUtc == null ||
-                !string.Equals(batch.ExtractCleaningStatus, "Cleaned", StringComparison.OrdinalIgnoreCase))
-            {
-                return new CleaningStepResultVm
-                {
-                    Success = false,
-                    StepName = "InsertWeekTable",
-                    Error = "Batch has not been cleaned by the folder job yet."
-                };
-            }
+           
 
             if (string.IsNullOrWhiteSpace(batch.CleanWeekTableName))
             {

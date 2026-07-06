@@ -43,19 +43,34 @@
     {
         public int BatchId { get; set; }
         public int WeekWindowId { get; set; }
+
+        public string BatchName { get; set; } = "";
         public DateOnly ExtractionDate { get; set; }
         public DateOnly NoticeSendDate { get; set; }
+        public string WeekTableName { get; set; } = "";
 
-        // Data Team inputs
-        // Plain table name only — both tables are in Valuer_Verification_DB on 118 server
-        public string LisMasterTable { get; set; } = "LIS_2025_09_16";
-        public string SapTable { get; set; } = "SAP_STATEMENT_RECORDS_2026_01";
+        public DateTime? ExtractCleanedAtUtc { get; set; }
+        public string? ExtractCleaningStatus { get; set; }
+        public string? ExtractCleaningMessage { get; set; }
 
-        // Auto-generated table name on 173 server
-        public string WeekTableName { get; set; } = "";   // GV23_LIS_SV_YYYY_MM_EXTRACT_Wn
+        public int TotalRows { get; set; }
+        public int Pending { get; set; }
+        public int Yes { get; set; }
+        public int No { get; set; }
 
-        public bool CleaningDone { get; set; }
-        public string? ErrorMessage { get; set; }
+        public int MissingSector { get; set; }
+        public int MissingPremiseId { get; set; }
+        public int MissingUsername { get; set; }
+        public int SendNoticeYes { get; set; }
+
+        public bool WeekTableExists { get; set; }
+
+        public bool ReadyToInsert =>
+            TotalRows > 0 &&
+            Pending == 0 &&
+            MissingSector == 0 &&
+            MissingPremiseId == 0 &&
+            MissingUsername == 0;
     }
 
     // ── Cleaning step result (returned by AJAX) ──────────────────────────────

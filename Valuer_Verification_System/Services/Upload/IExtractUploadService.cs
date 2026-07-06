@@ -270,7 +270,7 @@ namespace Valuer_Verification_System.Services.Upload
               <h2 style='margin:0 0 12px;color:#111;'>Verification extract ready: {Html(sectorName)}</h2>
 
               <p style='font-size:14px;color:#333;line-height:1.6;'>
-                The Project Manager has approved the cleaned extract.
+                The Area Manager has approved the cleaned extract.
                 The respective valuers in your sector now have records to verify.
               </p>
 
@@ -319,24 +319,24 @@ namespace Valuer_Verification_System.Services.Upload
 </body>
 </html>";
 
-                var text = $@"
-Verification extract ready: {sectorName}
+                                            var text = $@"
+                            Verification extract ready: {sectorName}
 
-Batch: {batch.BatchName}
-Sector: {sectorName}
-Week: {batch.WeekWindow.WeekStart:yyyy-MM-dd} to {batch.WeekWindow.WeekEnd:yyyy-MM-dd}
-Notice Send Date: {batch.WeekWindow.NoticeSendDate:yyyy-MM-dd}
-Review Period: {batch.WeekWindow.ReviewOpenDate:yyyy-MM-dd} to {batch.WeekWindow.ReviewCloseDate:yyyy-MM-dd}
-Clean Week Table: {batch.CleanWeekTableName}
+                            Batch: {batch.BatchName}
+                            Sector: {sectorName}
+                            Week: {batch.WeekWindow.WeekStart:yyyy-MM-dd} to {batch.WeekWindow.WeekEnd:yyyy-MM-dd}
+                            Notice Send Date: {batch.WeekWindow.NoticeSendDate:yyyy-MM-dd}
+                            Review Period: {batch.WeekWindow.ReviewOpenDate:yyyy-MM-dd} to {batch.WeekWindow.ReviewCloseDate:yyyy-MM-dd}
+                            Clean Week Table: {batch.CleanWeekTableName}
 
-Total Properties: {sector.TotalProperties:N0}
-Total Rows: {sector.TotalRows:N0}
-Valuers: {sector.TotalValuers:N0}
-Unmatched Rows: {sector.UnmatchedRows:N0}
+                            Total Properties: {sector.TotalProperties:N0}
+                            Total Rows: {sector.TotalRows:N0}
+                            Valuers: {sector.TotalValuers:N0}
+                            Unmatched Rows: {sector.UnmatchedRows:N0}
 
-Dashboard:
-{dashboardUrl}
-";
+                            Dashboard:
+                            {dashboardUrl}
+                            ";
 
                 var req = new EmailRequest
                 {

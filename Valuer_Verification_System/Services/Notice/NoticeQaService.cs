@@ -11,6 +11,8 @@ namespace Valuer_Verification_System.Services.Notice
 {
     public sealed class NoticeQaService : INoticeQaService
     {
+        private const int RandomSampleSize = 10;
+
         private readonly VvsDbContext _db;
         private readonly INoticePrintService _print;
         private readonly INoticeCleaningService _cleaning;
@@ -80,12 +82,9 @@ namespace Valuer_Verification_System.Services.Notice
                 .Include(x => x.Samples)
                 .FirstOrDefaultAsync(x => x.BatchId == batchId, ct);
 
-            // If already approved, never rebuild the sample.
-            // The approved QA record must remain fixed for audit.
             if (existing is not null && existing.IsApproved)
                 return ToVm(existing, batch.BatchName);
 
-            // Rebuild QA sample because printing may have been re-run.
             if (existing is not null)
             {
                 _db.NoticeQaSamples.RemoveRange(existing.Samples);
@@ -93,79 +92,85 @@ namespace Valuer_Verification_System.Services.Notice
                 await _db.SaveChangesAsync(ct);
             }
 
-            var rows = await _db.ExtractRows
+            var candidates = await _db.ExtractRows
                 .AsNoTracking()
-                .Where(r => r.BatchId == batchId
-                         && r.SendNotice != null
-                         && r.SendNotice.ToUpper() == "Y")
-                .OrderBy(r => r.ValuationKey)
-                .ThenBy(r => r.ValuationSplitNo)
-                .ToListAsync(ct);
-
-            var noticeGroups = rows
-                .GroupBy(r => r.ValuationKey)
-                .Select(g =>
+                .Where(r =>
+                    r.BatchId == batchId &&
+                    r.Decision == VerificationDecision.Yes)
+                .Select(r => new QaCandidate
                 {
-                    var main = g.First();
-
-                    return new QaCandidate
-                    {
-                        ValuationKey = main.ValuationKey,
-                        Category = ResolveCategory(main),
-                        PropertyDescription = ResolvePropertyDescription(main)
-                    };
+                    ExtractRowId = r.Id,
+                    ValuationKey = r.ValuationKey,
+                    Category =
+                        r.PropertyCategory ??
+                        r.PropertyType ??
+                        r.CatDesc ??
+                        r.Category ??
+                        "Other",
+                    PropertyDescription =
+                        r.PropertyDesc ??
+                        r.StPropertyDescription ??
+                        r.PropertyDescription_ ??
+                        r.PropertyDescription ??
+                        r.ValuationKey
                 })
                 .Where(x => !string.IsNullOrWhiteSpace(x.ValuationKey))
-                .ToList();
+                .OrderBy(x => Guid.NewGuid())
+                .Take(RandomSampleSize)
+                .ToListAsync(ct);
+
+            var totalPrinted = await _db.ExtractRows
+                .AsNoTracking()
+                .CountAsync(r =>
+                    r.BatchId == batchId &&
+                    r.Decision == VerificationDecision.Yes,
+                    ct);
+
+            if (totalPrinted <= 0)
+                throw new InvalidOperationException("No printed/verified notices found for QA.");
 
             var approval = new NoticeQaApproval
             {
                 BatchId = batchId,
                 WeekTableName = weekTableName,
                 PrintFolder = printFolder,
-                TotalPrintedNotices = noticeGroups.Count,
-                CreatedBy = "system"
+                TotalPrintedNotices = totalPrinted,
+                TotalSampled = candidates.Count,
+                IsApproved = false,
+                CreatedBy = "system",
+                CreatedAt = DateTime.UtcNow
             };
 
-            int sampleNo = 1;
+            var sampleNo = 1;
 
-            foreach (var categoryGroup in noticeGroups
-                         .GroupBy(x => x.Category)
-                         .OrderBy(g => g.Key))
+            foreach (var item in candidates)
             {
-                var categoryTotal = categoryGroup.Count();
+                var pdfPath = ResolvePdfPath(
+                    printFolder,
+                    item.ValuationKey,
+                    item.ExtractRowId,
+                    item.PropertyDescription);
 
-                // Mandatory 5%.
-                // Minimum 1 sample when category exists.
-                var sampleSize = Math.Max(1, (int)Math.Ceiling(categoryTotal * 0.05m));
-
-                var selected = categoryGroup
-                    .OrderBy(x => x.ValuationKey)
-                    .Take(sampleSize)
-                    .ToList();
-
-                foreach (var item in selected)
+                approval.Samples.Add(new NoticeQaSample
                 {
-                    var pdfPath = Path.Combine(
-                        printFolder,
-                        Sanitize(item.PropertyDescription) + ".pdf");
+                    BatchId = batchId,
+                    ValuationKey = item.ValuationKey,
+                    Category = string.IsNullOrWhiteSpace(item.Category) ? "Other" : item.Category.Trim(),
+                    PropertyDescription = string.IsNullOrWhiteSpace(item.PropertyDescription)
+                        ? item.ValuationKey
+                        : item.PropertyDescription.Trim(),
+                    PdfPath = pdfPath,
+                    PdfExists = File.Exists(pdfPath),
+                    SampleNo = sampleNo++,
 
-                    approval.Samples.Add(new NoticeQaSample
-                    {
-                        BatchId = batchId,
-                        ValuationKey = item.ValuationKey,
-                        Category = item.Category,
-                        PropertyDescription = item.PropertyDescription,
-                        PdfPath = pdfPath,
-                        PdfExists = File.Exists(pdfPath),
-                        SampleNo = sampleNo++,
-                        CategoryTotal = categoryTotal,
-                        CategorySampleSize = sampleSize
-                    });
-                }
+                    // Kept for existing DB/view compatibility.
+                    CategoryTotal = totalPrinted,
+                    CategorySampleSize = candidates.Count,
+
+                    CreatedBy = "system",
+                    CreatedAt = DateTime.UtcNow
+                });
             }
-
-            approval.TotalSampled = approval.Samples.Count;
 
             _db.NoticeQaApprovals.Add(approval);
             await _db.SaveChangesAsync(ct);
@@ -182,10 +187,7 @@ namespace Valuer_Verification_System.Services.Notice
             if (sample is null)
                 return null;
 
-            if (!File.Exists(sample.PdfPath))
-                return null;
-
-            return sample.PdfPath;
+            return File.Exists(sample.PdfPath) ? sample.PdfPath : null;
         }
 
         public async Task<NoticeQaApproval> ApproveAsync(
@@ -205,6 +207,7 @@ namespace Valuer_Verification_System.Services.Notice
                 throw new InvalidOperationException("QA sample is empty.");
 
             var missingPdfCount = approval.Samples.Count(x => !File.Exists(x.PdfPath));
+
             if (missingPdfCount > 0)
                 throw new InvalidOperationException(
                     $"{missingPdfCount} QA sample PDF file(s) are missing. Approval cannot continue.");
@@ -245,8 +248,9 @@ namespace Valuer_Verification_System.Services.Notice
     <p>Good day,</p>
 
     <p>
-      The 5% printed notice quality assurance check has been completed and approved.
-      The batch can now continue to the sending function.
+      The mandatory Quality Assurance review has been completed.
+      Ten randomly selected printed notices were inspected and approved.
+      The batch is now authorised to proceed to the Notice Email stage.
     </p>
 
     <table style='width:100%;border-collapse:collapse;margin-top:16px;'>
@@ -263,7 +267,7 @@ namespace Valuer_Verification_System.Services.Notice
         <td style='padding:8px;border-bottom:1px solid #eee;'>{approval.TotalPrintedNotices:N0}</td>
       </tr>
       <tr>
-        <td style='padding:8px;border-bottom:1px solid #eee;font-weight:bold;'>QA Sample Checked</td>
+        <td style='padding:8px;border-bottom:1px solid #eee;font-weight:bold;'>Random QA Sample</td>
         <td style='padding:8px;border-bottom:1px solid #eee;'>{approval.TotalSampled:N0}</td>
       </tr>
       <tr>
@@ -290,10 +294,14 @@ namespace Valuer_Verification_System.Services.Notice
             var text = $@"
 Notice Quality Assurance Approved
 
+The mandatory Quality Assurance review has been completed.
+Ten randomly selected printed notices were inspected and approved.
+The batch is now authorised to proceed to the Notice Email stage.
+
 Batch: {approval.Batch.BatchName}
 Week Table: {approval.WeekTableName}
 Total Printed Notices: {approval.TotalPrintedNotices:N0}
-QA Sample Checked: {approval.TotalSampled:N0}
+Random QA Sample: {approval.TotalSampled:N0}
 Approved By: {approval.ApprovedByName}
 Approved At UTC: {approval.ApprovedAtUtc:yyyy-MM-dd HH:mm}
 Comments: {approval.Comments}
@@ -338,14 +346,16 @@ Comments: {approval.Comments}
                 ApprovedByName = approval.ApprovedByName,
                 ApprovedAtUtc = approval.ApprovedAtUtc,
                 Comments = approval.Comments,
+
+                // Kept grouped for your current QA view.
                 Categories = approval.Samples
                     .GroupBy(x => x.Category)
                     .OrderBy(g => g.Key)
                     .Select(g => new NoticeQaCategoryVm
                     {
                         Category = g.Key,
-                        TotalNotices = g.First().CategoryTotal,
-                        SampleSize = g.First().CategorySampleSize,
+                        TotalNotices = approval.TotalPrintedNotices,
+                        SampleSize = g.Count(),
                         Samples = g.OrderBy(x => x.SampleNo)
                             .Select(x => new NoticeQaSampleVm
                             {
@@ -362,30 +372,30 @@ Comments: {approval.Comments}
             };
         }
 
-        private static string ResolveCategory(ExtractRow r)
+        private static string ResolvePdfPath(
+            string printFolder,
+            string valuationKey,
+            int extractRowId,
+            string? propertyDescription)
         {
-            var category =
-                r.PropertyCategory ??
-                r.PropertyType ??
-                r.CatDesc ??
-                r.Category ??
-                "Other";
+            var sanitizedValKey = Sanitize(valuationKey);
+            var sanitizedDesc = Sanitize(propertyDescription);
 
-            return category.Trim();
-        }
+            var exactNewName = Path.Combine(
+                printFolder,
+                $"{sanitizedValKey}_{extractRowId}_{sanitizedDesc}.pdf");
 
-        private static string ResolvePropertyDescription(ExtractRow r)
-        {
-            var desc =
-                r.PropertyDesc ??
-                r.StPropertyDescription ??
-                r.PropertyDescription_ ??
-                r.PropertyDescription ??
-                r.ValuationKey;
+            if (File.Exists(exactNewName))
+                return exactNewName;
 
-            return string.IsNullOrWhiteSpace(desc)
-                ? r.ValuationKey
-                : desc.Trim();
+            var matchingByValKey = Directory.Exists(printFolder)
+                ? Directory.GetFiles(printFolder, $"{sanitizedValKey}_*.pdf").FirstOrDefault()
+                : null;
+
+            if (!string.IsNullOrWhiteSpace(matchingByValKey))
+                return matchingByValKey;
+
+            return Path.Combine(printFolder, $"{sanitizedDesc}.pdf");
         }
 
         private static string Sanitize(string? s)
@@ -405,6 +415,7 @@ Comments: {approval.Comments}
 
         private sealed class QaCandidate
         {
+            public int ExtractRowId { get; set; }
             public string ValuationKey { get; set; } = "";
             public string Category { get; set; } = "";
             public string PropertyDescription { get; set; } = "";

@@ -3,148 +3,165 @@
     ViewData["Title"] = "Send Notices – Step 1";
     var s = Model.Summary;
 }
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Send Notices – Step 1</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-  <link href="~/css/DataTeam/SendNotice.css" rel="stylesheet"/>
-    <link href="~/css/noticesent/noticesentcss.css" rel="stylesheet" />
-</head>
-<body>
+
+<link href="~/css/DataTeam/SendNotice.css" rel="stylesheet" />
+<link href="~/css/noticesent/noticesentcss.css" rel="stylesheet" />
+
 <div class="sn-wrapper">
 
-  <!-- PAGE HEADER -->
-  <header class="sn-header">
-    <div>
-      <div class="sn-eyebrow">Valuation Verification System · Data Team</div>
-      <h1 class="sn-title">Send Notices <span>— Step 1</span></h1>
-      <p class="sn-subtitle">Select a week window to view the batch summary and proceed to cleaning.</p>
-    </div>
-    <a href="/" class="btn-outline">← Dashboard</a>
-  </header>
+    <header class="sn-header">
+        <div>
+            <div class="sn-eyebrow">Valuation Verification System · Data Team</div>
+            <h1 class="sn-title">Send Notices <span>— Step 1</span></h1>
+            <p class="sn-subtitle">
+                Select a verified week window, review the batch summary, then proceed to clean-data validation.
+            </p>
+        </div>
+        <a href="/" class="btn-outline">← Dashboard</a>
+    </header>
 
-  <!-- STEP INDICATOR -->
-  <div class="step-bar">
-    <div class="step active"><span class="step-num">1</span><span class="step-label">Select Week</span></div>
-    <div class="step-line"></div>
-    <div class="step"><span class="step-num">2</span><span class="step-label">Clean Data</span></div>
-    <div class="step-line"></div>
-    <div class="step"><span class="step-num">3</span><span class="step-label">Print Notices</span></div>
-    <div class="step-line"></div>
-    <div class="step"><span class="step-num">4</span><span class="step-label">Confirm &amp; Send</span></div>
-  </div>
+    <div class="step-bar">
+        <div class="step active">
+            <span class="step-num">1</span>
+            <span class="step-label">Select Week</span>
+        </div>
+        <div class="step-line"></div>
 
-  <div class="sn-content">
+        <div class="step">
+            <span class="step-num">2</span>
+            <span class="step-label">Validate Clean Data</span>
+        </div>
+        <div class="step-line"></div>
 
-    <!-- WEEK SELECTOR CARD -->
-    <div class="card">
-      <div class="card-header">
-        <span class="card-icon">📅</span>
-        <span>Select Extraction Week</span>
-      </div>
-      <div class="card-body">
-        <form method="post" action="/DataTeam/SendNotice/SelectWeek" id="weekForm">
-          @Html.AntiForgeryToken()
-          <div class="field-row">
-            <label class="field-label" for="weekWindowId">Week Window</label>
-            <select id="weekWindowId" name="weekWindowId" class="field-select"
-                    onchange="document.getElementById('weekForm').submit()">
-          
-                                    <option value="">— Select a week —</option>
-                                    @foreach (var w in Model.Weeks)
-                                    {
-                                        <option value="@w.Id" selected="@(Model.SelectedWeekWindowId == w.Id)">
-                                            @w.Label
-                                        </option>
-                                    }
-              
-            </select>
-          </div>
-        </form>
-      </div>
+        <div class="step">
+            <span class="step-num">3</span>
+            <span class="step-label">Print Notices</span>
+        </div>
+        <div class="step-line"></div>
+
+        <div class="step">
+            <span class="step-num">4</span>
+            <span class="step-label">Confirm &amp; Send</span>
+        </div>
     </div>
 
-    <!-- BATCH SUMMARY (only shown after week selected) -->
-    @if (s != null)
-    {
-      <div class="card">
-        <div class="card-header">
-          <span class="card-icon">📊</span>
-          <span>Batch Summary — @s.BatchName</span>
-          @if (s.AllVerified)
-          { <span class="badge badge-green">✓ All Verified</span> }
-          else
-          { <span class="badge badge-amber">⚠ @s.Pending Pending</span> }
+    <div class="sn-content">
+
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">📅</span>
+                <span>Select Extraction Week</span>
+            </div>
+
+            <div class="card-body">
+                <form method="post" action="/DataTeam/SendNotice/SelectWeek" id="weekForm">
+                    @Html.AntiForgeryToken()
+
+                    <div class="field-row">
+                        <label class="field-label" for="weekWindowId">Week Window</label>
+
+                        <select id="weekWindowId"
+                                name="weekWindowId"
+                                class="field-select"
+                                onchange="document.getElementById('weekForm').submit()">
+                            <option value="">— Select a week —</option>
+
+                            @foreach (var w in Model.Weeks)
+                            {
+                                <option value="@w.Id" selected="@(Model.SelectedWeekWindowId == w.Id)">
+                                    @w.Label
+                                </option>
+                            }
+                        </select>
+                    </div>
+                </form>
+            </div>
         </div>
-        <div class="card-body">
 
-          <!-- Stats grid -->
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-label">Batch Name</div>
-              <div class="stat-value">@s.BatchName</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Extraction Date</div>
-              <div class="stat-value">@s.ExtractionDate.ToString("dd MMM yyyy")</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Total Properties</div>
-              <div class="stat-value">@s.Total.ToString("N0")</div>
-            </div>
-            <div class="stat-card stat-green">
-              <div class="stat-label">Verified</div>
-              <div class="stat-value">@s.Verified.ToString("N0")</div>
-            </div>
-            <div class="stat-card @(s.Pending > 0 ? "stat-amber" : "stat-green")">
-              <div class="stat-label">Not Verified</div>
-              <div class="stat-value">@s.Pending.ToString("N0")</div>
-            </div>
-          </div>
+        @if (s != null)
+        {
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">📊</span>
+                    <span>Batch Summary — @s.BatchName</span>
 
-          <!-- Date table -->
-          <table class="date-table">
-            <thead>
-              <tr>
-                <th>Letter Date (Notice Send Date)</th>
-                <th>Review Open Date</th>
-                <th>Review Close Date (60 days)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>@s.NoticeSendDate.ToString("dd MMMM yyyy").ToUpperInvariant()</strong></td>
-                <td><strong>@s.ReviewOpenDate.ToString("dd MMMM yyyy").ToUpperInvariant()</strong></td>
-                <td><strong>@s.ReviewCloseDate.ToString("dd MMMM yyyy").ToUpperInvariant()</strong></td>
-              </tr>
-            </tbody>
-          </table>
+                    @if (s.AllVerified)
+                    {
+                        <span class="badge badge-green">✓ All Verified</span>
+                    }
+                    else
+                    {
+                        <span class="badge badge-amber">⚠ @s.Pending Pending</span>
+                    }
+                </div>
 
-          @if (!s.AllVerified)
-          {
-            <div class="warning-box">
-              <strong>⚠ Warning:</strong> This batch has <strong>@s.Pending</strong> unverified
-              records. You can still proceed to clean, but notices should only be sent once all
-              records are verified.
+                <div class="card-body">
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Batch Name</div>
+                            <div class="stat-value">@s.BatchName</div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-label">Extraction Date</div>
+                            <div class="stat-value">@s.ExtractionDate.ToString("dd MMM yyyy")</div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-label">Total Properties</div>
+                            <div class="stat-value">@s.Total.ToString("N0")</div>
+                        </div>
+
+                        <div class="stat-card stat-green">
+                            <div class="stat-label">Verified</div>
+                            <div class="stat-value">@s.Verified.ToString("N0")</div>
+                        </div>
+
+                        <div class="stat-card @(s.Pending > 0 ? "stat-amber" : "stat-green")">
+                            <div class="stat-label">Pending</div>
+                            <div class="stat-value">@s.Pending.ToString("N0")</div>
+                        </div>
+                    </div>
+
+                    <table class="date-table">
+                        <thead>
+                            <tr>
+                                <th>Letter Date</th>
+                                <th>Review Open Date</th>
+                                <th>Review Close Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>@s.NoticeSendDate.ToString("dd MMMM yyyy").ToUpperInvariant()</strong></td>
+                                <td><strong>@s.ReviewOpenDate.ToString("dd MMMM yyyy").ToUpperInvariant()</strong></td>
+                                <td><strong>@s.ReviewCloseDate.ToString("dd MMMM yyyy").ToUpperInvariant()</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    @if (!s.AllVerified)
+                    {
+                        <div class="warning-box">
+                            <strong>⚠ Action required:</strong>
+                            This batch still has <strong>@s.Pending</strong> pending records.
+                            Step 2 will show the validation checks, but insertion into the week table will be blocked until pending is 0.
+                        </div>
+                    }
+
+                    <form method="post" action="/DataTeam/SendNotice/ProceedToClean" style="margin-top:1.5rem;">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="batchId" value="@s.BatchId" />
+
+                        <button type="submit" class="btn-gold">
+                            Proceed to Validate Clean Data →
+                        </button>
+                    </form>
+
+                </div>
             </div>
-          }
+        }
 
-          <!-- Proceed button -->
-          <form method="post" action="/DataTeam/SendNotice/ProceedToClean" style="margin-top:1.5rem;">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="batchId" value="@s.BatchId"/>
-            <button type="submit" class="btn-gold">
-              Proceed to Data Cleaning →
-            </button>
-          </form>
-        </div>
-      </div>
-    }
-
-  </div>
+    </div>
 </div>
-</body>
-</html>

@@ -1,488 +1,402 @@
 ﻿@model Valuer_Verification_System.Models.ViewModels.SendNoticeStep2Vm
 @{
-    ViewData["Title"] = "Send Notices – Step 2: Clean Data";
-    var steps = new[]
-    {
-        new { Key = "UnitType",           Label = "Set Unit Types (00 / ST / FL / SL)" },
-        new { Key = "PremiseId",          Label = "Build Premise IDs" },
-        new { Key = "ErfPtnRe",           Label = "Extract ERF / PTN / RE from Premise ID" },
-        new { Key = "SchemeInfo",         Label = "Update Scheme Name, Year & Number (from LIS)" },
-        new { Key = "PropertyDescription",Label = "Build Property Descriptions" },
-        new { Key = "SapAddresses",       Label = "Load Addresses from SAP" },
-        new { Key = "LisStreetAddress",   Label = "Fill LIS Street Addresses" },
-        new { Key = "UsableFlags",        Label = "Set USABLE Flags (address keywords)" },
-        new { Key = "CojOwned",           Label = "Flag COJ-Owned Properties" },
-        new { Key = "FallbackAddresses",  Label = "Build Fallback Addresses (FH / ST)" },
-        new { Key = "FinalMappings",      Label = "Final Field Mappings & Decimals" },
-        new { Key = "Trim",               Label = "Trim All Fields" }
-    };
+    ViewData["Title"] = "Send Notices – Step 2: Validate Clean Data";
+
+    string PassFail(bool ok) => ok ? "check-pass" : "check-fail";
+    string PassFailText(bool ok) => ok ? "PASS" : "FAIL";
 }
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Send Notices – Step 2</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-    <link href="~/css/DataTeam/SendNotice.css" rel="stylesheet" />
-    <link href="~/css/noticesent/noticesentstep2css.css" rel="stylesheet" />
-    <link href="~/css/noticesent/noticesentcss.css" rel="stylesheet" />
-</head>
-<body>
-    <div class="sn-wrapper">
 
-        <!-- PAGE HEADER -->
-        <header class="sn-header">
-            <div>
-                <div class="sn-eyebrow">Valuation Verification System · Data Team</div>
-                <h1 class="sn-title">Send Notices <span>— Step 2</span></h1>
-                <p class="sn-subtitle">Clean ExtractRow data, then export to the Week Table on the 118 server (SECTION_78_NOTICE).</p>
-            </div>
-            <a href="/DataTeam/SendNotice" class="btn-outline">← Back to Step 1</a>
-        </header>
+<link href="~/css/DataTeam/SendNotice.css" rel="stylesheet" />
+<link href="~/css/noticesent/noticesentstep2css.css" rel="stylesheet" />
+<link href="~/css/noticesent/noticesentcss.css" rel="stylesheet" />
 
-        <!-- STEP INDICATOR -->
-        <div class="step-bar">
-            <div class="step done"><span class="step-num">✓</span><span class="step-label">Select Week</span></div>
-            <div class="step-line done"></div>
-            <div class="step active"><span class="step-num">2</span><span class="step-label">Clean Data</span></div>
-            <div class="step-line"></div>
-            <div class="step"><span class="step-num">3</span><span class="step-label">Print Notices</span></div>
-            <div class="step-line"></div>
-            <div class="step"><span class="step-num">4</span><span class="step-label">Confirm &amp; Send</span></div>
+<div class="sn-wrapper">
+
+    <header class="sn-header">
+        <div>
+            <div class="sn-eyebrow">Valuation Verification System · Data Team</div>
+            <h1 class="sn-title">Send Notices <span>— Step 2</span></h1>
+            <p class="sn-subtitle">
+                Validate the cleaned and verified extract before inserting into the Week Table.
+            </p>
         </div>
 
-        <div class="sn-content">
+        <a href="/DataTeam/SendNotice" class="btn-outline">← Back to Step 1</a>
+    </header>
 
-            <!-- CONFIG CARD -->
-            <div class="card" id="configCard">
-                <div class="card-header">
-                    <span class="card-icon">⚙️</span>
-                    <span>Cleaning Configuration — Batch @Model.BatchId</span>
-                </div>
-                <div class="card-body">
+    <div class="step-bar">
+        <div class="step done">
+            <span class="step-num">✓</span>
+            <span class="step-label">Select Week</span>
+        </div>
+        <div class="step-line done"></div>
 
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <span class="info-label">Extraction Date</span>
-                            <span class="info-value">@Model.ExtractionDate.ToString("dd MMM yyyy")</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Letter Date (Notice Send)</span>
-                            <span class="info-value">@Model.NoticeSendDate.ToString("dd MMMM yyyy").ToUpperInvariant()</span>
-                        </div>
-                        <div class="info-item span-2">
-                            <span class="info-label">Target Week Table (118 server · SECTION_78_NOTICE)</span>
-                            <span class="info-value table-name">@Model.WeekTableName</span>
-                        </div>
-                    </div>
+        <div class="step active">
+            <span class="step-num">2</span>
+            <span class="step-label">Validate Clean Data</span>
+        </div>
+        <div class="step-line"></div>
 
-                    <div class="field-row" style="margin-top:1.2rem;">
-                        <label class="field-label" for="lisMasterTable">LIS Master Table</label>
-                        <div class="select-wrapper" id="lisWrapper">
-                            <select id="lisMasterTable" class="field-input field-select">
-                                <option value="">⏳ Loading LIS tables…</option>
-                            </select>
-                            <span class="select-badge select-badge--lis">LIS</span>
-                        </div>
-                        <span class="field-hint">Tables matching <code>%LIS%</code> in Valuer_Verification_DB · 118 server</span>
-                    </div>
+        <div class="step">
+            <span class="step-num">3</span>
+            <span class="step-label">Print Notices</span>
+        </div>
+        <div class="step-line"></div>
 
-                    <div class="field-row">
-                        <label class="field-label" for="sapTable">SAP Statements Table</label>
-                        <div class="select-wrapper" id="sapWrapper">
-                            <select id="sapTable" class="field-input field-select">
-                                <option value="">⏳ Loading SAP tables…</option>
-                            </select>
-                            <span class="select-badge select-badge--sap">SAP</span>
-                        </div>
-                        <span class="field-hint">Tables matching <code>%SAP%</code> in Valuer_Verification_DB · 118 server</span>
-                    </div>
+        <div class="step">
+            <span class="step-num">4</span>
+            <span class="step-label">Confirm &amp; Send</span>
+        </div>
+    </div>
 
-                    <button id="btnStartCleaning" class="btn-gold" onclick="startCleaning()">
-                        ▶ Start Data Cleaning
-                    </button>
-                </div>
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">@TempData["Success"]</div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">@TempData["Error"]</div>
+    }
+
+    <div class="sn-content">
+
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">✅</span>
+                <span>Clean Data Validation — Batch @Model.BatchId</span>
             </div>
 
-            <!-- PROGRESS CARD (hidden until cleaning starts) -->
-            <div class="card" id="progressCard" style="display:none;">
-                <div class="card-header">
-                    <span class="card-icon" id="progressIcon">🔄</span>
-                    <span id="progressTitle">Cleaning in Progress...</span>
-                    <span class="badge badge-amber" id="progressBadge">Running</span>
-                </div>
-                <div class="card-body">
+            <div class="card-body">
 
-                    <!-- Overall progress bar -->
-                    <div class="progress-bar-outer">
-                        <div class="progress-bar-inner" id="overallBar" style="width:0%"></div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Batch</span>
+                        <span class="info-value">@Model.BatchName</span>
                     </div>
-                    <div class="progress-label" id="progressLabel">Preparing...</div>
 
-                    <!-- Step list -->
-                    <div class="step-list" id="stepList">
-                        @foreach (var step in steps)
+                    <div class="info-item">
+                        <span class="info-label">Extraction Date</span>
+                        <span class="info-value">@Model.ExtractionDate.ToString("dd MMM yyyy")</span>
+                    </div>
+
+                    <div class="info-item">
+                        <span class="info-label">Letter Date</span>
+                        <span class="info-value">@Model.NoticeSendDate.ToString("dd MMM yyyy").ToUpperInvariant()</span>
+                    </div>
+
+                    <div class="info-item span-2">
+                        <span class="info-label">Target Week Table</span>
+                        <span class="info-value table-name">@Model.WeekTableName</span>
+                    </div>
+                </div>
+
+                <hr />
+
+                <h4 class="section-title">Verification Summary</h4>
+
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <div class="summary-label">Total Rows</div>
+                        <div class="summary-value">@Model.TotalRows</div>
+                    </div>
+
+                    <div class="summary-card warning">
+                        <div class="summary-label">Pending</div>
+                        <div class="summary-value">@Model.Pending</div>
+                    </div>
+
+                    <div class="summary-card success">
+                        <div class="summary-label">Yes</div>
+                        <div class="summary-value">@Model.Yes</div>
+                    </div>
+
+                    <div class="summary-card danger">
+                        <div class="summary-label">No</div>
+                        <div class="summary-value">@Model.No</div>
+                    </div>
+
+                    <div class="summary-card">
+                        <div class="summary-label">Send Notice = Y</div>
+                        <div class="summary-value">@Model.SendNoticeYes</div>
+                    </div>
+                </div>
+
+                <h4 class="section-title mt-4">Clean Data Checks</h4>
+
+                <div class="check-list">
+
+                    <div class="check-row @PassFail(Model.TotalRows > 0)">
+                        <div>
+                            <strong>Rows loaded</strong>
+                            <div class="check-hint">Batch must contain uploaded extract rows.</div>
+                        </div>
+                        <span>@PassFailText(Model.TotalRows > 0)</span>
+                    </div>
+
+                    <div class="check-row @PassFail(Model.Pending == 0)">
+                        <div>
+                            <strong>All valuers completed verification</strong>
+                            <div class="check-hint">Pending records must be 0 before notices can continue.</div>
+                        </div>
+                        <span>@Model.Pending pending</span>
+                    </div>
+
+                    <div class="check-row @PassFail(Model.MissingSector == 0)">
+                        <div>
+                            <strong>Sector populated</strong>
+                            <div class="check-hint">All records must have Sector after cleaning.</div>
+                        </div>
+                        <span>@Model.MissingSector missing</span>
+                    </div>
+
+                    <div class="check-row @PassFail(Model.MissingPremiseId == 0)">
+                        <div>
+                            <strong>Premise ID populated</strong>
+                            <div class="check-hint">PremiseId is required for notice generation.</div>
+                        </div>
+                        <span>@Model.MissingPremiseId missing</span>
+                    </div>
+
+                    <div class="check-row @PassFail(Model.MissingUsername == 0)">
+                        <div>
+                            <strong>Valuer username resolved</strong>
+                            <div class="check-hint">Valuer must be linked to UserManagement where applicable.</div>
+                        </div>
+                        <span>@Model.MissingUsername missing</span>
+                    </div>
+
+                    <div class="check-row @PassFail(Model.WeekTableExists)">
+                        <div>
+                            <strong>Week table exists</strong>
+                            <div class="check-hint">If missing, the insert step will create/prep it before printing.</div>
+                        </div>
+                        <span>@(Model.WeekTableExists ? "Exists" : "Not found yet")</span>
+                    </div>
+
+                </div>
+
+                @if (Model.ExtractCleanedAtUtc != null || !string.IsNullOrWhiteSpace(Model.ExtractCleaningStatus))
+                {
+                    <div class="clean-note">
+                        <strong>Cleaning Status:</strong> @Model.ExtractCleaningStatus
+                        @if (Model.ExtractCleanedAtUtc != null)
                         {
-                            <div class="step-item" id="step-@step.Key" data-step="@step.Key">
-                                <span class="step-status" id="status-@step.Key">⬜</span>
-                                <span class="step-text">@step.Label</span>
-                                <span class="step-rows" id="rows-@step.Key"></span>
-                            </div>
+                            <span> · @Model.ExtractCleanedAtUtc.Value.ToString("yyyy-MM-dd HH:mm") UTC</span>
                         }
-                        <!-- Create Week Table (final step) -->
-                        <div class="step-item" id="step-CreateWeekTable" data-step="CreateWeekTable">
-                            <span class="step-status" id="status-CreateWeekTable">⬜</span>
-                            <span class="step-text">
-                                Create Week Table: <strong id="weekTableLabel">@Model.WeekTableName</strong>
-                                <span class="server-badge">118 server</span>
-                            </span>
-                            <span class="step-rows" id="rows-CreateWeekTable"></span>
-                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(Model.ExtractCleaningMessage))
+                        {
+                            <div>@Model.ExtractCleaningMessage</div>
+                        }
                     </div>
+                }
 
-                    <!-- Error display -->
-                    <div class="error-box" id="errorBox" style="display:none;"></div>
-
-                    <!-- Done panel -->
-                    <div id="donePanel" style="display:none;">
-                        <div class="success-box">
-                            ✅ Data cleaning complete. Table <strong id="doneTableName">@Model.WeekTableName</strong>
-                            has been created on the 118 server (SECTION_78_NOTICE).
-                        </div>
-                        <div style="margin-top:1.2rem; display:flex; gap:1rem;">
-                            <button onclick="location.reload()" class="btn-outline">
-                                Run Again
-                            </button>
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-
-        </div>
-
-        <!-- ── PERSISTENT PRINT BUTTON ──────────────────────────────────────────── -->
-        <div class="sn-footer-bar" id="printFooter">
-            <div class="sn-footer-left">
-                <span id="printTableStatus" class="footer-table-status"></span>
-            </div>
-            <div class="sn-footer-right">
-                <a id="btnPrintNotices"
-                   href="#"
-                   class="btn-gold btn-print-notices"
-                   aria-disabled="true"
-                   onclick="return handlePrintClick(event)">
-                    🖨 Proceed to Print Notices →
-                </a>
             </div>
         </div>
 
-    </div><!-- /sn-footer-bar -->
-    </div><!-- /sn-wrapper -->
+    </div>
 
-    <style>
-        /* ── Sticky print footer ──────────────────────────────────────────────── */
+    <div class="sn-footer-bar">
+        <div class="sn-footer-left">
+            @if (Model.ReadyToInsert)
+            {
+                <span class="footer-table-status exists">
+                    ✅ Batch is ready. Proceed to insert verified rows into @Model.WeekTableName.
+                </span>
+            }
+            else
+            {
+                <span class="footer-table-status missing">
+                    ⚠ Batch is not ready. Fix failed checks before continuing.
+                </span>
+            }
+        </div>
+
+        <div class="sn-footer-right">
+            <a class="btn-outline" href="/DataTeam/SendNotice/Step2/@Model.BatchId">
+                Refresh Status
+            </a>
+
+            <form method="post" action="/DataTeam/SendNotice/InsertWeekTable" style="display:inline;">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="batchId" value="@Model.BatchId" />
+
+                <button class="btn-gold btn-print-notices"
+                        type="submit"
+                    @(Model.ReadyToInsert ? "" : "disabled")>
+                    Proceed to Insert Week Table →
+                </button>
+            </form>
+        </div>
+    </div>
+
+</div>
+
+<style>
+    .sn-wrapper {
+        padding-bottom: 5rem;
+    }
+
+    .section-title {
+        font-size: .95rem;
+        font-weight: 800;
+        color: #1c1c1c;
+        margin-bottom: 1rem;
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(120px, 1fr));
+        gap: 1rem;
+    }
+
+    .summary-card {
+        background: #fafafa;
+        border: 1px solid #e8e0cc;
+        border-radius: 12px;
+        padding: 1rem;
+    }
+
+        .summary-card.success {
+            background: #e8f8ef;
+            border-color: #b2dfcc;
+        }
+
+        .summary-card.warning {
+            background: #fff8e0;
+            border-color: #f0d078;
+        }
+
+        .summary-card.danger {
+            background: #fdeaea;
+            border-color: #f0b3b6;
+        }
+
+    .summary-label {
+        font-size: .7rem;
+        color: #777;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+    }
+
+    .summary-value {
+        font-size: 1.6rem;
+        font-weight: 900;
+        color: #111;
+    }
+
+    .check-list {
+        border: 1px solid #e8e0cc;
+        border-radius: 14px;
+        overflow: hidden;
+        background: #fff;
+    }
+
+    .check-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem 1.2rem;
+        border-bottom: 1px solid #eee6d8;
+        align-items: center;
+    }
+
+        .check-row:last-child {
+            border-bottom: none;
+        }
+
+        .check-row span {
+            font-weight: 900;
+            font-size: .8rem;
+            border-radius: 999px;
+            padding: .35rem .7rem;
+            white-space: nowrap;
+        }
+
+    .check-pass span {
+        background: #e8f8ef;
+        color: #1a8a4a;
+        border: 1px solid #b2dfcc;
+    }
+
+    .check-fail span {
+        background: #fdeaea;
+        color: #c0272d;
+        border: 1px solid #f0b3b6;
+    }
+
+    .check-hint {
+        font-size: .78rem;
+        color: #777;
+        margin-top: .2rem;
+    }
+
+    .clean-note {
+        margin-top: 1.2rem;
+        background: #f8f8f8;
+        border-left: 4px solid #e6b000;
+        padding: .9rem 1rem;
+        border-radius: 10px;
+        font-size: .82rem;
+        color: #555;
+    }
+
+    .sn-footer-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #fff;
+        border-top: 2px solid #e8e0cc;
+        padding: .85rem 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 -4px 18px rgba(0,0,0,.08);
+        z-index: 100;
+    }
+
+    .sn-footer-right {
+        display: flex;
+        gap: .8rem;
+        align-items: center;
+    }
+
+    .footer-table-status {
+        font-size: .82rem;
+        font-weight: 700;
+    }
+
+        .footer-table-status.exists {
+            color: #1a8a4a;
+        }
+
+        .footer-table-status.missing {
+            color: #a05a00;
+        }
+
+    .btn-print-notices:disabled {
+        background: #e8e0cc !important;
+        color: #aaa !important;
+        cursor: not-allowed;
+        box-shadow: none;
+    }
+
+    @@media(max-width: 900px) {
+        .summary-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
         .sn-footer-bar {
-          position: fixed;
-          bottom: 0; left: 0; right: 0;
-          background: #fff;
-          border-top: 2px solid #e8e0cc;
-          padding: .85rem 2rem;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          box-shadow: 0 -4px 18px rgba(0,0,0,.08);
-          z-index: 100;
-        }
-        .footer-table-status {
-          font-size: .82rem;
-          color: #666;
-        }
-        .footer-table-status.exists   { color: #1a8a4a; font-weight: 600; }
-        .footer-table-status.missing  { color: #a05a00; }
-
-        .btn-print-notices {
-          display: inline-flex;
-          align-items: center;
-          gap: .4rem;
-          padding: .75rem 1.8rem;
-          border-radius: 10px;
-          font-weight: 700;
-          font-size: .95rem;
-          text-decoration: none;
-          transition: .2s;
-        }
-        .btn-print-notices[aria-disabled="false"] {
-          background: linear-gradient(135deg, #c99b00, #e6b000);
-          color: #111;
-          box-shadow: 0 3px 12px rgba(230,176,0,.4);
-          cursor: pointer;
-        }
-        .btn-print-notices[aria-disabled="false"]:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 5px 18px rgba(230,176,0,.55);
-        }
-        .btn-print-notices[aria-disabled="true"] {
-          background: #e8e0cc;
-          color: #aaa;
-          cursor: not-allowed;
-          box-shadow: none;
-        }
-        /* Push page content above fixed footer */
-        .sn-wrapper { padding-bottom: 5rem; }
-
-        /* ── LIS / SAP dropdown ─────────────────────────────────────────────── */
-        .select-wrapper {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-        .field-select {
-          appearance: auto;
-          -webkit-appearance: auto;
-          padding-right: 4rem;   /* room for badge */
-          cursor: pointer;
-          background: #fff;
-        }
-        .field-select:focus {
-          border-color: #e6b000;
-          box-shadow: 0 0 0 3px rgba(230,176,0,.2);
-          outline: none;
-        }
-        .field-select option:disabled { color: #aaa; }
-        .select-badge {
-          position: absolute;
-          right: .6rem;
-          font-size: .6rem;
-          font-weight: 800;
-          letter-spacing: .06em;
-          padding: .15rem .45rem;
-          border-radius: 10px;
-          pointer-events: none;
-        }
-        .select-badge--lis { background: #e6f0ff; color: #1a5fa8; border: 1px solid #90b8e8; }
-        .select-badge--sap { background: #fff0e0; color: #a85a00; border: 1px solid #e8b870; }
-    </style>
-
-    <script>
-        const EXTRACTION_DATE = "@Model.ExtractionDate.ToString("yyyy-MM-dd")";
-        const BATCH_ID        = @Model.BatchId;
-        const WEEK_TABLE      = "@Model.WeekTableName";
-
-        const STEPS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-                    steps.Select(s => s.Key).ToArray()
-                ));
-
-        // ── Check table existence and update button state ──────────────────────
-        async function checkTableExists() {
-          const statusEl = document.getElementById('printTableStatus');
-          const btnEl    = document.getElementById('btnPrintNotices');
-
-          statusEl.textContent = '⏳ Checking for week table…';
-          statusEl.className   = 'footer-table-status';
-
-          try {
-            const res  = await fetch(`/DataTeam/SendNotice/WeekTableExists?weekTableName=${encodeURIComponent(WEEK_TABLE)}`);
-            const data = await res.json();
-
-            if (data.exists) {
-              enablePrintButton();
-            } else {
-              disablePrintButton();
-            }
-          } catch {
-            disablePrintButton('⚠ Could not check table status');
-          }
+            flex-direction: column;
+            gap: .8rem;
+            align-items: stretch;
         }
 
-        function enablePrintButton() {
-          const statusEl = document.getElementById('printTableStatus');
-          const btnEl    = document.getElementById('btnPrintNotices');
-
-          statusEl.textContent = `✅ Table ${WEEK_TABLE} is ready`;
-          statusEl.className   = 'footer-table-status exists';
-          btnEl.setAttribute('aria-disabled', 'false');
-          btnEl.href = `/DataTeam/SendNotice/Step3/${BATCH_ID}`;
+        .sn-footer-right {
+            justify-content: flex-end;
         }
-
-        function disablePrintButton(msg) {
-          const statusEl = document.getElementById('printTableStatus');
-          const btnEl    = document.getElementById('btnPrintNotices');
-
-          statusEl.textContent = msg || `⚠ Run cleaning first — table ${WEEK_TABLE} not found`;
-          statusEl.className   = 'footer-table-status missing';
-          btnEl.setAttribute('aria-disabled', 'true');
-          btnEl.href = '#';
-        }
-
-        function handlePrintClick(e) {
-          const btn = document.getElementById('btnPrintNotices');
-          if (btn.getAttribute('aria-disabled') === 'true') {
-            e.preventDefault();
-            return false;
-          }
-          return true;
-        }
-
-        async function startCleaning() {
-          const lis = document.getElementById('lisMasterTable').value.trim();
-          const sap = document.getElementById('sapTable').value.trim();
-
-          if (!lis || !sap) {
-            alert('Please fill in both table names before cleaning.');
-            return;
-          }
-
-          document.getElementById('configCard').style.opacity = '0.4';
-          document.getElementById('btnStartCleaning').disabled = true;
-          document.getElementById('progressCard').style.display = '';
-          document.getElementById('weekTableLabel').textContent = WEEK_TABLE;
-          document.getElementById('doneTableName').textContent  = WEEK_TABLE;
-
-          const total = STEPS.length + 1; // +1 for CreateWeekTable
-          let   done  = 0;
-          let   hadError = false;
-
-          function updateBar(n) {
-            const pct = Math.round(n / total * 100);
-            document.getElementById('overallBar').style.width = pct + '%';
-          }
-
-          function setStatus(key, icon, rowsText) {
-            document.getElementById('status-' + key).textContent = icon;
-            if (rowsText !== undefined)
-              document.getElementById('rows-' + key).textContent = rowsText;
-          }
-
-          // ── Run each cleaning step ─────────────────────────────────────────────
-          for (const step of STEPS) {
-            document.getElementById('progressLabel').textContent = 'Running: ' + step + '...';
-            document.getElementById('step-' + step)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            setStatus(step, '🔄');
-
-            const res = await fetchStep('/DataTeam/SendNotice/RunCleanStep', {
-              stepName:       step,
-              extractionDate: EXTRACTION_DATE,
-              lisMasterTable: lis,
-              sapTable:       sap
-            });
-
-            if (res.success) {
-              setStatus(step, '✅', res.rowsAffected + ' rows');
-              done++;
-              updateBar(done);
-            } else {
-              setStatus(step, '❌');
-              showError('Step ' + step + ' failed: ' + res.error);
-              hadError = true;
-              break;
-            }
-          }
-
-          if (hadError) return;
-
-          // ── Create Week Table (final step) ────────────────────────────────────
-          document.getElementById('progressLabel').textContent = 'Creating week table on 118 server (SECTION_78_NOTICE)...';
-          setStatus('CreateWeekTable', '🔄');
-
-          const tableRes = await fetchStep('/DataTeam/SendNotice/CreateWeekTable', {
-            batchId:        BATCH_ID,
-            weekTableName:  WEEK_TABLE,
-            extractionDate: EXTRACTION_DATE
-          });
-
-          if (tableRes.success) {
-            setStatus('CreateWeekTable', '✅', tableRes.rowsAffected + ' rows');
-            done++;
-            updateBar(done);
-
-            document.getElementById('progressIcon').textContent    = '✅';
-            document.getElementById('progressTitle').textContent   = 'Cleaning Complete';
-            document.getElementById('progressBadge').textContent   = 'Done';
-            document.getElementById('progressBadge').className     = 'badge badge-green';
-            document.getElementById('progressLabel').textContent   = 'All steps completed successfully.';
-            document.getElementById('donePanel').style.display     = '';
-
-            // Table now exists — enable the print button immediately
-            enablePrintButton();
-          } else {
-            setStatus('CreateWeekTable', '❌');
-            showError('Create Week Table failed: ' + tableRes.error);
-          }
-        }
-
-        async function fetchStep(url, body) {
-          try {
-            const resp = await fetch(url, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? ''
-              },
-              body: JSON.stringify(body)
-            });
-            return await resp.json();
-          } catch (e) {
-            return { success: false, error: e.message };
-          }
-        }
-
-        function showError(msg) {
-          const box = document.getElementById('errorBox');
-          box.textContent = '❌ ' + msg;
-          box.style.display = '';
-          document.getElementById('progressIcon').textContent  = '❌';
-          document.getElementById('progressTitle').textContent = 'Error — Cleaning Stopped';
-          document.getElementById('progressBadge').textContent = 'Failed';
-          document.getElementById('progressBadge').className   = 'badge badge-red';
-        }
-
-        // ── On page load: check immediately ─────────────────────────────────────
-        // ── Populate LIS / SAP dropdowns ────────────────────────────────────────
-        async function loadTableDropdown(selectId, pattern, preselect) {
-          const sel = document.getElementById(selectId);
-          try {
-            const r = await fetch(`/DataTeam/SendNotice/ListTables?pattern=${encodeURIComponent(pattern)}`);
-            const tables = await r.json();
-
-            sel.innerHTML = '';   // clear loading placeholder
-
-            if (!tables.length) {
-              const o = document.createElement('option');
-              o.value = ''; o.textContent = `⚠ No ${pattern} tables found`; o.disabled = true;
-              sel.appendChild(o);
-              return;
-            }
-
-            // Blank "please select" option
-            const blank = document.createElement('option');
-            blank.value = ''; blank.textContent = `— select ${pattern} table —`; blank.disabled = true;
-            sel.appendChild(blank);
-
-            tables.forEach(name => {
-              const o = document.createElement('option');
-              o.value = name; o.textContent = name;
-              if (preselect && name === preselect) o.selected = true;
-              sel.appendChild(o);
-            });
-
-            // If nothing matched preselect, mark the first real table selected
-            if (!preselect || !tables.includes(preselect)) sel.value = tables[0];
-
-          } catch(e) {
-            sel.innerHTML = `<option value="" disabled>⚠ Could not load tables</option>`;
-            console.error('loadTableDropdown error:', e);
-          }
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-          checkTableExists();
-          loadTableDropdown('lisMasterTable', 'LIS', '@Model.LisMasterTable');
-          loadTableDropdown('sapTable',       'SAP', '@Model.SapTable');
-        });
-    </script>
-
-    @Html.AntiForgeryToken()
-</body>
-</html>
+    }
+</style>

@@ -120,6 +120,7 @@ namespace Valuer_Verification_System.Services.Valuer
             row.Decision = decision;
             row.DecisionAtUtc = DateTime.UtcNow;
             row.DecisionComment = decision == VerificationDecision.No ? comment?.Trim() : null;
+            row.DecisionBy = valuer;
             row.UpdatedAt = DateTime.UtcNow;
             row.UpdatedBy = valuer;
 

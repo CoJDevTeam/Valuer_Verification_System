@@ -73,6 +73,11 @@ namespace Valuer_Verification_System.Data
             modelBuilder.Entity<ExtractRow>()
                 .HasIndex(x => new { x.BatchId, x.Valuer });
 
+            // Who verified what — supports manager audit queries
+            modelBuilder.Entity<ExtractRow>()
+                .HasIndex(x => new { x.BatchId, x.Decision, x.DecisionBy })
+                .HasDatabaseName("IX_ExtractRows_BatchId_Decision_DecisionBy");
+
             modelBuilder.Entity<ExtractRow>()
     .HasIndex(x => new { x.BatchId, x.Username })
     .HasDatabaseName("IX_ExtractRows_BatchId_Username");
@@ -80,6 +85,11 @@ namespace Valuer_Verification_System.Data
             modelBuilder.Entity<ExtractRow>()
                 .HasIndex(x => new { x.SourceFileHashSha256, x.SourceRowNumber })
                 .HasDatabaseName("IX_ExtractRows_SourceFile_RowNumber");
+
+            // DecisionBy — who made the verification decision
+            modelBuilder.Entity<ExtractRow>()
+                .Property(x => x.DecisionBy)
+                .HasMaxLength(128);
 
             modelBuilder.Entity<ExtractRow>()
                 .Property(x => x.MarketValue)
@@ -115,14 +125,6 @@ namespace Valuer_Verification_System.Data
             // ── StatsFile ─────────────────────────────────────────────────────
             modelBuilder.Entity<StatsFile>()
                 .HasIndex(x => new { x.BatchId, x.Kind, x.GeneratedAtUtc });
-
-            // ── Section78StatEntry ───────────────────────────────────────────────
-            modelBuilder.Entity<Section78StatEntry>()
-                .HasIndex(x => new { x.FinancialYear, x.WeekTableName })
-                .HasDatabaseName("IX_Section78Stats_FY_WeekTable");
-
-            modelBuilder.Entity<Section78StatEntry>()
-                .HasIndex(x => new { x.FinancialYear, x.Period });
 
             // ── Notification ──────────────────────────────────────────────────
             modelBuilder.Entity<Notification>()

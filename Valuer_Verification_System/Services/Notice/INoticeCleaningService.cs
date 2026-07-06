@@ -20,9 +20,10 @@ namespace Valuer_Verification_System.Services.Notice
     CancellationToken ct);
         /// <summary>Create the clean week table on the 173 server and populate it.</summary>
         Task<CleaningStepResultVm> CreateWeekTableAsync(
-            string weekTableName,
-            DateOnly extractionDate,
-            CancellationToken ct);
+       int batchId,
+       string weekTableName,
+       DateOnly extractionDate,
+       CancellationToken ct);
 
         /// <summary>All step names in execution order.</summary>
         IReadOnlyList<string> StepNames { get; }

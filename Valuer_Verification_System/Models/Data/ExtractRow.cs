@@ -20,6 +20,9 @@ namespace Valuer_Verification_System.Models.Data
         [MaxLength(2000)]
         public string? DecisionComment { get; set; }
 
+        [MaxLength(128)]
+        public string? DecisionBy { get; set; }
+
         public Assignment? Assignment { get; set; }             // 1:1
 
         // ══════════════════════════════════════════════════════════════════

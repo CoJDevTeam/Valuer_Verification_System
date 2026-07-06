@@ -59,11 +59,11 @@ namespace Valuer_Verification_System.Services.Notice
         // ── Chunk printer ─────────────────────────────────────────────────────
 
         public async Task<PrintChunkResult> PrintChunkAsync(
-            int batchId,
-            string weekTableName,
-            int offset,
-            int chunkSize,
-            CancellationToken ct)
+          int batchId,
+          string weekTableName,
+          int offset,
+          int chunkSize,
+          CancellationToken ct)
         {
             var result = new PrintChunkResult();
 
@@ -80,6 +80,19 @@ namespace Valuer_Verification_System.Services.Notice
                     result.Errors.Add("Batch not found.");
                     return result;
                 }
+
+                if (string.IsNullOrWhiteSpace(weekTableName))
+                {
+                    result.Success = false;
+                    result.Errors.Add("Week table name is required.");
+                    return result;
+                }
+
+                if (chunkSize <= 0)
+                    chunkSize = 50;
+
+                if (offset < 0)
+                    offset = 0;
 
                 var ww = batch.WeekWindow;
 
@@ -100,109 +113,112 @@ namespace Valuer_Verification_System.Services.Notice
                     LogoPath = Path.Combine(_env.WebRootPath, "Images", "City_of_Joburg_logo.png")
                 };
 
-                // All distinct ValuationKeys for this batch (ordered for stable paging)
-                // Notice printing is driven by SendNotice == "Y" only.
-                // Decision is for the Valuation Verification workflow — separate flow.
-                var allKeys = await _db.ExtractRows
+                // ✅ Print every verified row.
+                // Do NOT use Distinct ValuationKey.
+                // Do NOT use SendNotice here.
+                var allRowIds = await _db.ExtractRows
                     .AsNoTracking()
-                    .Where(r => r.BatchId == batchId
-                             && r.SendNotice != null
-                             && r.SendNotice.ToUpper() == "Y")
-                    .Select(r => r.ValuationKey)
-                    .Distinct()
-                    .OrderBy(k => k)
+                    .Where(r =>
+                        r.BatchId == batchId &&
+                        r.Decision == VerificationDecision.Yes)
+                    .OrderBy(r => r.UnitKey)
+                    .ThenBy(r => r.PremiseId)
+                    .ThenBy(r => r.ValuationKey)
+                    .ThenBy(r => r.Id)
+                    .Select(r => r.Id)
                     .ToListAsync(ct);
 
-                result.Total = allKeys.Count;
+                result.Total = allRowIds.Count;
 
-                var chunkKeys = allKeys.Skip(offset).Take(chunkSize).ToList();
-                if (!chunkKeys.Any())
+                var chunkRowIds = allRowIds
+                    .Skip(offset)
+                    .Take(chunkSize)
+                    .ToList();
+
+                if (!chunkRowIds.Any())
                 {
                     result.Success = true;
                     result.Done = true;
                     return result;
                 }
 
-                // Load rows for chunk
                 var rows = await _db.ExtractRows
                     .AsNoTracking()
-                    .Where(r => r.BatchId == batchId
-                             && r.SendNotice != null
-                             && r.SendNotice.ToUpper() == "Y"
-                             && chunkKeys.Contains(r.ValuationKey))
-                    .OrderBy(r => r.ValuationKey).ThenBy(r => r.ValuationSplitNo)
+                    .Where(r => chunkRowIds.Contains(r.Id))
+                    .OrderBy(r => r.UnitKey)
+                    .ThenBy(r => r.PremiseId)
+                    .ThenBy(r => r.ValuationKey)
+                    .ThenBy(r => r.Id)
                     .ToListAsync(ct);
 
-                var groups = rows
-                    .GroupBy(r => r.ValuationKey)
-                    .ToDictionary(g => g.Key, g => g.ToList());
+                var printed = 0;
 
-                int printed = 0;
-
-                foreach (var key in chunkKeys)
+                foreach (var mainRow in rows)
                 {
-                    if (!groups.TryGetValue(key, out var group)) continue;
+                    var key = mainRow.ValuationKey ?? mainRow.Id.ToString();
 
-                    var mainRow = group[0];
-
-                    // ── Safety net: if address is still missing after cleaning,
-                    //    apply the same fallback the SP would have used.
-                    //    This ensures every property prints regardless of data quality.
                     if (string.IsNullOrWhiteSpace(mainRow.Addr1))
                     {
                         mainRow.Addr1 = "TO THE REGISTERED OWNER OF:";
+
                         mainRow.Addr2 = !string.IsNullOrWhiteSpace(mainRow.PropertyDesc)
                             ? mainRow.PropertyDesc
                             : !string.IsNullOrWhiteSpace(mainRow.PropertyDescription)
                                 ? mainRow.PropertyDescription
                                 : key;
+
                         mainRow.Addr3 = !string.IsNullOrWhiteSpace(mainRow.TownNameDesc)
                             ? mainRow.TownNameDesc
                             : "GAUTENG";
+
                         mainRow.Addr4 = "GAUTENG";
                         mainRow.Addr5 = "2000";
                     }
 
-                    bool isMulti = group.Count > 1 ||
-                        group.Any(r =>
-                            string.Equals(r.CatDesc, "Multipurpose", StringComparison.OrdinalIgnoreCase) &&
-                            !string.IsNullOrWhiteSpace(r.ValuationSplitInd));
+                    var splitRows = new List<ExtractRow> { mainRow };
 
-                    var splitRows = isMulti ? group.Take(4).ToList()
-                                            : new List<ExtractRow> { mainRow };
                     try
                     {
                         var pdfBytes = _pdf.GenerateNotice(mainRow, ctx, splitRows);
 
                         var propDesc = !string.IsNullOrWhiteSpace(mainRow.PropertyDesc)
                             ? mainRow.PropertyDesc
-                            : key;
-                        var filePath = Path.Combine(folder, Sanitize(propDesc) + ".pdf");
+                            : !string.IsNullOrWhiteSpace(mainRow.PropertyDescription)
+                                ? mainRow.PropertyDescription
+                                : key;
+
+                        // ✅ Unique file name prevents overwrites
+                        var fileName =
+                            $"{Sanitize(mainRow.ValuationKey ?? "NO_VALKEY")}_{mainRow.Id}_{Sanitize(propDesc)}.pdf";
+
+                        var filePath = Path.Combine(folder, fileName);
 
                         await File.WriteAllBytesAsync(filePath, pdfBytes, ct);
+
                         printed++;
                         result.CurrentProperty = propDesc;
                     }
-                    catch (Exception ex) { result.Errors.Add($"{key}: {ex.Message}"); }
+                    catch (Exception ex)
+                    {
+                        result.Errors.Add($"{key} / RowId {mainRow.Id}: {ex.Message}");
+                    }
                 }
 
                 result.Success = true;
                 result.Printed = printed;
-                // Done when the next chunk would start beyond the total
-                // Use offset + chunkSize (not chunkKeys.Count) — matches JS which
-                // always advances by CHUNK so both sides stay in sync
                 result.Done = (offset + chunkSize) >= result.Total;
 
-                // On the final chunk, mark the batch as printed and awaiting email send
                 if (result.Done)
                 {
                     var batchToUpdate = await _db.Batches
                         .FirstOrDefaultAsync(b => b.Id == batchId, ct);
 
                     if (batchToUpdate != null &&
-                        batchToUpdate.Status != BatchStatus.Sent) // don't downgrade if already sent
+                        batchToUpdate.Status != BatchStatus.Sent)
                     {
                         batchToUpdate.Status = BatchStatus.PrintedEmailPending;
+                        batchToUpdate.UpdatedAt = DateTime.UtcNow;
+
                         await _db.SaveChangesAsync(ct);
                     }
                 }
