@@ -38,9 +38,33 @@ namespace Valuer_Verification_System.Services.Notice
     string sapTable,
     CancellationToken ct);
 
+        /// <summary>
+        /// Phase 1 import: creates the week table with ALL raw rows of the batch
+        /// (sp_VVS_ImportWeekTable) and runs the IMPORT cleaning steps on it
+        /// (sector, valuer, trim). Stores the week table name on the batch.
+        /// </summary>
+        Task<WeekTableImportResult> ImportWeekTableAndCleanAsync(int batchId, string by, string lisTable, string sapTable, CancellationToken ct);
+
+        /// <summary>
+        /// Send day: runs the SEND cleaning steps in place on the week table
+        /// (sp_VVS_WT_RunSteps @Phase = 'SEND'). Stops at the first failed step.
+        /// </summary>
+        Task<CleaningStepResultVm> RunSendDayCleaningAsync(int batchId, string by, string lisTable, string sapTable, CancellationToken ct);
+
+        /// <summary>DEV/TEST: allocates the first N rows of a week table to a developer without touching Username.</summary>
+        Task<int> DevAllocateAsync(string weekTable, string username, int count, CancellationToken ct);
+
         Task<CleaningStepResultVm> InsertVerifiedRowsIntoWeekTableAsync(
     int batchId,
     string weekTableName,
     CancellationToken ct);
+    }
+
+    public sealed class WeekTableImportResult
+    {
+        public bool Success { get; set; }
+        public string? WeekTableName { get; set; }
+        public int RowsCopied { get; set; }
+        public string Message { get; set; } = "";
     }
 }

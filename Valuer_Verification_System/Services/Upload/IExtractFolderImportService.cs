@@ -207,15 +207,28 @@ namespace Valuer_Verification_System.Services.Upload
             var hash = await ComputeSha256Async(sourcePath, ct);
             var fileSize = new FileInfo(sourcePath).Length;
 
-            var sameHashExists = await _db.ExtractFiles
-                .AsNoTracking()
-                .AnyAsync(x =>
+            var existingFile = await _db.ExtractFiles
+                .Include(x => x.Batch)
+                .FirstOrDefaultAsync(x =>
                     x.OriginalFileName == fileName &&
                     x.FileHashSha256 == hash,
                     ct);
 
-            if (sameHashExists)
+            if (existingFile is not null)
+            {
+                // A previous run saved the batch and raw rows but the week table / import
+                // cleaning did not finish. Retry that part instead of skipping forever.
+                var unfinished = existingFile.Batch;
+
+                if (_settings.AutoCleanAfterImport && unfinished.ExtractCleanedAtUtc == null)
+                {
+                    var rawCount = await _db.ExtractRows.CountAsync(r => r.BatchId == unfinished.Id, ct);
+                    var msg = await FinishWeekTableAsync(unfinished, ct);
+                    return $"Imported. Batch {unfinished.BatchName}. Rows {rawCount}. (retry) {msg}";
+                }
+
                 return "Skipped. Same file name and same hash already imported.";
+            }
 
             var sameFileDifferentHash = await _db.ExtractFiles
                 .AsNoTracking()
@@ -296,51 +309,45 @@ namespace Valuer_Verification_System.Services.Upload
             _db.ExtractRows.AddRange(rows);
             await _db.SaveChangesAsync(ct);
 
-            var cleaningMessage = "Auto-clean skipped.";
+            var cleaningMessage = await FinishWeekTableAsync(batch, ct);
+
+            return $"Imported. Batch {batch.BatchName}. Rows {rows.Count}. {cleaningMessage}";
+        }
+
+        // Phase 1: ExtractRows stays as the untouched raw backup.
+        // The WEEK TABLE is the working table: it gets ALL raw rows, plus the import
+        // steps (sector, valuer, trim). Valuers verify in it. Safe to call again for a
+        // batch whose first attempt failed.
+        private async Task<string> FinishWeekTableAsync(Batch batch, CancellationToken ct)
+        {
+            var week = await _db.WeekWindows.FirstAsync(w => w.Id == batch.WeekWindowId, ct);
+            var cleaningMessage = "Week table not created (AutoCleanAfterImport is off).";
             var cleaningDone = false;
 
             if (_settings.AutoCleanAfterImport)
             {
                 var latestTables = await _latestTables.ResolveAsync(ct);
 
-                var cleanResult = await _cleaning.RunFullCleaningOnceAsync(
-                    batch.Id,
-                    weekStart,
-                    latestTables.LisTable,
-                    latestTables.SapTable,
-                    ct);
+                var imp = await _cleaning.ImportWeekTableAndCleanAsync(
+                    batch.Id, "folder-job", latestTables.LisTable, latestTables.SapTable, ct);
 
-                if (!cleanResult.Success)
-                    throw new InvalidOperationException(cleanResult.Error);
+                if (!imp.Success)
+                    throw new InvalidOperationException(imp.Message);
 
                 cleaningDone = true;
+                cleaningMessage = imp.Message;
 
-                cleaningMessage =
-                    $"Auto-clean completed once using {latestTables.LisTable} and {latestTables.SapTable}. " +
-                    $"Rows affected {cleanResult.RowsAffected:N0}.";
-
-                var freshBatch = await _db.Batches
-                    .FirstAsync(x => x.Id == batch.Id, ct);
-
-                freshBatch.ExtractCleaningMessage =
-                    $"{freshBatch.ExtractCleaningMessage} | Cleaning tables used: LIS={latestTables.LisTable}, SAP={latestTables.SapTable}";
-
-                freshBatch.UpdatedBy = "folder-job";
-                freshBatch.UpdatedAt = DateTime.UtcNow;
-
-                await _db.SaveChangesAsync(ct);
+                // DEV/TEST ONLY: give the first N rows to the developer so there is always
+                // something to verify. Username on the rows is NOT changed.
+                if (_settings.DevAllocateEnabled &&
+                    !string.IsNullOrWhiteSpace(_settings.DevAllocateUsername) &&
+                    !string.IsNullOrWhiteSpace(imp.WeekTableName))
+                {
+                    var devRows = await _cleaning.DevAllocateAsync(
+                        imp.WeekTableName!, _settings.DevAllocateUsername, _settings.DevAllocateCount, ct);
+                    cleaningMessage += $" DEV: {devRows} rows allocated to {_settings.DevAllocateUsername}.";
+                }
             }
-
-            // Username resolution is now handled by sp_VVS_Clean_ResolveUsername
-            // which runs as part of RunFullCleaningOnceAsync (step "ResolveUsername").
-            // We just count how many rows were resolved by the SP.
-            var resolvedCount = await _db.ExtractRows
-                .CountAsync(r => r.BatchId == batch.Id
-                    && r.Username != null && r.Username != "", ct);
-
-            // Keep Assignments populated for old screens.
-            // New source of truth remains ExtractRows.Username.
-            var assignmentCount = await CreateAssignmentsForBatchAsync(batch.Id, ct);
 
             week.Status = WeekWindowStatus.Uploaded;
             week.UpdatedBy = "folder-job";
@@ -359,8 +366,7 @@ namespace Valuer_Verification_System.Services.Upload
                 await _approvalNotify.NotifyProjectManagerAfterCleanAsync(batch.Id, ct);
             }
 
-            return $"Imported. Batch {batch.BatchName}. Rows {rows.Count}. " +
-                   $"Resolved usernames {resolvedCount}. Assignments {assignmentCount}. {cleaningMessage}";
+            return cleaningMessage;
         }
 
         private async Task<int> ResolveBatchValuerUsernamesAsync(

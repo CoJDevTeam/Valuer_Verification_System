@@ -495,6 +495,270 @@ namespace Valuer_Verification_System.Services.Notice
             };
         }
 
+        // ── Phase 1: week table is the working table ─────────────────────────
+
+        public async Task<WeekTableImportResult> ImportWeekTableAndCleanAsync(
+            int batchId, string by, string lisTable, string sapTable, CancellationToken ct)
+        {
+            var batch = await _db.Batches.FirstOrDefaultAsync(x => x.Id == batchId, ct);
+            if (batch is null)
+                return new WeekTableImportResult { Message = "Batch not found." };
+
+            // Already fully imported: nothing to do.
+            if (!string.IsNullOrWhiteSpace(batch.CleanWeekTableName) && batch.ExtractCleanedAtUtc != null)
+                return new WeekTableImportResult
+                {
+                    Success = true,
+                    WeekTableName = batch.CleanWeekTableName,
+                    Message = "Week table already exists for this batch."
+                };
+
+            batch.ExtractCleaningStatus = "Running";
+            batch.ExtractCleaningMessage = "Creating week table.";
+            batch.UpdatedBy = by;
+            batch.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
+
+            string tableName;
+            int copied;
+
+            if (!string.IsNullOrWhiteSpace(batch.CleanWeekTableName))
+            {
+                // Table was created earlier but the steps failed: keep it, do not recreate.
+                tableName = batch.CleanWeekTableName!;
+                copied = await WeekTableRowCountAsync(tableName, ct);
+            }
+            else
+                try
+                {
+                    var conn = _db.Database.GetDbConnection();
+                    if (conn.State != System.Data.ConnectionState.Open)
+                        await conn.OpenAsync(ct);
+
+                    await using var cmd = conn.CreateCommand();
+                    cmd.CommandText = "sp_VVS_ImportWeekTable";
+                    cmd.CommandType = System.Data.CommandType.StoredProcedure;
+                    cmd.CommandTimeout = 600;
+
+                    cmd.Parameters.Add(new SqlParameter("@BatchId", batchId));
+
+                    var nameParam = new SqlParameter("@TableName", System.Data.SqlDbType.NVarChar, 200)
+                    {
+                        Direction = System.Data.ParameterDirection.InputOutput,
+                        Value = DBNull.Value
+                    };
+                    var rowsParam = new SqlParameter("@RowsAffected", System.Data.SqlDbType.Int)
+                    {
+                        Direction = System.Data.ParameterDirection.Output
+                    };
+                    cmd.Parameters.Add(nameParam);
+                    cmd.Parameters.Add(rowsParam);
+
+                    await cmd.ExecuteNonQueryAsync(ct);
+
+                    tableName = Convert.ToString(nameParam.Value) ?? "";
+                    copied = rowsParam.Value != DBNull.Value ? Convert.ToInt32(rowsParam.Value) : 0;
+                }
+                catch (Exception ex)
+                {
+                    batch.ExtractCleaningStatus = "Failed";
+                    batch.ExtractCleaningMessage = $"Week table creation failed: {ex.Message}";
+                    await _db.SaveChangesAsync(ct);
+                    return new WeekTableImportResult { Message = batch.ExtractCleaningMessage };
+                }
+
+            var rawCount = await _db.ExtractRows.CountAsync(r => r.BatchId == batchId, ct);
+            if (copied != rawCount)
+            {
+                batch.ExtractCleaningStatus = "Failed";
+                batch.ExtractCleaningMessage =
+                    $"Week table {tableName} has {copied} rows but the raw extract has {rawCount}. Not released to valuers.";
+                batch.CleanWeekTableName = tableName;
+                await _db.SaveChangesAsync(ct);
+                return new WeekTableImportResult
+                {
+                    WeekTableName = tableName,
+                    RowsCopied = copied,
+                    Message = batch.ExtractCleaningMessage
+                };
+            }
+
+            batch.CleanWeekTableName = tableName;
+            await _db.SaveChangesAsync(ct);
+
+            var steps = await RunWeekStepsAsync(batch, tableName, "IMPORT", by, lisTable, sapTable, ct);
+            if (!steps.Success)
+                return new WeekTableImportResult
+                {
+                    WeekTableName = tableName,
+                    RowsCopied = copied,
+                    Message = steps.Error ?? "Import cleaning failed."
+                };
+
+            batch.ExtractCleanedAtUtc = DateTime.UtcNow;
+            batch.ExtractCleanedBy = by;
+            batch.ExtractCleaningStatus = "Imported";
+            batch.ExtractCleaningMessage =
+                $"Week table {tableName} created with {copied:N0} rows. Import steps done (sector, valuer, trim). Send-day cleaning pending.";
+            batch.UpdatedBy = by;
+            batch.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
+
+            return new WeekTableImportResult
+            {
+                Success = true,
+                WeekTableName = tableName,
+                RowsCopied = copied,
+                Message = batch.ExtractCleaningMessage
+            };
+        }
+
+        private async Task<int> WeekTableRowCountAsync(string tableName, CancellationToken ct)
+        {
+            tableName = CleanTableName(tableName);
+            var conn = _db.Database.GetDbConnection();
+            if (conn.State != System.Data.ConnectionState.Open)
+                await conn.OpenAsync(ct);
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"SELECT COUNT(*) FROM [SECTION_78_NOTICE].[dbo].[{tableName}]";
+            return Convert.ToInt32(await cmd.ExecuteScalarAsync(ct));
+        }
+
+        public async Task<CleaningStepResultVm> RunSendDayCleaningAsync(
+            int batchId, string by, string lisTable, string sapTable, CancellationToken ct)
+        {
+            var batch = await _db.Batches.FirstOrDefaultAsync(x => x.Id == batchId, ct);
+            if (batch is null || string.IsNullOrWhiteSpace(batch.CleanWeekTableName))
+                return new CleaningStepResultVm
+                {
+                    StepName = "SendDayCleaning",
+                    Error = "Batch has no week table."
+                };
+
+            var result = await RunWeekStepsAsync(batch, batch.CleanWeekTableName!, "SEND", by, lisTable, sapTable, ct);
+
+            if (result.Success)
+            {
+                batch.ExtractCleaningStatus = "ReadyToSend";
+                batch.ExtractCleaningMessage = $"Send-day cleaning complete on {batch.CleanWeekTableName}.";
+            }
+            else
+            {
+                batch.ExtractCleaningStatus = "Failed";
+                batch.ExtractCleaningMessage = $"Send-day cleaning failed: {result.Error}";
+            }
+            batch.UpdatedBy = by;
+            batch.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
+
+            return result;
+        }
+
+      
+        public async Task<int> DevAllocateAsync(string weekTable, string username, int count, CancellationToken ct)
+        {
+            var conn = _db.Database.GetDbConnection();
+            if (conn.State != System.Data.ConnectionState.Open)
+                await conn.OpenAsync(ct);
+
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "sp_VVS_WT_DevAllocate";
+            cmd.CommandType = System.Data.CommandType.StoredProcedure;
+            cmd.CommandTimeout = 120;
+            cmd.Parameters.Add(new SqlParameter("@WeekTable", weekTable));
+            cmd.Parameters.Add(new SqlParameter("@Username", username));
+            cmd.Parameters.Add(new SqlParameter("@Count", count));
+            var rows = new SqlParameter("@RowsAffected", System.Data.SqlDbType.Int)
+            { Direction = System.Data.ParameterDirection.Output };
+            cmd.Parameters.Add(rows);
+            await cmd.ExecuteNonQueryAsync(ct);
+            return rows.Value != DBNull.Value ? Convert.ToInt32(rows.Value) : 0;
+        }
+
+        // Runs sp_VVS_WT_RunSteps and writes one CleaningStepAudit row per step.
+        private async Task<CleaningStepResultVm> RunWeekStepsAsync(
+            Batch batch, string weekTable, string phase, string by, string lisTable, string sapTable, CancellationToken ct)
+        {
+            var total = 0;
+            try
+            {
+                var conn = _db.Database.GetDbConnection();
+                if (conn.State != System.Data.ConnectionState.Open)
+                    await conn.OpenAsync(ct);
+
+                lisTable = CleanTableName(lisTable);
+                sapTable = CleanTableName(sapTable);
+
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText = "sp_VVS_WT_RunSteps";
+                cmd.CommandType = System.Data.CommandType.StoredProcedure;
+                cmd.CommandTimeout = 1800;
+
+                cmd.Parameters.Add(new SqlParameter("@WeekTable", weekTable));
+                cmd.Parameters.Add(new SqlParameter("@BatchId", batch.Id));
+                cmd.Parameters.Add(new SqlParameter("@Phase", phase));
+                cmd.Parameters.Add(new SqlParameter("@ExtractionDate", batch.BatchDate.ToDateTime(TimeOnly.MinValue)));
+                cmd.Parameters.Add(new SqlParameter("@LisMasterTable", lisTable));
+                cmd.Parameters.Add(new SqlParameter("@SapTable", sapTable));
+
+                var rows = new List<(string Step, int Rows, string Status, string? Error, decimal Secs)>();
+
+                await using (var rd = await cmd.ExecuteReaderAsync(ct))
+                {
+                    while (await rd.ReadAsync(ct))
+                    {
+                        rows.Add((
+                            rd.GetString(0),
+                            rd.IsDBNull(1) ? 0 : rd.GetInt32(1),
+                            rd.GetString(2),
+                            rd.IsDBNull(3) ? null : rd.GetString(3),
+                            rd.IsDBNull(4) ? 0 : rd.GetDecimal(4)));
+                    }
+                }
+
+                foreach (var r in rows)
+                {
+                    var ok = r.Status.Equals("OK", StringComparison.OrdinalIgnoreCase);
+                    _db.CleaningStepAudits.Add(new CleaningStepAudit
+                    {
+                        BatchId = batch.Id,
+                        StepName = $"{phase}:{r.Step}",
+                        StartedAtUtc = DateTime.UtcNow,
+                        FinishedAtUtc = DateTime.UtcNow,
+                        DurationMs = (long)(r.Secs * 1000),
+                        Success = ok,
+                        RowsAffected = r.Rows,
+                        Message = ok ? $"{r.Step} complete. Rows affected: {r.Rows:N0}." : $"{r.Step} failed.",
+                        ErrorMessage = ok ? null : r.Error,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                    if (ok) total += r.Rows;
+                }
+                await _db.SaveChangesAsync(ct);
+
+                var failed = rows.FirstOrDefault(r => !r.Status.Equals("OK", StringComparison.OrdinalIgnoreCase));
+                if (failed.Step is not null)
+                    return new CleaningStepResultVm
+                    {
+                        StepName = failed.Step,
+                        RowsAffected = total,
+                        Error = $"Step '{failed.Step}' failed: {failed.Error}"
+                    };
+
+                if (rows.Count == 0)
+                    return new CleaningStepResultVm { StepName = phase, Error = "No step results were returned." };
+
+                return new CleaningStepResultVm { Success = true, StepName = phase, RowsAffected = total };
+            }
+            catch (Exception ex)
+            {
+                batch.ExtractCleaningStatus = "Failed";
+                batch.ExtractCleaningMessage = $"{phase} cleaning failed: {ex.Message}";
+                await _db.SaveChangesAsync(ct);
+                return new CleaningStepResultVm { StepName = phase, RowsAffected = total, Error = ex.Message };
+            }
+        }
+
         private static string FormatDuration(long milliseconds)
         {
             var ts = TimeSpan.FromMilliseconds(milliseconds);
@@ -555,7 +819,7 @@ namespace Valuer_Verification_System.Services.Notice
                 };
             }
 
-           
+
 
             if (string.IsNullOrWhiteSpace(batch.CleanWeekTableName))
             {

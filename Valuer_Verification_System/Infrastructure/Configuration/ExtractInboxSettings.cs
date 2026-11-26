@@ -14,6 +14,12 @@
 
             public bool AutoCleanAfterImport { get; set; } = true;
         public bool AllowManualRun { get; set; } = false;
+
+
+        // DEV/TEST ONLY. Keep false in production.
+        public bool DevAllocateEnabled { get; set; } = false;
+        public string DevAllocateUsername { get; set; } = "";
+        public int DevAllocateCount { get; set; } = 20;
     }
     }
 
