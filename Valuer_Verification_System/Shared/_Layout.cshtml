@@ -1,0 +1,245 @@
+﻿@using Valuer_Verification_System.Infrastructure.Configuration
+@inject IAppMode AppMode
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Valuation Verification System</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/Valuer_Verification_System.styles.css" asp-append-version="true" />
+    <link href="~/css/layout.css" rel="stylesheet" />
+</head>
+
+@{
+    string appFullName = ViewBag.AppUserFullName as string ?? "Unknown User";
+    string appPosition = ViewBag.AppUserPosition as string ?? "";
+    string appRole = ViewBag.AppUserRole as string ?? "";
+    string appInitials = ViewBag.AppUserInitials as string ?? "?";
+    string appUserName = User.Identity?.Name ?? "";
+
+    var pages = ViewBag.AppUserPages as IReadOnlySet<string>
+        ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    bool Can(string key) => pages.Contains(key);
+
+    bool isValuer = appRole.Equals("Valuer", StringComparison.OrdinalIgnoreCase);
+    bool isManager = appRole.Equals("Valuer Manager", StringComparison.OrdinalIgnoreCase);
+    bool isDataTeam = appRole.Contains("DATA", StringComparison.OrdinalIgnoreCase);
+
+    bool canUseEmergencyUpload =
+        appRole.Equals("Admin", StringComparison.OrdinalIgnoreCase)
+        || appRole.Equals("Syscon", StringComparison.OrdinalIgnoreCase)
+        || appRole.Contains("DEPUTY DIRECTOR", StringComparison.OrdinalIgnoreCase)
+        || appUserName.Contains("Syscon", StringComparison.OrdinalIgnoreCase);
+
+    bool canViewExtractIntake =
+        canUseEmergencyUpload
+        || isDataTeam;
+    bool isQaRole = appRole.Equals("Area Manager", StringComparison.OrdinalIgnoreCase)
+                 || appRole.Equals("Senior Manager", StringComparison.OrdinalIgnoreCase);
+    string defaultController = isValuer ? "Valuer" : (isManager || isQaRole) ? "Manager" : "Home";
+    string defaultAction = isValuer ? "Dashboard" : (isManager || isQaRole) ? "Dashboard" : "Index";
+}
+
+<body>
+    <nav class="site-nav">
+
+        <a class="nav-brand" asp-area="" asp-controller="@defaultController" asp-action="@defaultAction">
+            <div class="nav-brand-icon">
+                <i class="bi bi-bar-chart-fill"></i>
+            </div>
+            <div>
+                <div class="nav-brand-text">Valuation <span>VS</span></div>
+                <div class="nav-brand-sub">Verification System</div>
+            </div>
+        </a>
+
+        <div class="nav-divider"></div>
+
+        <ul class="nav-links">
+            @if (Can("AreaQA"))
+            {
+                <li class="nav-item">
+                    <a class="nav-link" href="/Qa/Area">
+                        <i class="bi bi-clipboard-check"></i> Area QA
+                    </a>
+                </li>
+            }
+            @if (Can("SeniorQA"))
+            {
+                <li class="nav-item">
+                    <a class="nav-link" href="/Qa/Senior">
+                        <i class="bi bi-patch-check"></i> Senior Sign-off
+                    </a>
+                </li>
+            }
+            @if (isValuer)
+            {
+                <li class="nav-item">
+                    <a class="nav-link" asp-controller="Valuer" asp-action="Dashboard">
+                        <i class="bi bi-speedometer2"></i> My Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" asp-controller="Valuer" asp-action="Inbox">
+                        <i class="bi bi-inbox-fill"></i> My Verification Tasks
+                    </a>
+                </li>
+            }
+            else if (isManager)
+            {
+                <li class="nav-item">
+                    <a class="nav-link" asp-controller="Manager" asp-action="Dashboard">
+                        <i class="bi bi-speedometer2"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" asp-controller="Manager" asp-action="Reassign">
+                        <i class="bi bi-arrow-left-right"></i> Reassign Valuer
+                    </a>
+                </li>
+                @if (Can("RollConfirmation"))
+                {
+                    <li class="nav-item">
+                        <a class="nav-link" href="/Roll/Confirm">
+                            <i class="bi bi-patch-check"></i> Roll Confirmation
+                        </a>
+                    </li>
+                }
+                @if (Can("ValuerInbox"))
+                {
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Valuer" asp-action="Inbox">
+                            <i class="bi bi-inbox-fill"></i> My Verification Tasks
+                        </a>
+                    </li>
+                }
+            }
+            else
+            {
+                @if (canViewExtractIntake)
+                {
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="ExtractIntake" asp-action="Index">
+                            <i class="bi bi-folder-check"></i> Extracts
+                        </a>
+                    </li>
+                }
+                @if (Can("ValuerInbox"))
+                {
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Valuer" asp-action="Inbox">
+                            <i class="bi bi-inbox-fill"></i> My Verification Tasks
+                        </a>
+                    </li>
+                }
+                @if (Can("ManagerDashboard") && Can("AreaQA"))
+                {
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Manager" asp-action="Dashboard">
+                            <i class="bi bi-speedometer2"></i> Valuer Progress
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/Qa/Area">
+                            <i class="bi bi-clipboard-check"></i> Area QA
+                        </a>
+                    </li>
+                }
+                @if (Can("Reassign"))
+                {
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Manager" asp-action="Reassign">
+                            <i class="bi bi-arrow-left-right"></i> Reassign Valuer
+                        </a>
+                    </li>
+                }
+                @if (Can("RollPreparation"))
+                {
+                    <li class="nav-item">
+                        <a class="nav-link" href="/Roll">
+                            <i class="bi bi-journal-text"></i> Valuation Roll
+                        </a>
+                    </li>
+                }
+                @if (Can("WeekWindows"))
+                {
+                    <li class="nav-item">
+                        <a class="nav-link" href="/DataTeam/Stats">
+                            <i class="bi bi-graph-up-arrow"></i> Official Stats
+                        </a>
+                    </li>
+                }
+                @if (canUseEmergencyUpload)
+                {
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Upload" asp-action="Index">
+                            <i class="bi bi-cloud-arrow-up"></i> Emergency Upload
+                        </a>
+                    </li>
+                }
+            }
+        </ul>
+
+        <div class="nav-right">
+            <div class="nav-user">
+                <div class="nav-avatar">@appInitials</div>
+                <div class="nav-user-info">
+                    <span class="nav-user-label">
+                        @(string.IsNullOrWhiteSpace(appPosition) ? appRole : appPosition)
+                    </span>
+                    <span class="nav-user-name">@appFullName</span>
+                </div>
+            </div>
+        </div>
+
+        <button class="nav-toggler" id="navToggler" type="button">
+            <i class="bi bi-list"></i>
+        </button>
+    </nav>
+
+    @if (!AppMode.IsProduction)
+    {
+        <div style="background:#fff3cd;border-bottom:1px solid #ffe69c;color:#664d03;padding:6px 18px;font:600 12px 'Poppins',sans-serif;text-align:center;">
+            @AppMode.Label.ToUpperInvariant() MODE:
+            @if (AppMode.RedirectEmails.Count == 0)
+            {
+                <span>no email address is set, so no emails are sent.</span>
+            }
+            else
+            {
+                <span>all emails go to @string.Join(", ", AppMode.RedirectEmails), not to the real recipients.</span>
+            }
+        </div>
+    }
+    <div class="site-main">
+        <main role="main" class="pb-3">
+            @if (TempData["UploadBlocked"] is not null)
+            {
+                <div style="background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;padding:14px 16px;border-radius:10px;margin:18px;font-weight:700;">
+                    @TempData["UploadBlocked"]
+                </div>
+            }
+
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="site-footer">
+        <div class="footer-bottom">
+            <span>&copy; 2026 <strong>Valuation Verification System</strong></span>
+        </div>
+    </footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

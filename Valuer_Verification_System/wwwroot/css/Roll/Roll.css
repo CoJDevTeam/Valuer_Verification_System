@@ -1,0 +1,20 @@
+/* Valuation Roll pages: built on ManagerHome.css (.mgr) and ReassignPage.css (modal look) */
+@import url("../Manager/ReassignPage.css");
+.roll-status { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; border: 1px solid var(--line); background: var(--bg); }
+.roll-status.draft { color: var(--ink3); }
+.roll-status.submitted { color: var(--warn); border-color: var(--warn); }
+.roll-status.confirmed { color: var(--ok); border-color: var(--ok); }
+.roll-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.roll-dec { display: inline-block; padding: 2px 9px; border-radius: 7px; font-size: 11.5px; font-weight: 700; }
+.roll-dec.pending { background: var(--bg); color: var(--ink3); border: 1px solid var(--line); }
+.roll-dec.include { background: #e3f4ea; color: var(--ok); }
+.roll-dec.exclude { background: #fbe7e5; color: var(--bad); }
+.roll-src { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gold-d); }
+tr.roll-child td:first-child { padding-left: 28px; }
+tr.roll-child { background: rgba(230,176,0,.06); }
+.roll-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.roll-bar select, .roll-bar input[type=text] { padding: 8px 11px; border-radius: 9px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 13px; }
+.roll-add { padding: 16px 18px; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(6, 1fr) auto; gap: 10px; align-items: end; }
+.roll-add input, .roll-add select { width: 100%; padding: 8px 11px; border-radius: 9px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 13px; }
+.roll-add label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); font-weight: 700; display: block; margin-bottom: 4px; }
+@media (max-width: 900px) { .roll-add { grid-template-columns: 1fr 1fr; } .roll-grid { grid-template-columns: 1fr; } }

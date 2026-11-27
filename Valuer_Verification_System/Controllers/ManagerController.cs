@@ -43,22 +43,15 @@ namespace Valuer_Verification_System.Controllers
                 })
                 .ToListAsync(ct);
 
-            var selectedBatchId = batchId ?? batches.FirstOrDefault()?.Id ?? 0;
+            // Default: the newest batch the Project Manager approved, else the newest batch.
+            var defaultBatchId = await _db.Batches
+                .Where(b => b.CleanWeekTableName != null && b.CleanWeekTableName != ""
+                         && b.ProjectManagerApprovedAtUtc != null)
+                .OrderByDescending(b => b.Id)
+                .Select(b => (int?)b.Id)
+                .FirstOrDefaultAsync(ct);
 
-            var valuers = await _svc.GetValuerListAsync(selectedBatchId, ct);
-
-            // Sectors dropdown from batch rows
-            var sectors = await _db.ExtractRows
-                .AsNoTracking()
-                .Where(r => r.BatchId == selectedBatchId)
-                .Select(r => r.Sector ?? "Unknown")
-                .Distinct()
-                .OrderBy(x => x)
-                .ToListAsync(ct);
-
-            var rows = selectedBatchId > 0
-                ? await _svc.ListPendingAsync(selectedBatchId, currentValuer, sector, top, ct)
-                : new();
+            var selectedBatchId = batchId ?? defaultBatchId ?? batches.FirstOrDefault()?.Id ?? 0;
 
             var vm = new ReassignVm
             {
@@ -66,18 +59,43 @@ namespace Valuer_Verification_System.Controllers
                 CurrentValuer = currentValuer,
                 Sector = sector,
                 Top = top,
-                Batches = batches,
-                Valuers = valuers,
-                Sectors = sectors,
-                Rows = rows.Select(r => new ReassignVm.RowVm
-                {
-                    ExtractRowId = r.ExtractRowId,
-                    ValuationKey = r.ValuationKey,
-                    Sector = r.Sector,
-                    PropertyDescription = r.PropertyDescription,
-                    CurrentValuer = r.CurrentValuer
-                }).ToList()
+                Batches = batches
             };
+
+            if (selectedBatchId > 0)
+            {
+                try
+                {
+                    vm.CurrentValuers = await _svc.GetCurrentValuersAsync(selectedBatchId, ct);
+                    vm.Sectors = await _svc.GetSectorsAsync(selectedBatchId, ct);
+                    vm.ActiveValuers = await _svc.GetActiveValuersAsync(ct);
+
+                    var rows = await _svc.ListPendingAsync(selectedBatchId, currentValuer, sector, top, ct);
+                    vm.Rows = rows.Select(r => new ReassignVm.RowVm
+                    {
+                        ExtractRowId = r.ExtractRowId,
+                        ValuationKey = r.ValuationKey,
+                        PremiseId = r.PremiseId,
+                        Sector = r.Sector,
+                        PropertyDescription = r.PropertyDescription,
+                        Address = r.Address,
+                        Category = r.Category,
+                        MarketValue = r.MarketValue,
+                        Owner = r.Owner,
+                        SchemeName = r.SchemeName,
+                        UnitNo = r.UnitNo,
+                        Town = r.Town,
+                        ExtractValuer = r.ExtractValuer,
+                        CurrentValuer = r.CurrentValuer
+                    }).ToList();
+                }
+                catch (Exception ex) when (ex is InvalidOperationException || ex is Microsoft.Data.SqlClient.SqlException)
+                {
+                    TempData["Error"] = ex is Microsoft.Data.SqlClient.SqlException
+                        ? "This batch's week table is an older table without the working columns, so it cannot be reassigned here."
+                        : ex.Message;
+                }
+            }
 
             return View(vm);
         }
@@ -95,6 +113,7 @@ namespace Valuer_Verification_System.Controllers
             public int Top { get; set; } = 500;
         }
 
+        [RequirePageAccess("ManagerDashboard")]
         [HttpPost("/Manager/Reassign")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Reassign(ReassignPost post, CancellationToken ct)
@@ -103,7 +122,7 @@ namespace Valuer_Verification_System.Controllers
 
             try
             {
-                await _svc.ReassignAsync(post.ExtractRowId, post.FromValuer, post.ToValuer, post.Reason, manager, ct);
+                await _svc.ReassignAsync(post.BatchId, post.ExtractRowId, post.FromValuer, post.ToValuer, post.Reason, manager, ct);
                 TempData["Success"] = "Record reassigned successfully.";
             }
             catch (Exception ex)
@@ -119,6 +138,7 @@ namespace Valuer_Verification_System.Controllers
                 top = post.Top
             });
         }
+        [RequirePageAccess("ManagerDashboard")]
         [HttpPost("/Manager/Reassign/Bulk")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> BulkReassign(BulkReassignPost post, CancellationToken ct)

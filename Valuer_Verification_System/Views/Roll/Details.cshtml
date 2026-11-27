@@ -1,0 +1,198 @@
+@using Valuer_Verification_System.Services.Roll
+@model RollDetail
+@{
+    var confirm = (ViewBag.Mode as string) == "confirm";
+    var h = Model.Header;
+    ViewData["Title"] = $"Roll {h.RollNumber}";
+    var basePath = confirm ? $"/Roll/Confirm/{h.Id}" : $"/Roll/{h.Id}";
+    var draft = h.Status == "Draft";
+    var submitted = h.Status == "Submitted";
+    string pt = ViewBag.PropertyType as string ?? "";
+    string src = ViewBag.Source as string ?? "";
+    string dec = ViewBag.Decision as string ?? "";
+    var supCount = Model.Entries.Count(e => e.Source == "Supplementary");
+    var relCount = Model.Entries.Count(e => e.Source != "Supplementary");
+}
+<link href="~/css/manager/ManagerHome.css" rel="stylesheet" asp-append-version="true" />
+<link href="~/css/roll/Roll.css" rel="stylesheet" asp-append-version="true" />
+
+<div class="mgr">
+    <div class="mgr-top">
+        <div>
+            <div class="mgr-eyebrow">@h.RollType</div>
+            <h1>Roll <span>@h.RollNumber</span></h1>
+            <div class="mgr-sub">GV @h.GV &middot; @h.RollPeriod &middot; Batch @h.BatchName &middot; <span class="roll-status @h.Status.ToLower()">@h.Status</span></div>
+        </div>
+        <div class="mgr-actions">
+            <a class="mgr-btn" href="@(confirm ? "/Roll/Confirm" : "/Roll")"><i class="bi bi-arrow-left"></i> All rolls</a>
+            <a class="mgr-btn" href="@(confirm ? $"/Roll/Confirm/{h.Id}/Export" : $"/Roll/{h.Id}/Export")"><i class="bi bi-download"></i> Confirmation list (CSV)</a>
+            @if (!confirm && draft)
+            {
+                <form method="post" action="/Roll/@h.Id/Submit" style="display:inline" onsubmit="return confirm('Submit this list to the Valuation Department? You cannot change it afterwards.');">
+                    @Html.AntiForgeryToken()
+                    <button class="mgr-btn primary" type="submit"><i class="bi bi-send-fill"></i> Submit for confirmation</button>
+                </form>
+            }
+            @if (confirm && submitted)
+            {
+                <form method="post" action="/Roll/Confirm/@h.Id/Finalise" style="display:inline" onsubmit="return confirm('Confirm this roll? Every entry has a decision.');">
+                    @Html.AntiForgeryToken()
+                    <button class="mgr-btn primary" type="submit"><i class="bi bi-patch-check-fill"></i> Confirm roll</button>
+                </form>
+            }
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null) { <div class="mgr-alert ok"><i class="bi bi-check-circle-fill"></i> @TempData["Success"]</div> }
+    @if (TempData["Error"] != null) { <div class="mgr-alert bad"><i class="bi bi-exclamation-circle-fill"></i> @TempData["Error"]</div> }
+    @if (!confirm && draft && Model.UnverifiedInBatch > 0)
+    {
+        <div class="mgr-alert warn"><i class="bi bi-exclamation-triangle-fill"></i> @Model.UnverifiedInBatch properties in this batch are still Pending. Any that a valuer marks Yes later are not on this roll.</div>
+    }
+
+    <div class="mgr-kpis">
+        <div class="mgr-kpi"><label>Supplementary entries</label><b>@supCount</b></div>
+        <div class="mgr-kpi"><label>Reviews / amendments</label><b>@relCount</b></div>
+        <div class="mgr-kpi pend"><label>Undecided</label><b>@h.Pending</b></div>
+        <div class="mgr-kpi"><label>Include / Exclude</label><b>@h.Included / @h.Excluded</b></div>
+    </div>
+
+    <div class="mgr-card">
+        <header><h2>Entries</h2></header>
+
+        <form method="get" action="@basePath" class="roll-bar">
+            <select name="propertyType" onchange="this.form.submit()">
+                <option value="">Freehold and sectional title</option>
+                <option value="FH" selected="@(pt == "FH")">Freehold (PDF 1)</option>
+                <option value="ST" selected="@(pt == "ST")">Sectional title (PDF 2)</option>
+            </select>
+            <select name="source" onchange="this.form.submit()">
+                <option value="">All entry types</option>
+                <option value="Supplementary" selected="@(src == "Supplementary")">Supplementary valuation</option>
+                <option value="Review" selected="@(src == "Review")">Supplementary review</option>
+                <option value="Amendment" selected="@(src == "Amendment")">Amendment</option>
+            </select>
+            <select name="decision" onchange="this.form.submit()">
+                <option value="">All decisions</option>
+                <option value="Pending" selected="@(dec == "Pending")">Undecided</option>
+                <option value="Include" selected="@(dec == "Include")">Include</option>
+                <option value="Exclude" selected="@(dec == "Exclude")">Exclude</option>
+            </select>
+            <input type="text" id="rollSearch" placeholder="Search premise, key, description…" />
+        </form>
+
+        @if (confirm && submitted)
+        {
+            <form method="post" action="/Roll/Confirm/@h.Id/Decide" id="decideForm">
+                @Html.AntiForgeryToken()
+                <div class="roll-bar">
+                    <label><input type="checkbox" id="checkAll" /> Select all shown</label>
+                    <input type="text" name="comment" placeholder="Comment (optional)" style="min-width:260px" />
+                    <button class="mgr-btn primary" type="submit" name="decision" value="Include"><i class="bi bi-check2-circle"></i> Include selected</button>
+                    <button class="mgr-btn" type="submit" name="decision" value="Exclude"><i class="bi bi-x-circle"></i> Exclude selected</button>
+                    <button class="mgr-btn" type="submit" name="decision" value="Pending">Clear decision</button>
+                </div>
+            </form>
+        }
+
+        @if (Model.Entries.Count == 0)
+        {
+            <div class="mgr-empty">No entries match these filters.</div>
+        }
+        else
+        {
+            <div style="overflow-x:auto">
+                <table id="rollTable">
+                    <thead>
+                        <tr>
+                            @if (confirm && submitted) { <th></th> }
+                            <th>Type</th><th>Premise ID</th><th>Valuation key</th><th>Property description</th>
+                            <th>Category</th><th style="text-align:right">Market value</th><th>Decision</th>
+                            @if (!confirm && draft) { <th></th> }
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var e in Model.Entries)
+                    {
+                        <tr class="@(e.Source != "Supplementary" ? "roll-child" : "")">
+                            @if (confirm && submitted)
+                            {
+                                <td><input type="checkbox" class="rowcheck" name="entryIds" value="@e.Id" form="decideForm" /></td>
+                            }
+                            <td>
+                                <span class="roll-src">@(e.Source == "Supplementary" ? "Supplementary" : e.Source)</span>
+                                <div class="sub">@(e.PropertyType == "ST" ? "Sectional title" : "Freehold")</div>
+                            </td>
+                            <td><span class="prem">@(string.IsNullOrWhiteSpace(e.PremiseId) ? "-" : e.PremiseId)</span></td>
+                            <td>@(string.IsNullOrWhiteSpace(e.ValuationKey) ? "-" : e.ValuationKey)</td>
+                            <td class="desc">
+                                <b>@(string.IsNullOrWhiteSpace(e.PropertyDescription) ? "(no description)" : e.PropertyDescription)</b>
+                                @if (!string.IsNullOrWhiteSpace(e.Address)) { <span>@e.Address</span> }
+                                @if (!string.IsNullOrWhiteSpace(e.Note)) { <span>Note: @e.Note</span> }
+                            </td>
+                            <td>@e.Category</td>
+                            <td style="text-align:right">@(e.MarketValue.HasValue ? "R " + e.MarketValue.Value.ToString("N0") : "-")</td>
+                            <td>
+                                <span class="roll-dec @e.Decision.ToLower()">@(e.Decision == "Pending" ? "Undecided" : e.Decision)</span>
+                                @if (!string.IsNullOrWhiteSpace(e.DecidedBy)) { <div class="sub">@e.DecidedBy</div> }
+                                @if (!string.IsNullOrWhiteSpace(e.DecisionComment)) { <div class="sub">@e.DecisionComment</div> }
+                            </td>
+                            @if (!confirm && draft)
+                            {
+                                <td>
+                                    @if (e.ExtractRowId == null)
+                                    {
+                                        <form method="post" action="/Roll/@h.Id/RemoveRelated" style="display:inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="entryId" value="@e.Id" />
+                                            <button class="mgr-btn" type="submit" title="Remove"><i class="bi bi-trash"></i></button>
+                                        </form>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        @if (!confirm && draft)
+        {
+            <form method="post" action="/Roll/@h.Id/AddRelated" class="roll-add">
+                @Html.AntiForgeryToken()
+                <div><label>Premise ID</label><input type="text" name="PremiseId" required /></div>
+                <div><label>Type</label>
+                    <select name="Source"><option value="Review">Supplementary review</option><option value="Amendment">Amendment</option></select></div>
+                <div><label>Valuation key</label><input type="text" name="ValuationKey" /></div>
+                <div><label>Property description</label><input type="text" name="PropertyDescription" /></div>
+                <div><label>Market value</label><input type="number" step="0.01" name="MarketValue" /></div>
+                <div><label>Note (LIS reference)</label><input type="text" name="Note" /></div>
+                <button class="mgr-btn primary" type="submit"><i class="bi bi-plus-lg"></i> Add related</button>
+            </form>
+            <div class="rs-hint" style="padding:0 18px 16px">
+                Check LIS for supplementary reviews and amendments with the same Premise ID inside this roll period, and add them here. They are grouped under the supplementary entry with that Premise ID.
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var box = document.getElementById('rollSearch');
+            if (box) box.addEventListener('input', function () {
+                var q = box.value.trim().toUpperCase();
+                document.querySelectorAll('#rollTable tbody tr').forEach(function (tr) {
+                    tr.style.display = !q || tr.textContent.toUpperCase().indexOf(q) >= 0 ? '' : 'none';
+                });
+            });
+            var all = document.getElementById('checkAll');
+            if (all) all.addEventListener('change', function () {
+                document.querySelectorAll('.rowcheck').forEach(function (c) {
+                    if (c.closest('tr').style.display !== 'none') c.checked = all.checked;
+                });
+            });
+        })();
+    </script>
+}

@@ -1,0 +1,56 @@
+@model Valuer_Verification_System.Controllers.QaVm
+@{ ViewData["Title"] = "Area QA"; var cur = Model.Sectors.FirstOrDefault(s => s.Sector == Model.Sector); }
+<link rel="stylesheet" href="~/css/Qa/Qa.css" asp-append-version="true" />
+<div class="qa">
+  <div class="qa-head"><div><h1>Area Manager QA</h1><p>Check the valuers' Yes/No decisions for your sector. Send wrong ones back, then approve the sector.</p></div>
+    <form method="get" class="qa-pick"><select name="batchId" onchange="this.form.submit()">
+      @foreach (var b in Model.Batches) { <option value="@b.Id" selected="@(b.Id==Model.BatchId)">@b.Name</option> }
+    </select></form></div>
+  @if (Model.Msg != null) { <div class="qa-msg @(Model.MsgOk ? "ok" : "bad")">@Model.Msg</div> }
+  @if (Model.Signed) { <div class="qa-msg ok">Batch already signed off by @Model.SignedBy. Sending a row back will reopen it.</div> }
+
+  <div class="qa-tabs">
+    @foreach (var s in Model.Sectors) {
+      <a class="qa-tab @(s.Sector==Model.Sector?"on":"")" asp-action="Area" asp-route-batchId="@Model.BatchId" asp-route-sector="@s.Sector" asp-route-filter="@Model.Filter">
+        @s.Sector @if (s.Approved) { <span class="pill ok">Approved</span> } else if (s.Pending > 0) { <span class="pill warn">@s.Pending pending</span> } else { <span class="pill">Ready</span> }
+      </a>
+    }
+  </div>
+
+  @if (cur != null) {
+  <div class="qa-stats">
+    <div><b>@cur.Total</b><span>Rows</span></div><div class="y"><b>@cur.Yes</b><span>Yes</span></div>
+    <div class="n"><b>@cur.No</b><span>No</span></div><div class="p"><b>@cur.Pending</b><span>Pending</span></div>
+    <div><b>@cur.Returned</b><span>Sent back, waiting</span></div>
+  </div>
+  <div class="qa-bar">
+    <div class="qa-filters">
+      @foreach (var f in new[] { ("review","All No + 10% of Yes"), ("no","No only"), ("yes","Yes only"), ("pending","Pending"), ("all","Everything") }) {
+        <a class="@(Model.Filter==f.Item1?"on":"")" asp-action="Area" asp-route-batchId="@Model.BatchId" asp-route-sector="@Model.Sector" asp-route-filter="@f.Item1">@f.Item2</a>
+      }
+    </div>
+    <form method="post" asp-action="Approve"><input type="hidden" name="batchId" value="@Model.BatchId" /><input type="hidden" name="sector" value="@Model.Sector" /><input type="hidden" name="filter" value="@Model.Filter" />
+      <button class="btn pri" disabled="@(cur.Pending>0 || cur.Approved)">@(cur.Approved ? "Sector approved" : "Approve sector")</button></form>
+  </div>
+
+  <div class="qa-table"><table>
+    <thead><tr><th>Premise ID</th><th>Property</th><th>Valuer</th><th>Decision</th><th>Comment</th><th></th></tr></thead>
+    <tbody>
+    @foreach (var i in Model.Items) {
+      <tr class="@(i.Decision=="No"?"rowno":"")">
+        <td class="mono">@i.Premise</td><td><b>@i.Description</b><small>@i.Town @(i.Owner!=""?"· "+i.Owner:"")</small></td>
+        <td>@i.Valuer</td>
+        <td><span class="pill @(i.Decision=="Yes"?"ok":i.Decision=="No"?"bad":"warn")">@i.Decision</span>@if (i.Returned) { <span class="pill warn">Returned</span> }</td>
+        <td class="cm">@i.Comment</td>
+        <td>
+          @if (i.Decision != "Pending") {
+          <details class="sb"><summary class="btn">Send back</summary>
+            <form method="post" asp-action="SendBack"><input type="hidden" name="batchId" value="@Model.BatchId" /><input type="hidden" name="sector" value="@Model.Sector" /><input type="hidden" name="filter" value="@Model.Filter" /><input type="hidden" name="key" value="@i.Key" />
+              <textarea name="note" required minlength="5" maxlength="1000" placeholder="Why is this wrong? (shown to the valuer)"></textarea><button class="btn bad">Send to @i.Valuer</button></form>
+          </details> }
+        </td></tr>
+    }
+    @if (Model.Items.Count == 0) { <tr><td colspan="6" class="empty">Nothing to show for this filter.</td></tr> }
+    </tbody></table></div>
+  }
+</div>

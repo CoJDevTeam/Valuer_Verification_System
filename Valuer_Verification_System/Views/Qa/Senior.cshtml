@@ -1,0 +1,23 @@
+@model Valuer_Verification_System.Controllers.QaVm
+@{ ViewData["Title"] = "Senior QA"; var allOk = Model.Sectors.Count > 0 && Model.Sectors.All(s => s.Approved); }
+<link rel="stylesheet" href="~/css/Qa/Qa.css" asp-append-version="true" />
+<div class="qa">
+  <div class="qa-head"><div><h1>Senior Manager sign-off</h1><p>Final approval of the whole batch. It unlocks once every sector is approved by its Area Manager.</p></div>
+    <form method="get" class="qa-pick"><select name="batchId" onchange="this.form.submit()">
+      @foreach (var b in Model.Batches) { <option value="@b.Id" selected="@(b.Id==Model.BatchId)">@b.Name</option> }
+    </select></form></div>
+  @if (Model.Msg != null) { <div class="qa-msg @(Model.MsgOk ? "ok" : "bad")">@Model.Msg</div> }
+  <div class="qa-table"><table>
+    <thead><tr><th>Sector</th><th>Rows</th><th>Yes</th><th>No</th><th>Pending</th><th>Area Manager</th></tr></thead><tbody>
+    @foreach (var s in Model.Sectors) {
+      <tr><td><b>@s.Sector</b></td><td>@s.Total</td><td>@s.Yes</td><td>@s.No</td><td>@s.Pending</td>
+      <td>@if (s.Approved) { <span class="pill ok">Approved by @s.ApprovedBy</span> } else { <span class="pill warn">Not approved</span> }</td></tr> }
+    </tbody></table></div>
+  @if (Model.Signed) {
+    <div class="qa-msg ok">Signed off by @Model.SignedBy on @Model.SignedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm"). The Valuation Roll can be created.</div>
+  } else {
+    <form method="post" asp-action="SignOff" class="qa-sign"><input type="hidden" name="batchId" value="@Model.BatchId" />
+      <textarea name="note" maxlength="1000" placeholder="Optional note"></textarea>
+      <button class="btn pri" disabled="@(!allOk)">@(allOk ? "Sign off batch" : "Locked: sectors still waiting")</button></form>
+  }
+</div>

@@ -50,7 +50,10 @@ namespace Valuer_Verification_System.Infrastructure.Configuration.Filters
                 return;
             }
 
-            if (role.Equals("Manager", StringComparison.OrdinalIgnoreCase))
+            if (role.Equals("Manager", StringComparison.OrdinalIgnoreCase) ||
+      role.Equals("Valuer Manager", StringComparison.OrdinalIgnoreCase) ||
+      role.Equals("Area Manager", StringComparison.OrdinalIgnoreCase) ||
+      role.Equals("Senior Manager", StringComparison.OrdinalIgnoreCase))
             {
                 context.Result = new RedirectToRouteResult(new RouteValueDictionary(new
                 {

@@ -1,0 +1,23 @@
+/* Valuer inbox (My Properties): built on ManagerHome.css (.mgr) and ReassignPage.css (modals) */
+@import url("../Manager/ReassignPage.css");
+.vi-yes, .vi-no, .vi-view { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 9px; font-size: 13px; font-weight: 700; cursor: pointer; border: 1px solid transparent; text-decoration: none; }
+.vi-yes { background: #1f7a43; color: #fff; }
+.vi-yes:hover { background: #17633a; color: #fff; }
+.vi-no { background: #fff; color: #b3261e; border-color: #b3261e; }
+.vi-no:hover { background: #b3261e; color: #fff; }
+.vi-view { background: var(--card); color: var(--ink); border-color: var(--line); }
+.vi-view:hover { border-color: var(--gold); color: var(--ink); }
+.vi-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.vi-badge { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
+.vi-badge.pending { background: var(--bg); color: var(--ink3); border: 1px solid var(--line); }
+.vi-badge.yes { background: #e3f4ea; color: var(--ok); }
+.vi-badge.no { background: #fbe7e5; color: var(--bad); }
+.vi-comment { font-size: 11.5px; color: var(--ink3); margin-top: 3px; max-width: 260px; }
+.vi-group { display: inline-block; padding: 3px 9px; border-radius: 7px; font-size: 11px; font-weight: 700; background: #17140c; color: #e6b000; }
+.vi-pager { display: flex; gap: 10px; align-items: center; justify-content: flex-end; padding: 12px 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink3); }
+.vi-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 16px; }
+.vi-tabs a { padding: 7px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--ink); text-decoration: none; font-size: 13px; font-weight: 600; }
+.vi-tabs a.on { background: #17140c; color: #e6b000; border-color: #17140c; }
+.vi-notes { margin-bottom: 16px; }
+.vi-notes .n { display: flex; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.vi-modal-body .rd-wrap { padding: 4px 2px; }

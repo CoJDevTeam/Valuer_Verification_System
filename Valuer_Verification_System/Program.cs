@@ -12,6 +12,7 @@ using Valuer_Verification_System.Services.Manager;
 using Valuer_Verification_System.Services.Notice;
 using Valuer_Verification_System.Services.Notifications;
 using Valuer_Verification_System.Services.Permissions;
+using Valuer_Verification_System.Services.Qa;
 using Valuer_Verification_System.Services.Stats;
 using Valuer_Verification_System.Services.Upload;
 using Valuer_Verification_System.Services.Valuer;
@@ -71,11 +72,12 @@ builder.Services.AddScoped<IValuerRowDetailsService,ValuerRowDetailsService>();
 
 
 //-------------------------------Manager Reassignment---------------------------------
-builder.Services.AddScoped<IManagerReassignmentService,ManagerReassignmentService>();
+builder.Services.AddScoped<IManagerReassignmentService, ManagerReassignmentService>();
+builder.Services.AddScoped<IQaService, QaService>();
 
 builder.Services.AddScoped<IManagerDashboardService,ManagerDashboardService>();
 builder.Services.AddScoped<IManagerWeekViewService, ManagerWeekViewService>();
-builder.Services.AddScoped<Valuer_Verification_System.Services.Valuer.IWeekRowStore, Valuer_Verification_System.Services.Valuer.WeekRowStore>();
+builder.Services.AddScoped<IWeekRowStore, WeekRowStore>();
 
 
 //---------------------------------Notice ---------------------------------

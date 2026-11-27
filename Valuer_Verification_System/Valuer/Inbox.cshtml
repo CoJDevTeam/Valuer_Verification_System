@@ -1,0 +1,320 @@
+@model Valuer_Verification_System.Models.ViewModels.ValuerInboxVm
+@using Valuer_Verification_System.Models.Data
+@{
+    ViewData["Title"] = "My Verification Tasks";
+    var done = Model.Yes + Model.No;
+    var pct = Model.Total == 0 ? 0 : (int)Math.Round(done * 100.0 / Model.Total);
+    string Tab(string f) => $"/Valuer/Inbox?batchId={Model.BatchId}&filter={f}";
+}
+<link href="~/css/manager/ManagerHome.css" rel="stylesheet" asp-append-version="true" />
+<link href="~/css/valuer/ValuerInbox.css" rel="stylesheet" asp-append-version="true" />
+
+<div class="mgr">
+
+    <div class="mgr-top">
+        <div>
+            <div class="mgr-eyebrow">Valuer &middot; @Model.ValuerName</div>
+            <h1>My <span>Verification Tasks</span></h1>
+            <div class="mgr-sub">Check each property, then choose <b>Yes</b> if it must go on the roll or <b>No</b> if it must not (a reason is required).</div>
+        </div>
+        <div class="mgr-actions">
+            <a class="mgr-btn" href="/Valuer/Dashboard"><i class="bi bi-speedometer2"></i> My Dashboard</a>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null) { <div class="mgr-alert ok"><i class="bi bi-check-circle-fill"></i> @TempData["Success"]</div> }
+    @if (TempData["Error"] != null) { <div class="mgr-alert bad"><i class="bi bi-exclamation-circle-fill"></i> @TempData["Error"]</div> }
+    @if (TempData["BulkSuccess"] != null) { <div class="mgr-alert ok"><i class="bi bi-check-circle-fill"></i> @TempData["BulkSuccess"]</div> }
+
+    <div class="mgr-kpis">
+        <div class="mgr-kpi"><label>Total</label><b>@Model.Total.ToString("N0")</b></div>
+        <div class="mgr-kpi pend"><label>Pending</label><b>@Model.Pending.ToString("N0")</b></div>
+        <div class="mgr-kpi"><label>Yes</label><b>@Model.Yes.ToString("N0")</b></div>
+        <div class="mgr-kpi"><label>No</label><b>@Model.No.ToString("N0")</b></div>
+        <div class="mgr-kpi"><label>Done</label><b>@pct%</b></div>
+    </div>
+    <div class="mgr-progress"><div style="width:@pct%"></div></div>
+
+    @if (Model.UnreadNotifications > 0)
+    {
+        <div class="mgr-card vi-notes" style="margin-top:16px">
+            <header>
+                <h2><i class="bi bi-bell-fill"></i> @Model.UnreadNotifications new notification@(Model.UnreadNotifications == 1 ? "" : "s")</h2>
+                <form method="post" action="/Valuer/Notifications/MarkAllRead">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="batchId" value="@Model.BatchId" />
+                    <input type="hidden" name="filter" value="@Model.Filter" />
+                    <button class="mgr-btn" type="submit"><i class="bi bi-check2-all"></i> Mark all read</button>
+                </form>
+            </header>
+            @foreach (var n in Model.Notifications.Where(x => !x.IsRead).Take(5))
+            {
+                <div class="n">
+                    <div><b>@n.Title</b><div class="sub">@n.Message</div></div>
+                    @if (!string.IsNullOrWhiteSpace(n.ActionUrl)) { <a href="@n.ActionUrl">Open</a> }
+                </div>
+            }
+        </div>
+    }
+
+    <div class="mgr-filters">
+        <form method="get" action="/Valuer/Inbox">
+            <input type="hidden" name="filter" value="@Model.Filter" />
+            <div>
+                <label>Batch</label>
+                <select name="batchId" onchange="this.form.submit()">
+                    <option value="">All batches</option>
+                    @foreach (var b in Model.Batches)
+                    {
+                        <option value="@b.Id" selected="@(Model.BatchId.HasValue && Model.BatchId.Value == b.Id)">
+                            @b.BatchName | @b.BatchDate.ToString("yyyy-MM-dd") | Send: @b.NoticeSendDate.ToString("yyyy-MM-dd")
+                        </option>
+                    }
+                </select>
+            </div>
+        </form>
+    </div>
+
+    <div class="vi-tabs">
+        <a class="@(Model.Filter == "Pending" ? "on" : "")" href="@Tab("Pending")">Pending (@Model.Pending)</a>
+        <a class="@(Model.Filter == "Yes" ? "on" : "")" href="@Tab("Yes")">Yes (@Model.Yes)</a>
+        <a class="@(Model.Filter == "No" ? "on" : "")" href="@Tab("No")">No (@Model.No)</a>
+        <a class="@(Model.Filter == "All" ? "on" : "")" href="@Tab("All")">All (@Model.Total)</a>
+    </div>
+
+    <div class="mgr-card">
+        <header>
+            <h2>@(Model.Filter == "All" ? "All properties" : Model.Filter + " properties")</h2>
+            <input class="mgr-search" id="rowSearch" type="search" placeholder="Search premise ID, valuation key, description…" />
+        </header>
+
+        @if (Model.Rows.Count == 0)
+        {
+            <div class="mgr-empty">
+                @(Model.Total == 0
+                    ? "No properties have been allocated to you yet. They appear here once the Project Manager approves the extract."
+                    : "No properties match this filter.")
+            </div>
+        }
+        else
+        {
+            <div style="overflow-x:auto">
+                <table id="rowsTable">
+                    <thead>
+                        <tr>
+                            <th>Valuation key</th><th>Premise ID</th><th>Property description</th><th>Sector</th>
+                            <th style="text-align:right">Market value</th><th>Status</th><th>Verify</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var r in Model.Rows)
+                    {
+                        <tr>
+                            <td>
+                                <span class="vkey">@r.ValuationKey</span>
+                                @if (r.IsBulkGroup) { <div style="margin-top:4px"><span class="vi-group">Sectional title group &middot; @r.BulkRowCount linked</span></div> }
+                            </td>
+                            <td><span class="prem">@(string.IsNullOrWhiteSpace(r.Premise_ID) ? "-" : r.Premise_ID)</span></td>
+                            <td class="desc">
+                                <b>@(string.IsNullOrWhiteSpace(r.PropertyDescription) ? "(no description)" : r.PropertyDescription)</b>
+                                @if (r.IsBulkGroup && !string.IsNullOrWhiteSpace(r.BulkTownNameDesc)) { <span>@r.BulkTownNameDesc @(string.IsNullOrWhiteSpace(r.BulkUnitNo) ? "" : "· Unit " + r.BulkUnitNo)</span> }
+                            </td>
+                            <td><span class="sector-pill">@r.Sector</span></td>
+                            <td style="text-align:right" data-order="@(r.MarketValue ?? 0)">
+                                @(r.MarketValue.HasValue && r.MarketValue.Value > 0 ? "R " + r.MarketValue.Value.ToString("N0") : "-")
+                                @if (r.IsBulkGroup && r.MarketValue.HasValue) { <div class="sub">group total</div> }
+                            </td>
+                            <td>
+                                @if (r.IsBulkGroup)
+                                {
+                                    if (r.BulkPendingCount > 0) { <span class="vi-badge pending">@r.BulkPendingCount pending</span> }
+                                    else if (r.BulkNoCount > 0) { <span class="vi-badge no">@r.BulkNoCount No</span> }
+                                    else { <span class="vi-badge yes">All Yes</span> }
+                                }
+                                else if (r.Decision == VerificationDecision.Pending) { <span class="vi-badge pending">Pending</span> }
+                                else if (r.Decision == VerificationDecision.Yes) { <span class="vi-badge yes">Yes</span> }
+                                else
+                                {
+                                    <span class="vi-badge no">No</span>
+                                    @if (!string.IsNullOrWhiteSpace(r.DecisionComment)) { <div class="vi-comment">@r.DecisionComment</div> }
+                                }
+                            </td>
+                            <td>
+                                <div class="vi-acts">
+                                    @if (r.IsBulkGroup)
+                                    {
+                                        <a class="vi-view" href="/Valuer/Bulk/Details?batchId=@Model.BatchId&unitKey=@Uri.EscapeDataString(r.BulkUnitKey)">
+                                            <i class="bi bi-boxes"></i> Review group (@r.BulkRowCount)
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="vi-view js-details" data-rowid="@r.ExtractRowId"><i class="bi bi-search"></i> View</button>
+                                        @if (r.Decision == VerificationDecision.Pending)
+                                        {
+                                            <button type="button" class="vi-yes js-yes" data-rowid="@r.ExtractRowId" data-vkey="@r.ValuationKey"><i class="bi bi-check-lg"></i> Yes</button>
+                                            <button type="button" class="vi-no js-no" data-rowid="@r.ExtractRowId" data-vkey="@r.ValuationKey"><i class="bi bi-x-lg"></i> No</button>
+                                        }
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <div class="vi-pager">
+                <span id="pageInfo"></span>
+                <button type="button" class="mgr-btn" id="prevPage">Previous</button>
+                <button type="button" class="mgr-btn" id="nextPage">Next</button>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- details -->
+<div class="modal fade rs-modal" id="detailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-house-door me-2"></i>Property <span class="gold" id="detailsKey">details</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body vi-modal-body" id="detailsBody"></div>
+            <div class="modal-footer border-0">
+                <button type="button" class="rs-out" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="vi-no" id="detailsNo"><i class="bi bi-x-lg"></i> No</button>
+                <button type="button" class="vi-yes" id="detailsYes"><i class="bi bi-check-lg"></i> Yes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Yes -->
+<div class="modal fade rs-modal" id="yesModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" action="/Valuer/Verify">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="yesRow" name="ExtractRowId" />
+                <input type="hidden" name="Decision" value="Yes" />
+                <input type="hidden" name="Comment" value="Verified" />
+                <input type="hidden" name="BatchId" value="@Model.BatchId" />
+                <input type="hidden" name="Filter" value="@Model.Filter" />
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-check-circle-fill me-2"></i>Mark as <span class="gold">Yes</span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    Property <b id="yesKey">-</b> will be marked <b>Yes</b> and go on the Valuation Roll list.
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="rs-out" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="vi-yes"><i class="bi bi-check-lg"></i> Confirm Yes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- No -->
+<div class="modal fade rs-modal" id="noModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" action="/Valuer/Verify">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="noRow" name="ExtractRowId" />
+                <input type="hidden" name="Decision" value="No" />
+                <input type="hidden" name="BatchId" value="@Model.BatchId" />
+                <input type="hidden" name="Filter" value="@Model.Filter" />
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-x-circle-fill me-2"></i>Mark as <span class="gold">No</span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-2">Property <b id="noKey">-</b></div>
+                    <div class="rs-label">Reason (required)</div>
+                    <textarea id="noComment" name="Comment" required minlength="5" placeholder="Why must this property not be on the roll?"></textarea>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="rs-out" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="vi-no"><i class="bi bi-x-lg"></i> Confirm No</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var curRow = null, curKey = null;
+            function modal(id) { return bootstrap.Modal.getOrCreateInstance(document.getElementById(id)); }
+
+            function openYes(row, key) {
+                document.getElementById('yesRow').value = row;
+                document.getElementById('yesKey').textContent = key || '-';
+                modal('yesModal').show();
+            }
+            function openNo(row, key) {
+                document.getElementById('noRow').value = row;
+                document.getElementById('noKey').textContent = key || '-';
+                document.getElementById('noComment').value = '';
+                modal('noModal').show();
+            }
+
+            document.querySelectorAll('.js-yes').forEach(function (b) {
+                b.addEventListener('click', function () { openYes(b.dataset.rowid, b.dataset.vkey); });
+            });
+            document.querySelectorAll('.js-no').forEach(function (b) {
+                b.addEventListener('click', function () { openNo(b.dataset.rowid, b.dataset.vkey); });
+            });
+
+            document.querySelectorAll('.js-details').forEach(function (b) {
+                b.addEventListener('click', async function () {
+                    curRow = b.dataset.rowid; curKey = null;
+                    document.getElementById('detailsKey').textContent = 'details';
+                    document.getElementById('detailsBody').innerHTML = 'Loading…';
+                    modal('detailsModal').show();
+                    try {
+                        var r = await fetch('/Valuer/RowDetails?extractRowId=' + encodeURIComponent(curRow));
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        document.getElementById('detailsBody').innerHTML = await r.text();
+                        var k = document.getElementById('rowDetailsValuationKey');
+                        curKey = k ? (k.getAttribute('data-vkey') || k.textContent).trim() : null;
+                        if (curKey) document.getElementById('detailsKey').textContent = curKey;
+                    } catch (e) {
+                        document.getElementById('detailsBody').innerHTML = '<div class="mgr-alert bad">Could not load the property details.</div>';
+                    }
+                });
+            });
+            document.getElementById('detailsYes').addEventListener('click', function () {
+                if (!curRow) return; modal('detailsModal').hide(); openYes(curRow, curKey);
+            });
+            document.getElementById('detailsNo').addEventListener('click', function () {
+                if (!curRow) return; modal('detailsModal').hide(); openNo(curRow, curKey);
+            });
+
+            // search + paging (50 per page)
+            var rows = Array.prototype.slice.call(document.querySelectorAll('#rowsTable tbody tr'));
+            var page = 0, size = 50, q = '';
+            function render() {
+                var hit = rows.filter(function (tr) { return !q || tr.textContent.toUpperCase().indexOf(q) >= 0; });
+                var pages = Math.max(1, Math.ceil(hit.length / size));
+                if (page >= pages) page = pages - 1;
+                rows.forEach(function (tr) { tr.style.display = 'none'; });
+                hit.slice(page * size, page * size + size).forEach(function (tr) { tr.style.display = ''; });
+                var info = document.getElementById('pageInfo');
+                if (info) info.textContent = hit.length + ' properties · page ' + (page + 1) + ' of ' + pages;
+                var p = document.getElementById('prevPage'), n = document.getElementById('nextPage');
+                if (p) p.disabled = page === 0; if (n) n.disabled = page >= pages - 1;
+            }
+            var box = document.getElementById('rowSearch');
+            if (box) box.addEventListener('input', function () { q = box.value.trim().toUpperCase(); page = 0; render(); });
+            var pv = document.getElementById('prevPage'), nx = document.getElementById('nextPage');
+            if (pv) pv.addEventListener('click', function () { page--; render(); });
+            if (nx) nx.addEventListener('click', function () { page++; render(); });
+            if (rows.length) render();
+        })();
+    </script>
+}
