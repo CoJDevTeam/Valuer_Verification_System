@@ -1,4 +1,4 @@
-﻿// Requires NuGet: QuestPDF (2024.3.0+)
+// Requires NuGet: QuestPDF (2024.3.0+)
 using Microsoft.EntityFrameworkCore;
 using QuestPDF.Elements.Table;
 using QuestPDF.Fluent;
@@ -389,13 +389,11 @@ namespace Valuer_Verification_System.Services.Notice
         {
             var vvsDb = (VvsDbContext)db;
 
-            var mainRow = await vvsDb.ExtractRows
-                .AsNoTracking()
-                .Where(r => r.BatchId == batchId
-                         && r.SendNotice != null
-                         && r.SendNotice.ToUpper() == "Y")
-                .OrderBy(r => r.ValuationKey)
-                .FirstOrDefaultAsync(ct);
+            // First property the valuers verified Yes (decision is saved in the week table).
+            var firstYes = await vvsDb.FirstYesExtractRowIdAsync(batchId, ct);
+            ExtractRow? mainRow = firstYes.HasValue
+                ? await vvsDb.ExtractRows.AsNoTracking().FirstOrDefaultAsync(r => r.Id == firstYes.Value, ct)
+                : null;
 
             if (mainRow is null)
                 mainRow = await vvsDb.ExtractRows

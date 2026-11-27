@@ -1,4 +1,4 @@
-﻿@using Valuer_Verification_System.Infrastructure.Configuration
+@using Valuer_Verification_System.Infrastructure.Configuration
 @inject IAppMode AppMode
 <!DOCTYPE html>
 <html lang="en">
@@ -40,9 +40,10 @@
     bool canViewExtractIntake =
         canUseEmergencyUpload
         || isDataTeam;
-
-    string defaultController = isValuer ? "Valuer" : isManager ? "Manager" : "Home";
-    string defaultAction = isValuer ? "Dashboard" : isManager ? "Dashboard" : "Index";
+    bool isQaRole = appRole.Equals("Area Manager", StringComparison.OrdinalIgnoreCase)
+                 || appRole.Equals("Senior Manager", StringComparison.OrdinalIgnoreCase);
+    string defaultController = isValuer ? "Valuer" : (isManager || isQaRole) ? "Manager" : "Home";
+    string defaultAction = isValuer ? "Dashboard" : (isManager || isQaRole) ? "Dashboard" : "Index";
 }
 
 <body>
@@ -61,6 +62,22 @@
         <div class="nav-divider"></div>
 
         <ul class="nav-links">
+            @if (Can("AreaQA"))
+            {
+                <li class="nav-item">
+                    <a class="nav-link" href="/Qa/Area">
+                        <i class="bi bi-clipboard-check"></i> Area QA
+                    </a>
+                </li>
+            }
+            @if (Can("SeniorQA"))
+            {
+                <li class="nav-item">
+                    <a class="nav-link" href="/Qa/Senior">
+                        <i class="bi bi-patch-check"></i> Senior Sign-off
+                    </a>
+                </li>
+            }
             @if (isValuer)
             {
                 <li class="nav-item">
@@ -70,7 +87,7 @@
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" asp-controller="Valuer" asp-action="Inbox">
-                        <i class="bi bi-inbox-fill"></i> My Properties
+                        <i class="bi bi-inbox-fill"></i> My Verification Tasks
                     </a>
                 </li>
             }
@@ -86,11 +103,19 @@
                         <i class="bi bi-arrow-left-right"></i> Reassign Valuer
                     </a>
                 </li>
+                @if (Can("RollConfirmation"))
+                {
+                    <li class="nav-item">
+                        <a class="nav-link" href="/Roll/Confirm">
+                            <i class="bi bi-patch-check"></i> Roll Confirmation
+                        </a>
+                    </li>
+                }
                 @if (Can("ValuerInbox"))
                 {
                     <li class="nav-item">
                         <a class="nav-link" asp-controller="Valuer" asp-action="Inbox">
-                            <i class="bi bi-inbox-fill"></i> My Properties
+                            <i class="bi bi-inbox-fill"></i> My Verification Tasks
                         </a>
                     </li>
                 }
@@ -113,11 +138,19 @@
                         </a>
                     </li>
                 }
-                @if (Can("Reassign"))
+                @if (Can("RollPreparation"))
                 {
                     <li class="nav-item">
-                        <a class="nav-link" asp-controller="Manager" asp-action="Reassign">
-                            <i class="bi bi-arrow-left-right"></i> Reassign Valuer
+                        <a class="nav-link" href="/Roll">
+                            <i class="bi bi-journal-text"></i> Valuation Roll
+                        </a>
+                    </li>
+                }
+                @if (Can("SendNotices"))
+                {
+                    <li class="nav-item">
+                        <a class="nav-link" href="/Notices/Send">
+                            <i class="bi bi-send-check"></i> Send Notices
                         </a>
                     </li>
                 }

@@ -69,7 +69,14 @@ builder.Services.AddScoped<IValuerVerificationService,ValuerVerificationService>
 builder.Services.AddScoped<IValuerDashboardService,ValuerDashboardService>();
 
 builder.Services.AddScoped<IValuerRowDetailsService,ValuerRowDetailsService>();
-
+builder.Services.AddHttpClient<INoticeRunService, NoticeRunService>()
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        // Development only: eNotice runs on a local https development certificate.
+        ServerCertificateCustomValidationCallback = (msg, cert, chain, errors) =>
+            errors == System.Net.Security.SslPolicyErrors.None
+            || (builder.Environment.IsDevelopment() && msg.RequestUri?.IsLoopback == true)
+    });
 
 //-------------------------------Manager Reassignment---------------------------------
 builder.Services.AddScoped<IManagerReassignmentService, ManagerReassignmentService>();

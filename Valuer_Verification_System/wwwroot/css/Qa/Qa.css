@@ -1,4 +1,12 @@
-.qa{max-width:1200px;margin:24px auto;padding:0 16px;font-family:Poppins,system-ui,sans-serif;color:#1f2937}
+.qa {
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    padding: 24px 32px;
+    box-sizing: border-box;
+    font-family: Poppins,system-ui,sans-serif;
+    color: #1f2937
+}
 .qa h1{font-size:22px;margin:0}.qa p{margin:4px 0 0;color:#6b7280;font-size:13px}
 .qa-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;margin-bottom:14px}
 .qa-pick select{padding:8px 10px;border:1px solid #d1d5db;border-radius:8px}

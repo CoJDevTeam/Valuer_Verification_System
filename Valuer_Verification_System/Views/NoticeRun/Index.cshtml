@@ -1,0 +1,88 @@
+@model Valuer_Verification_System.Controllers.NoticeRunVm
+@{ ViewData["Title"] = "Send Notices"; var g = Model.Gate; }
+<link rel="stylesheet" href="~/css/Qa/Qa.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/Notice/NoticeRun.css" asp-append-version="true" />
+<div class="qa">
+  <div class="qa-head"><div><h1>Send Section 78 Notices</h1>
+    <p>Choose the week. Only properties the valuers verified <b>Yes</b> are sent; the notices are printed, checked and sent in eNotice.</p></div></div>
+
+  <div class="nr-pick">
+    <label for="batchSel">Week to send</label>
+    <form method="get"><select id="batchSel" name="batchId" onchange="this.form.submit()">
+      @foreach (var b in Model.Batches) { <option value="@b.Id" selected="@(b.Id==Model.BatchId)">@b.Name</option> }
+    </select></form>
+  </div>
+
+  @if (Model.Msg != null) { <div class="qa-msg @(Model.MsgOk ? "ok" : "bad")">@Model.Msg</div> }
+
+  @if (g != null) {
+  <div class="qa-stats">
+    <div><b>@g.Total</b><span>Properties in the week</span></div>
+    <div class="y"><b>@g.YesProperties</b><span>Notices to send (Yes)</span></div>
+    <div class="n"><b>@g.No</b><span>Not sent (No)</span></div>
+    <div class="p"><b>@g.Pending</b><span>Still Pending</span></div>
+  </div>
+
+  <h2 class="nr-h">What will be sent, per sector</h2>
+  <div class="qa-table"><table>
+    <thead><tr><th>Sector</th><th>Rows</th><th>Yes (sent)</th><th>No (not sent)</th><th>Pending</th><th>Area Manager QA</th></tr></thead>
+    <tbody>
+    @foreach (var s in g.Sectors) {
+      <tr><td><b>@s.Sector</b></td><td>@s.Total</td><td><b class="nr-yes">@s.Yes</b></td><td>@s.No</td><td>@s.Pending</td>
+        <td>@if (s.Approved) { <span class="pill ok">Approved</span> } else { <span class="pill warn">Not approved</span> }</td></tr>
+    }
+    <tr class="nr-total"><td>Total</td><td>@g.Total</td><td><b class="nr-yes">@g.Yes</b></td><td>@g.No</td><td>@g.Pending</td><td></td></tr>
+    </tbody></table></div>
+
+  <div class="nr-two">
+    <div class="nr-card">
+      <h2>Notice dates</h2>
+      <p>Letter date <b>@g.LetterDate.ToString("dd MMMM yyyy")</b></p>
+      <p>Review opens <b>@g.ReviewOpen.ToString("dd MMMM yyyy")</b></p>
+      <p>Review closes <b>@g.ReviewClose.ToString("dd MMMM yyyy")</b></p>
+    </div>
+    <div class="nr-card">
+      <h2>Ready to send?</h2>
+      <ul class="nr-checks">
+        @foreach (var c in g.Checks) { <li class="@(c.Ok ? "ok" : "bad")"><b>@(c.Ok ? "✔" : "✖")</b> <span>@c.Label</span><small>@c.Detail</small></li> }
+      </ul>
+    </div>
+  </div>
+
+  <div class="nr-go">
+    <div>
+      <b>What happens when you press the button</b>
+      <ol>
+        <li>VVS hands this week to <b>eNotice</b>.</li>
+        <li>eNotice builds every notice PDF and opens its <b>review page</b>, where you check the PDFs (PDF QA).</li>
+        <li>When you approve there, eNotice sends the notices.</li>
+      </ol>
+    </div>
+    <form method="post" asp-action="Trigger"><input type="hidden" name="batchId" value="@g.BatchId" />
+      <button class="btn pri nr-bigbtn" disabled="@(!g.Ready)">Start printing in eNotice →</button></form>
+  </div>
+
+  <div id="enBox" class="nr-status" data-batch="@g.BatchId" data-review="@Model.ReviewBaseUrl">Checking eNotice…</div>
+  }
+</div>
+
+@section Scripts {
+<script>
+(function(){
+  var box=document.getElementById('enBox'); if(!box) return;
+  var labels={PENDING:'Waiting for eNotice to pick it up',PREPARING:'eNotice is preparing the notices',AWAITING_QA:'Waiting for PDF QA in eNotice',
+    SENDING:'eNotice is sending',SENT:'All notices sent',PARTIAL:'Some notices failed',FAILED:'Failed'};
+  async function poll(){
+    try{
+      var r=await fetch('/Notices/Send/Status?batchId='+box.dataset.batch); var s=await r.json();
+      if(!s.found){ box.textContent=s.message||'Not sent to eNotice yet.'; return; }
+      var link=box.dataset.review+'/Section78Notice/Review/'+s.runToken;
+      box.innerHTML='<b>eNotice status: '+(labels[s.status]||s.status)+'</b><br>Notices: '+s.notices+' · with email: '+s.withEmail+' · to post: '+s.noEmail+
+        ' · sent: '+s.sent+' · failed: '+s.sendFailed+(s.error?'<br><span class="nr-err">'+s.error+'</span>':'')+
+        '<br><a class="btn" href="'+link+'">Open the eNotice page</a>';
+    }catch(e){ box.textContent='Cannot read the eNotice status.'; }
+  }
+  poll(); setInterval(poll,8000);
+})();
+</script>
+}

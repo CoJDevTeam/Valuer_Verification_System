@@ -1,4 +1,4 @@
-﻿@model Valuer_Verification_System.Models.ViewModels.DataTeamDashboardVm
+@model Valuer_Verification_System.Models.ViewModels.DataTeamDashboardVm
 @using Valuer_Verification_System.Models.Data
 @using Valuer_Verification_System.Models.SLA
 
@@ -92,7 +92,7 @@
         🗓 Week Windows
     </a>
 
-    <a class="btn btn-outline-white" href="/DataTeam/SendNotice">
+    <a class="btn btn-outline-white" href="/Notices/Send">
         📬 Send Notice
     </a>
 
@@ -129,7 +129,7 @@
             <div class="stat-sub">
                 @if (Model.BatchesReadyToSend > 0)
                 {
-                    <a href="/DataTeam/SendNotice" class="stat-link">Send notices now →</a>
+                    <a href="/Notices/Send" class="stat-link">Send notices now →</a>
                 }
                 else
                 {
@@ -139,35 +139,6 @@
         </div>
     </div>
 
-    <div class="stats-grid" style="margin-top:1rem;">
-    <div class="stat-card">
-        <div class="stat-icon">🧹</div>
-        <div class="stat-label">Cleaned Batches</div>
-        <div class="stat-value">@Model.CleanedBatches</div>
-        <div class="stat-sub">Extract cleaning completed</div>
-    </div>
-
-    <div class="stat-card">
-        <div class="stat-icon">👤</div>
-        <div class="stat-label">PM Approval Pending</div>
-        <div class="stat-value">@Model.ProjectManagerApprovalPending</div>
-        <div class="stat-sub">Waiting for Project Manager</div>
-    </div>
-
-    <div class="stat-card">
-        <div class="stat-icon">📧</div>
-        <div class="stat-label">Sector Notification Pending</div>
-        <div class="stat-value">@Model.SectorNotificationPending</div>
-        <div class="stat-sub">Approved but not released</div>
-    </div>
-
-    <div class="stat-card">
-        <div class="stat-icon">⚠️</div>
-        <div class="stat-label">Unmatched Valuer Rows</div>
-        <div class="stat-value">@Model.UnmatchedValuerRows</div>
-        <div class="stat-sub">Rows without Username mapping</div>
-    </div>
-</div>
     <!-- ─── MAIN CONTENT PANELS ──────────────────────── -->
     <div class="content-grid">
 
@@ -366,7 +337,7 @@
         <div class="action-cell">
             @if (b.NoticesCanBeSent)
             {
-                <a class="btn btn-sm btn-send-notices-sm" href="/DataTeam/SendNotice">
+                <a class="btn btn-sm btn-send-notices-sm" href="/Notices/Send">
                     📬 Send Notices
                 </a>
             }

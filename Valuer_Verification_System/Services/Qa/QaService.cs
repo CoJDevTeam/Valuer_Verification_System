@@ -31,7 +31,15 @@ namespace Valuer_Verification_System.Services.Qa
         public QaService(VvsDbContext db) { _db = db; }
 
         // ---- helpers -------------------------------------------------------
-        private const string Eff = "ISNULL(NULLIF(LTRIM(RTRIM(w.DevAllocatedTo)),''), NULLIF(LTRIM(RTRIM(w.Username)),''))";
+        // DevAllocatedTo is optional: only use it when the week table actually has that column.
+        private static async Task<string> EffAsync(SqlConnection c, string t, CancellationToken ct)
+        {
+            await using var cmd = new SqlCommand($"SELECT COL_LENGTH('{t.Replace("'", "''")}','DevAllocatedTo')", c);
+            var has = await cmd.ExecuteScalarAsync(ct) is not (null or DBNull);
+            return has
+                ? "ISNULL(NULLIF(LTRIM(RTRIM(w.DevAllocatedTo)),''), NULLIF(LTRIM(RTRIM(w.Username)),''))"
+                : "NULLIF(LTRIM(RTRIM(w.Username)),'')";
+        }
 
         private async Task<string> TableAsync(int batchId, CancellationToken ct)
         {
@@ -108,6 +116,7 @@ namespace Valuer_Verification_System.Services.Qa
                 _ => "(w.Decision='No' OR (w.Decision='Yes' AND ABS(CHECKSUM(w.VALUATION_KEY)) % 10 = 0))"
             };
             await using var c = await OpenAsync(ct);
+            var Eff = await EffAsync(c, t, ct);
             var items = new List<QaItem>();
             var sql = $@"SELECT TOP 1000 CAST(w.VALUATION_KEY AS nvarchar(100)), ISNULL(NULLIF(LTRIM(RTRIM(w.SECTOR)),''),'Unknown'),
                   ISNULL(NULLIF(w.PREMISE_ID,''),'-'), ISNULL(NULLIF(w.PROPERTY_DESCRIPTION,''),'-'), ISNULL(w.TOWN_NAME_DESC,''),
@@ -135,6 +144,7 @@ namespace Valuer_Verification_System.Services.Qa
             if (note.Length < 5) return (false, "Please write a reason (at least 5 characters).");
             var t = await TableAsync(batchId, ct);
             await using var c = await OpenAsync(ct);
+            var Eff = await EffAsync(c, t, ct);
             string? valuer = null, sector = null;
             await using (var r = await Cmd(c, $"SELECT {Eff}, ISNULL(NULLIF(LTRIM(RTRIM(w.SECTOR)),''),'Unknown') FROM {t} w WHERE CAST(w.VALUATION_KEY AS nvarchar(100))=@k", ("@k", key)).ExecuteReaderAsync(ct))
             { if (!await r.ReadAsync(ct)) return (false, "Row not found."); valuer = r.IsDBNull(0) ? null : r.GetString(0); sector = r.GetString(1); }

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Valuer_Verification_System.Data;
@@ -268,16 +268,24 @@ namespace Valuer_Verification_System.Controllers
                 return RedirectToAction(nameof(SendNotice), new { batchId });
             }
 
-            var pending = await _db.ExtractRows
-                .AsNoTracking()
-                .CountAsync(r =>
-                    r.BatchId == batchId &&
-                    r.Decision == VerificationDecision.Pending,
-                    ct);
+            // Released = verified Yes in the week table + QA signed off by the Senior Manager.
+            var rel = await _db.ReleaseSummaryAsync(batchId, ct);
 
-            if (pending > 0)
+            if (rel.pending > 0)
             {
-                TempData["Error"] = $"Cannot prepare notices. There are still {pending:N0} pending verification records.";
+                TempData["Error"] = $"Cannot prepare notices. There are still {rel.pending:N0} pending verification records.";
+                return RedirectToAction(nameof(SendNotice), new { batchId });
+            }
+
+            if (!rel.signedOff)
+            {
+                TempData["Error"] = "The Senior Manager must sign off QA for this batch before notices can be printed.";
+                return RedirectToAction(nameof(SendNotice), new { batchId });
+            }
+
+            if (rel.yes == 0)
+            {
+                TempData["Error"] = "No property was verified Yes, so there is nothing to print.";
                 return RedirectToAction(nameof(SendNotice), new { batchId });
             }
 
@@ -665,8 +673,7 @@ namespace Valuer_Verification_System.Controllers
             foreach (var b in batches)
             {
                 var exDate = await GetExtractionDateAsync(b.Id, b.BatchDate, ct);
-                var count = await _db.ExtractRows.CountAsync(r =>
-                    r.BatchId == b.Id && r.SendNotice != null && r.SendNotice.ToUpper() == "Y", ct);
+                var count = (await _db.YesCountsAsync(b.Id, ct)).total;
                 options.Add(new PrintNoticeVm.BatchOption
                 {
                     Id = b.Id,
@@ -687,7 +694,9 @@ namespace Valuer_Verification_System.Controllers
 
             var ww = selBatch.WeekWindow;
             var extractDate = await GetExtractionDateAsync(selBatch.Id, selBatch.BatchDate, ct);
-            var tableName = _cleaning.BuildWeekTableName(extractDate);
+            var tableName = !string.IsNullOrWhiteSpace(selBatch.CleanWeekTableName)
+                ? WeekTableSql.Short(selBatch.CleanWeekTableName)
+                : _cleaning.BuildWeekTableName(extractDate);
             var cntTuple = await GetNoticeCounts(selBatch.Id, ct);
 
             return new PrintNoticeVm
@@ -709,22 +718,9 @@ namespace Valuer_Verification_System.Controllers
 
         private async Task<(int total, int single, int multi)> GetNoticeCounts(int batchId, CancellationToken ct)
         {
-            var keys = await _db.ExtractRows
-                .AsNoTracking()
-                .Where(r => r.BatchId == batchId && r.SendNotice != null && r.SendNotice.ToUpper() == "Y")
-                .GroupBy(r => r.ValuationKey)
-                .Select(g => new
-                {
-                    Key = g.Key,
-                    Count = g.Count(),
-                    IsMulti = g.Any(r =>
-                        r.CatDesc == "Multipurpose" && r.ValuationSplitInd != null && r.ValuationSplitInd != "")
-                })
-                .ToListAsync(ct);
-
-            int multi = keys.Count(x => x.IsMulti || x.Count > 1);
-            int single = keys.Count - multi;
-            return (keys.Count, single, multi);
+            // Released properties = Decision Yes in the week table.
+            var c = await _db.YesCountsAsync(batchId, ct);
+            return (c.total, c.total - c.multi, c.multi);
         }
 
         private async Task<SendNoticeStep1Vm> BuildStep1Async(int? weekWindowId, int? preselectedBatchId, CancellationToken ct)

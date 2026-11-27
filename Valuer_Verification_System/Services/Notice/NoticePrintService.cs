@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Valuer_Verification_System.Data;
@@ -46,14 +46,13 @@ namespace Valuer_Verification_System.Services.Notice
 
         public async Task<int> GetTotalNoticeCountAsync(int batchId, CancellationToken ct)
         {
-            return await _db.ExtractRows
-                .AsNoTracking()
-                .Where(r => r.BatchId == batchId
-                         && r.SendNotice != null
-                         && r.SendNotice.ToUpper() == "Y")
-                .Select(r => r.ValuationKey)
-                .Distinct()
-                .CountAsync(ct);
+            // Verified rows (Decision = Yes) live in the week table, not in ExtractRows.
+            var wk = await _db.Batches.AsNoTracking().Where(b => b.Id == batchId)
+                .Select(b => b.CleanWeekTableName).FirstOrDefaultAsync(ct);
+            if (string.IsNullOrWhiteSpace(wk)) return 0;
+            return await _db.Database
+                .SqlQueryRaw<int>($"SELECT COUNT(DISTINCT VALUATION_KEY) AS [Value] FROM {WeekTableSql.Full(wk)} WHERE Decision = 'Yes'")
+                .FirstAsync(ct);
         }
 
         // ── Chunk printer ─────────────────────────────────────────────────────
@@ -113,14 +112,15 @@ namespace Valuer_Verification_System.Services.Notice
                     LogoPath = Path.Combine(_env.WebRootPath, "Images", "City_of_Joburg_logo.png")
                 };
 
-                // ✅ Print every verified row.
-                // Do NOT use Distinct ValuationKey.
-                // Do NOT use SendNotice here.
+                // Print every property the valuers verified Yes. The decision is saved in the week table
+                // (ExtractRowId = ExtractRows.Id), so read the ids from there.
+                var yesIds = await _db.Database
+                    .SqlQueryRaw<int>($"SELECT CAST(ExtractRowId AS int) AS [Value] FROM {WeekTableSql.Full(weekTableName)} WHERE Decision = 'Yes' AND ExtractRowId IS NOT NULL")
+                    .ToListAsync(ct);
+
                 var allRowIds = await _db.ExtractRows
                     .AsNoTracking()
-                    .Where(r =>
-                        r.BatchId == batchId &&
-                        r.Decision == VerificationDecision.Yes)
+                    .Where(r => r.BatchId == batchId && yesIds.Contains(r.Id))
                     .OrderBy(r => r.UnitKey)
                     .ThenBy(r => r.PremiseId)
                     .ThenBy(r => r.ValuationKey)
