@@ -14,13 +14,16 @@ namespace Valuer_Verification_System.Controllers
         private readonly IValuerVerificationService _svc;
         private readonly IValuerDashboardService _dash;
         private readonly IValuerRowDetailsService _details;
+        private readonly IWeekRowStore _weekRows;
 
         public ValuerController(
             VvsDbContext db,
             IValuerVerificationService svc,
             IValuerDashboardService dash,
-            IValuerRowDetailsService details)
+            IValuerRowDetailsService details,
+            IWeekRowStore weekRows)
         {
+            _weekRows = weekRows;
             _db = db;
             _svc = svc;
             _dash = dash;
@@ -51,12 +54,8 @@ namespace Valuer_Verification_System.Controllers
                 await _svc.GetInboxAsync(valuer, batchId, filter, ct);
 
             // ── Counts across ALL decisions (for the header chips) ─────────
-            var allRows = await _db.ExtractRows
-                .AsNoTracking()
-                .Where(r => r.Username != null &&
-                            r.Username.Trim() == valuer &&
-                            (!batchId.HasValue || r.BatchId == batchId.Value))
-                .ToListAsync(ct);
+            var allRows = await _weekRows.LoadForValuerAsync(
+                valuer, batchId.HasValue && batchId.Value > 0 ? batchId : null, null, ct);
 
             // ── Classify: Single vs Sectional Title (bulk candidate) ───────
             //

@@ -1,0 +1,163 @@
+@model Valuer_Verification_System.Controllers.ExtractStepVm
+
+@{
+    ViewData["Title"] = "Extracts - Step 2";
+    var s = Model.Summary;
+    var mismatch = s != null && s.TotalRows != Model.RawRows;
+}
+
+<link href="~/css/upload/intake-css.css" rel="stylesheet" />
+<link href="~/css/upload/intake-steps.css" rel="stylesheet" />
+
+<div class="intake-page">
+    <div class="intake-shell">
+
+        <div class="hero">
+            <div class="hero__eyebrow">Extracts · Step 2 of 4</div>
+            <h1>Clean @Model.BatchName</h1>
+            <p>
+                File <strong>@Model.FileName</strong>, week @Model.WeekStart.ToString("dd MMM") to @Model.WeekEnd.ToString("dd MMM yyyy").
+                This step creates the week table with every row of the extract and cleans it, so the valuers can verify in it.
+            </p>
+        </div>
+
+        @await Html.PartialAsync("_IntakeSteps", (2, (int?)Model.BatchId, Model.IsCleaned, Model.ProjectManagerNotifiedAtUtc != null))
+
+        @if (TempData["ExtractIntakeSuccess"] is string ok)
+        {
+            <div class="alert ok">@ok</div>
+        }
+        @if (TempData["ExtractIntakeError"] is string err)
+        {
+            <div class="alert err">@err</div>
+        }
+
+        <div class="grid">
+            <div class="card">
+                <h2>Extract as received</h2>
+                <div class="stats" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+                    <div class="stat"><label>Rows in the file</label><strong>@Model.RawRows.ToString("N0")</strong></div>
+                    <div class="stat"><label>Notice date</label><strong style="font-size:15px;">@Model.NoticeSendDate.ToString("dd MMM yyyy")</strong></div>
+                </div>
+                <p class="small-muted">This copy is kept untouched as the backup.</p>
+            </div>
+
+            <div class="card">
+                <h2>Week table (where valuers work)</h2>
+                @if (string.IsNullOrWhiteSpace(Model.CleanWeekTableName))
+                {
+                    <p><span class="pill grey">Not created yet</span></p>
+                }
+                else
+                {
+                    <p><strong>@Model.CleanWeekTableName</strong></p>
+                    @if (Model.Failed)
+                    {
+                        <p><span class="pill err">Cleaning failed</span></p>
+                    }
+                    else if (Model.IsCleaned)
+                    {
+                        <p>
+                            <span class="pill ok">Cleaned</span>
+                            <span class="small-muted">@(Model.ExtractCleanedAtUtc?.ToString("yyyy-MM-dd HH:mm")) UTC by @Model.ExtractCleanedBy</span>
+                        </p>
+                    }
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.ExtractCleaningMessage))
+                {
+                    <p class="small-muted">@Model.ExtractCleaningMessage</p>
+                }
+            </div>
+        </div>
+
+        @if (Model.Failed)
+        {
+            <div class="alert err">
+                The last attempt failed. Read the message above, fix the cause, then run Step 2 again.
+                The week table is kept, it is not created twice.
+            </div>
+        }
+
+        @if (!Model.IsCleaned)
+        {
+            <div class="card full" style="margin-bottom:20px;">
+                <h2>What this button does</h2>
+                <ol>
+                    <li>Creates the week table with all @Model.RawRows.ToString("N0") rows.</li>
+                    <li>Checks the week table has the same number of rows as the file.</li>
+                    <li>Fills in the sector and the valuer for each row, and trims the text.</li>
+                </ol>
+                <p class="small-muted">The rest of the cleaning is done on the day the notices are sent.</p>
+
+                @if (Model.CanRun)
+                {
+                    <form method="post" action="/ExtractIntake/Clean/@Model.BatchId/Run" class="step-actions">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn-run-now">
+                            <i class="bi bi-play-circle-fill"></i> @(Model.Failed || !string.IsNullOrWhiteSpace(Model.CleanWeekTableName) ? "Run Step 2 again" : "Create the week table and clean")
+                        </button>
+                        <a class="btn gray" href="/ExtractIntake">Back to Step 1</a>
+                    </form>
+                }
+                else
+                {
+                    <div class="step-note">Only the Data Team can run this step.</div>
+                }
+            </div>
+        }
+        else if (s != null)
+        {
+            @if (mismatch)
+            {
+                <div class="alert err">
+                    The week table has @s.TotalRows.ToString("N0") rows but the file has @Model.RawRows.ToString("N0").
+                    Do not email the managers. Tell the developer.
+                </div>
+            }
+            else
+            {
+                <div class="alert ok">The week table has all @s.TotalRows.ToString("N0") rows of the file.</div>
+            }
+
+            <div class="stats">
+                <div class="stat"><label>Rows</label><strong>@s.TotalRows.ToString("N0")</strong></div>
+                <div class="stat"><label>Properties</label><strong>@s.TotalProperties.ToString("N0")</strong></div>
+                <div class="stat"><label>Sectors</label><strong>@s.Sectors.Count</strong></div>
+                <div class="stat"><label>Valuers found</label><strong>@s.MatchedValuers.ToString("N0")</strong></div>
+                <div class="stat"><label>Rows without a valuer</label><strong>@s.UnmatchedRows.ToString("N0")</strong></div>
+                <div class="stat"><label>Still to verify</label><strong>@s.Pending.ToString("N0")</strong></div>
+            </div>
+
+            <div class="step-actions" style="margin-bottom:20px;">
+                @if (!mismatch)
+                {
+                    <a class="btn-run-now" href="/ExtractIntake/Notify/@Model.BatchId">Go to Step 3: Email the managers</a>
+                }
+                <a class="btn gray" href="/ExtractIntake">Back to Step 1</a>
+            </div>
+        }
+
+        @if (Model.Steps.Any())
+        {
+            <div class="card full" style="margin-bottom:20px;">
+                <h2>What was done</h2>
+                <table>
+                    <thead><tr><th>Step</th><th>Result</th><th class="num">Rows</th><th class="num">Seconds</th><th>Error</th></tr></thead>
+                    <tbody>
+                        @foreach (var st in Model.Steps)
+                        {
+                            <tr>
+                                <td>@st.StepName</td>
+                                <td>@if (st.Success) { <span class="pill ok">Done</span> } else { <span class="pill err">Failed</span> }</td>
+                                <td class="num">@st.RowsAffected.ToString("N0")</td>
+                                <td class="num">@((st.DurationMs ?? 0) / 1000m)</td>
+                                <td>@st.ErrorMessage</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+    </div>
+</div>

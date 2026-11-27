@@ -5,6 +5,12 @@ namespace Valuer_Verification_System.Models.ViewModels
     public sealed class ManagerDashboardVm
     {
         public int BatchId { get; set; }
+
+        /// <summary>Sector the manager is looking at. Empty = all sectors.</summary>
+        public string? Sector { get; set; }
+        public int Properties { get; set; }
+        public int Verified => Yes + No;
+
         public string BatchName { get; set; } = "";
         public DateOnly BatchDate { get; set; }
 
@@ -56,8 +62,7 @@ namespace Valuer_Verification_System.Models.ViewModels
         public string? ProjectManagerApprovalComment { get; set; }
 
         public bool IsCleaned =>
-            ExtractCleanedAtUtc != null &&
-            string.Equals(ExtractCleaningStatus, "Cleaned", StringComparison.OrdinalIgnoreCase);
+            Valuer_Verification_System.Infrastructure.CleaningStatus.IsDone(ExtractCleaningStatus, ExtractCleanedAtUtc);
 
         public bool ProjectManagerNotified => ProjectManagerNotifiedAtUtc != null;
 

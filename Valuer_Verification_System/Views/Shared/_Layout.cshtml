@@ -1,4 +1,6 @@
-﻿<!DOCTYPE html>
+﻿@using Valuer_Verification_System.Infrastructure.Configuration
+@inject IAppMode AppMode
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -37,10 +39,7 @@
 
     bool canViewExtractIntake =
         canUseEmergencyUpload
-        || isDataTeam
-        || isManager
-        || Can("WeekWindows")
-        || Can("ManagerDashboard");
+        || isDataTeam;
 
     string defaultController = isValuer ? "Valuer" : isManager ? "Manager" : "Home";
     string defaultAction = isValuer ? "Dashboard" : isManager ? "Dashboard" : "Index";
@@ -74,6 +73,27 @@
                         <i class="bi bi-inbox-fill"></i> My Properties
                     </a>
                 </li>
+            }
+            else if (isManager)
+            {
+                <li class="nav-item">
+                    <a class="nav-link" asp-controller="Manager" asp-action="Dashboard">
+                        <i class="bi bi-speedometer2"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" asp-controller="Manager" asp-action="Reassign">
+                        <i class="bi bi-arrow-left-right"></i> Reassign Valuer
+                    </a>
+                </li>
+                @if (Can("ValuerInbox"))
+                {
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Valuer" asp-action="Inbox">
+                            <i class="bi bi-inbox-fill"></i> My Properties
+                        </a>
+                    </li>
+                }
             }
             else
             {
@@ -137,6 +157,20 @@
         </button>
     </nav>
 
+    @if (!AppMode.IsProduction)
+    {
+        <div style="background:#fff3cd;border-bottom:1px solid #ffe69c;color:#664d03;padding:6px 18px;font:600 12px 'Poppins',sans-serif;text-align:center;">
+            @AppMode.Label.ToUpperInvariant() MODE:
+            @if (AppMode.RedirectEmails.Count == 0)
+            {
+                <span>no email address is set, so no emails are sent.</span>
+            }
+            else
+            {
+                <span>all emails go to @string.Join(", ", AppMode.RedirectEmails), not to the real recipients.</span>
+            }
+        </div>
+    }
     <div class="site-main">
         <main role="main" class="pb-3">
             @if (TempData["UploadBlocked"] is not null)

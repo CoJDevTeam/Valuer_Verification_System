@@ -14,10 +14,12 @@ namespace Valuer_Verification_System.Services.Valuer
     public sealed class ValuerDashboardService : IValuerDashboardService
     {
         private readonly VvsDbContext _db;
+        private readonly IWeekRowStore _weekRows;
 
-        public ValuerDashboardService(VvsDbContext db)
+        public ValuerDashboardService(VvsDbContext db, IWeekRowStore weekRows)
         {
             _db = db;
+            _weekRows = weekRows;
         }
 
         public async Task<ValuerDashboardVm> BuildAsync(string valuer, CancellationToken ct)
@@ -27,64 +29,28 @@ namespace Valuer_Verification_System.Services.Valuer
             if (string.IsNullOrWhiteSpace(valuer))
                 valuer = "UNKNOWN_VALUER";
 
-            // New source of truth:
-            // ExtractRows.Username is the current valuer assignment.
-            var assignedRowsQ = _db.ExtractRows
-                .AsNoTracking()
-                .Where(r => r.Username != null && r.Username.Trim() == valuer);
+            // The week table is the working table. Only batches the Project Manager approved are counted.
+            var approved = await _weekRows.ApprovedBatchesAsync(ct);
 
-            var total = await assignedRowsQ.CountAsync(ct);
-            var pending = await assignedRowsQ.CountAsync(r => r.Decision == VerificationDecision.Pending, ct);
-            var yes = await assignedRowsQ.CountAsync(r => r.Decision == VerificationDecision.Yes, ct);
-            var no = await assignedRowsQ.CountAsync(r => r.Decision == VerificationDecision.No, ct);
+            var map = new Dictionary<int, WeekCounts>();
+            foreach (var b in approved)
+            {
+                var c = await _weekRows.CountsAsync(valuer, b.Id, ct);
+                if (c.Total > 0) map[b.Id] = c;
+            }
+
+            var batches = approved.Where(b => map.ContainsKey(b.Id)).Take(50).ToList();
+
+            var total = map.Values.Sum(x => x.Total);
+            var pending = map.Values.Sum(x => x.Pending);
+            var yes = map.Values.Sum(x => x.Yes);
+            var no = map.Values.Sum(x => x.No);
+            var yesToday = map.Values.Sum(x => x.YesToday);
+            var noToday = map.Values.Sum(x => x.NoToday);
+            var verifiedToday = yesToday + noToday;
 
             var verified = yes + no;
             var progress = total <= 0 ? 0m : Math.Round((decimal)verified * 100m / total, 2);
-
-            var todayUtc = DateTime.UtcNow.Date;
-
-            var verifiedToday = await assignedRowsQ.CountAsync(r =>
-                r.DecisionAtUtc != null &&
-                r.DecisionAtUtc.Value >= todayUtc &&
-                (r.Decision == VerificationDecision.Yes || r.Decision == VerificationDecision.No), ct);
-
-            var yesToday = await assignedRowsQ.CountAsync(r =>
-                r.DecisionAtUtc != null &&
-                r.DecisionAtUtc.Value >= todayUtc &&
-                r.Decision == VerificationDecision.Yes, ct);
-
-            var noToday = await assignedRowsQ.CountAsync(r =>
-                r.DecisionAtUtc != null &&
-                r.DecisionAtUtc.Value >= todayUtc &&
-                r.Decision == VerificationDecision.No, ct);
-
-            var myBatchIds = await assignedRowsQ
-                .Select(r => r.BatchId)
-                .Distinct()
-                .OrderByDescending(x => x)
-                .Take(50)
-                .ToListAsync(ct);
-
-            var batches = await _db.Batches
-                .AsNoTracking()
-                .Include(b => b.WeekWindow)
-                .Where(b => myBatchIds.Contains(b.Id))
-                .OrderByDescending(b => b.Id)
-                .ToListAsync(ct);
-
-            var countsByBatch = await assignedRowsQ
-                .GroupBy(r => r.BatchId)
-                .Select(g => new
-                {
-                    BatchId = g.Key,
-                    Total = g.Count(),
-                    Pending = g.Count(x => x.Decision == VerificationDecision.Pending),
-                    Yes = g.Count(x => x.Decision == VerificationDecision.Yes),
-                    No = g.Count(x => x.Decision == VerificationDecision.No)
-                })
-                .ToListAsync(ct);
-
-            var map = countsByBatch.ToDictionary(x => x.BatchId);
 
             var batchVms = batches.Select(b =>
             {

@@ -9,19 +9,21 @@ namespace Valuer_Verification_System.Services.Manager
 {
     public interface IManagerDashboardService
     {
-        Task<ManagerDashboardVm> BuildAsync(int? batchId, CancellationToken ct);
+        Task<ManagerDashboardVm> BuildAsync(int? batchId, string? sector, CancellationToken ct);
     }
 
     public sealed class ManagerDashboardService : IManagerDashboardService
     {
         private readonly VvsDbContext _db;
-        
-        public ManagerDashboardService(VvsDbContext db)
+        private readonly IManagerWeekViewService _week;
+
+        public ManagerDashboardService(VvsDbContext db, IManagerWeekViewService week)
         {
             _db = db;
+            _week = week;
         }
 
-        public async Task<ManagerDashboardVm> BuildAsync(int? batchId, CancellationToken ct)
+        public async Task<ManagerDashboardVm> BuildAsync(int? batchId, string? sector, CancellationToken ct)
         {
             // Dropdown batches
             var batches = await _db.Batches
@@ -36,7 +38,16 @@ namespace Valuer_Verification_System.Services.Manager
                 })
                 .ToListAsync(ct);
 
-            var selectedBatchId = batchId ?? batches.FirstOrDefault()?.Id ?? 0;
+            // Default: the newest batch the Project Manager approved (a working week table), else the newest batch.
+            var defaultBatchId = await _db.Batches
+                .AsNoTracking()
+                .Where(b => b.CleanWeekTableName != null && b.CleanWeekTableName != ""
+                         && b.ProjectManagerApprovedAtUtc != null)
+                .OrderByDescending(b => b.Id)
+                .Select(b => (int?)b.Id)
+                .FirstOrDefaultAsync(ct);
+
+            var selectedBatchId = batchId ?? defaultBatchId ?? batches.FirstOrDefault()?.Id ?? 0;
 
             if (selectedBatchId <= 0)
             {
@@ -164,9 +175,68 @@ namespace Valuer_Verification_System.Services.Manager
                 };
             }).ToList();
 
+            // The week table is the working table: when it exists, every number comes from it.
+            var sectorFilter = string.IsNullOrWhiteSpace(sector) || sector == "*" ? null : sector.Trim();
+            var properties = 0;
+
+            ManagerWeekView? wv = null;
+            if (!string.IsNullOrWhiteSpace(batch.CleanWeekTableName))
+            {
+                try
+                {
+                    wv = await _week.GetAsync(batch.CleanWeekTableName!, sectorFilter, ct);
+                }
+                catch (Microsoft.Data.SqlClient.SqlException)
+                {
+                    // An older week table without the working columns: keep the ExtractRows numbers.
+                }
+            }
+
+            if (wv != null)
+            {
+
+                total = wv.Total;
+                pending = wv.Pending;
+                yes = wv.Yes;
+                no = wv.No;
+                properties = wv.Properties;
+                progress = total <= 0 ? 0m : Math.Round((decimal)(yes + no) * 100m / total, 2);
+                sla = SlaCalculator.Evaluate(batch.WeekWindow.NoticeSendDate, pending);
+
+                byValuer = wv.Valuers
+                    .Select(x => new ManagerDashboardVm.ValuerBreakdownVm
+                    {
+                        Valuer = x.Valuer,
+                        Total = x.Total,
+                        Pending = x.Pending,
+                        Yes = x.Yes,
+                        No = x.No,
+                        ProgressPercent = x.Total <= 0 ? 0m : Math.Round((decimal)(x.Yes + x.No) * 100m / x.Total, 2)
+                    })
+                    .OrderByDescending(x => x.Pending)
+                    .ThenBy(x => x.Valuer)
+                    .ToList();
+
+                bySector = wv.Sectors
+                    .Select(x => new ManagerDashboardVm.SectorBreakdownVm
+                    {
+                        Sector = x.Sector,
+                        Total = x.Total,
+                        Pending = x.Pending,
+                        Yes = x.Yes,
+                        No = x.No,
+                        ProgressPercent = x.Total <= 0 ? 0m : Math.Round((decimal)(x.Yes + x.No) * 100m / x.Total, 2)
+                    })
+                    .OrderByDescending(x => x.Pending)
+                    .ThenBy(x => x.Sector)
+                    .ToList();
+            }
+
             return new ManagerDashboardVm
             {
                 BatchId = batch.Id,
+                Sector = sectorFilter,
+                Properties = properties,
                 BatchName = batch.BatchName,
                 BatchDate = batch.BatchDate,
                 Status = batch.Status.ToString(),

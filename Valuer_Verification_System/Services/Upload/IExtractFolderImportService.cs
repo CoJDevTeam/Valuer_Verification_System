@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿﻿using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
@@ -207,28 +207,15 @@ namespace Valuer_Verification_System.Services.Upload
             var hash = await ComputeSha256Async(sourcePath, ct);
             var fileSize = new FileInfo(sourcePath).Length;
 
-            var existingFile = await _db.ExtractFiles
-                .Include(x => x.Batch)
-                .FirstOrDefaultAsync(x =>
+            var sameHashExists = await _db.ExtractFiles
+                .AsNoTracking()
+                .AnyAsync(x =>
                     x.OriginalFileName == fileName &&
                     x.FileHashSha256 == hash,
                     ct);
 
-            if (existingFile is not null)
-            {
-                // A previous run saved the batch and raw rows but the week table / import
-                // cleaning did not finish. Retry that part instead of skipping forever.
-                var unfinished = existingFile.Batch;
-
-                if (_settings.AutoCleanAfterImport && unfinished.ExtractCleanedAtUtc == null)
-                {
-                    var rawCount = await _db.ExtractRows.CountAsync(r => r.BatchId == unfinished.Id, ct);
-                    var msg = await FinishWeekTableAsync(unfinished, ct);
-                    return $"Imported. Batch {unfinished.BatchName}. Rows {rawCount}. (retry) {msg}";
-                }
-
+            if (sameHashExists)
                 return "Skipped. Same file name and same hash already imported.";
-            }
 
             var sameFileDifferentHash = await _db.ExtractFiles
                 .AsNoTracking()
@@ -309,64 +296,22 @@ namespace Valuer_Verification_System.Services.Upload
             _db.ExtractRows.AddRange(rows);
             await _db.SaveChangesAsync(ct);
 
-            var cleaningMessage = await FinishWeekTableAsync(batch, ct);
-
-            return $"Imported. Batch {batch.BatchName}. Rows {rows.Count}. {cleaningMessage}";
-        }
-
-        // Phase 1: ExtractRows stays as the untouched raw backup.
-        // The WEEK TABLE is the working table: it gets ALL raw rows, plus the import
-        // steps (sector, valuer, trim). Valuers verify in it. Safe to call again for a
-        // batch whose first attempt failed.
-        private async Task<string> FinishWeekTableAsync(Batch batch, CancellationToken ct)
-        {
-            var week = await _db.WeekWindows.FirstAsync(w => w.Id == batch.WeekWindowId, ct);
-            var cleaningMessage = "Week table not created (AutoCleanAfterImport is off).";
-            var cleaningDone = false;
-
-            if (_settings.AutoCleanAfterImport)
-            {
-                var latestTables = await _latestTables.ResolveAsync(ct);
-
-                var imp = await _cleaning.ImportWeekTableAndCleanAsync(
-                    batch.Id, "folder-job", latestTables.LisTable, latestTables.SapTable, ct);
-
-                if (!imp.Success)
-                    throw new InvalidOperationException(imp.Message);
-
-                cleaningDone = true;
-                cleaningMessage = imp.Message;
-
-                // DEV/TEST ONLY: give the first N rows to the developer so there is always
-                // something to verify. Username on the rows is NOT changed.
-                if (_settings.DevAllocateEnabled &&
-                    !string.IsNullOrWhiteSpace(_settings.DevAllocateUsername) &&
-                    !string.IsNullOrWhiteSpace(imp.WeekTableName))
-                {
-                    var devRows = await _cleaning.DevAllocateAsync(
-                        imp.WeekTableName!, _settings.DevAllocateUsername, _settings.DevAllocateCount, ct);
-                    cleaningMessage += $" DEV: {devRows} rows allocated to {_settings.DevAllocateUsername}.";
-                }
-            }
-
+            // STEP 1 ends here: the raw rows are saved in ExtractRows (untouched backup).
+            // STEP 2 (week table + cleaning) and STEP 3 (email managers) are started by the
+            // Data Team from the Extracts pages, so each step can be checked and repeated.
             week.Status = WeekWindowStatus.Uploaded;
             week.UpdatedBy = "folder-job";
             week.UpdatedAt = DateTime.UtcNow;
 
             batch.Status = BatchStatus.Uploaded;
+            batch.ExtractCleaningStatus = "NotCleaned";
+            batch.ExtractCleaningMessage = "Imported. Waiting for Step 2 (cleaning).";
             batch.UpdatedBy = "folder-job";
             batch.UpdatedAt = DateTime.UtcNow;
 
             await _db.SaveChangesAsync(ct);
 
-            if (cleaningDone)
-            {
-                // After cleaning and username resolving, notify QA + Project Manager only.
-                // Sector Managers are notified only after Project Manager approval.
-                await _approvalNotify.NotifyProjectManagerAfterCleanAsync(batch.Id, ct);
-            }
-
-            return cleaningMessage;
+            return $"Imported. Batch {batch.BatchName}. Rows {rows.Count}. Waiting for Step 2 (cleaning).";
         }
 
         private async Task<int> ResolveBatchValuerUsernamesAsync(

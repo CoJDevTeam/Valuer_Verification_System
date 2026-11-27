@@ -76,8 +76,7 @@ namespace Valuer_Verification_System.Models.ViewModels
             public string? ExtractCleaningMessage { get; set; }
 
             public bool IsCleaned =>
-                ExtractCleanedAtUtc != null &&
-                string.Equals(ExtractCleaningStatus, "Cleaned", StringComparison.OrdinalIgnoreCase);
+                Valuer_Verification_System.Infrastructure.CleaningStatus.IsDone(ExtractCleaningStatus, ExtractCleanedAtUtc);
 
             public bool CleaningFailed =>
                 string.Equals(ExtractCleaningStatus, "Failed", StringComparison.OrdinalIgnoreCase);

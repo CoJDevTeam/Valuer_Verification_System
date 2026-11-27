@@ -20,9 +20,15 @@ namespace Valuer_Verification_System.Services.Upload
         private readonly IStorageService _storage;
         private readonly IEmailService _email;
         private readonly IExtractCleaningService _cleaning;
+        private readonly Valuer_Verification_System.Services.Notice.IWeekTableSummaryService _weekSummary;
+        private readonly Valuer_Verification_System.Infrastructure.Configuration.EmailSettings _emailCfg;
 
-        public ExtractUploadService(VvsDbContext db, IStorageService storage, IEmailService email, IExtractCleaningService cleaning)
+        public ExtractUploadService(VvsDbContext db, IStorageService storage, IEmailService email, IExtractCleaningService cleaning,
+            Valuer_Verification_System.Services.Notice.IWeekTableSummaryService weekSummary,
+            Microsoft.Extensions.Options.IOptions<Valuer_Verification_System.Infrastructure.Configuration.EmailSettings> emailOpt)
         {
+            _weekSummary = weekSummary;
+            _emailCfg = emailOpt.Value;
             _db = db;
             _storage = storage;
             _email = email;
@@ -150,7 +156,7 @@ namespace Valuer_Verification_System.Services.Upload
             if (batch.ExtractCleanedAtUtc == null)
                 throw new InvalidOperationException("Extract has not been cleaned yet.");
 
-            if (!string.Equals(batch.ExtractCleaningStatus, "Cleaned", StringComparison.OrdinalIgnoreCase))
+            if (!Valuer_Verification_System.Infrastructure.CleaningStatus.IsDone(batch.ExtractCleaningStatus, batch.ExtractCleanedAtUtc))
                 throw new InvalidOperationException("Extract cleaning was not completed successfully.");
 
             // Project Manager must approve before Sector Managers are notified.
@@ -168,23 +174,45 @@ namespace Valuer_Verification_System.Services.Upload
             if (extract is null)
                 throw new InvalidOperationException("Extract file log was not found for this batch.");
 
-            var sectorGroups = await _db.ExtractRows
-                .AsNoTracking()
-                .Where(x => x.BatchId == batchId)
-                .GroupBy(x => string.IsNullOrWhiteSpace(x.Sector) ? "Unassigned" : x.Sector!.Trim())
-                .Select(g => new SectorNotifySummary
+            List<SectorNotifySummary> sectorGroups;
+            Valuer_Verification_System.Services.Notice.WeekTableSummary? weekSummary = null;
+
+            if (!string.IsNullOrWhiteSpace(batch.CleanWeekTableName))
+            {
+                // The week table is the working table: counts come from it.
+                var ws = await _weekSummary.GetAsync(batch.CleanWeekTableName!, ct);
+                weekSummary = ws;
+
+                sectorGroups = ws.Sectors.Select(x => new SectorNotifySummary
                 {
-                    Sector = g.Key,
-                    TotalRows = g.Count(),
-                    TotalProperties = g.Select(x => x.ValuationKey).Distinct().Count(),
-                    TotalValuers = g.Where(x => x.Username != null && x.Username != "")
-                                    .Select(x => x.Username)
-                                    .Distinct()
-                                    .Count(),
-                    UnmatchedRows = g.Count(x => x.Username == null || x.Username == "")
-                })
-                .OrderBy(x => x.Sector)
-                .ToListAsync(ct);
+                    Sector = x.Sector,
+                    TotalRows = x.TotalRows,
+                    TotalProperties = x.TotalProperties,
+                    TotalValuers = x.TotalValuers,
+                    UnmatchedRows = x.UnmatchedRows
+                }).ToList();
+            }
+            else
+            {
+                sectorGroups = await _db.ExtractRows
+                    .AsNoTracking()
+                    .Where(x => x.BatchId == batchId)
+                    .GroupBy(x => string.IsNullOrWhiteSpace(x.Sector) ? "Unassigned" : x.Sector!.Trim())
+                    .Select(g => new SectorNotifySummary
+                    {
+                        Sector = g.Key,
+                        TotalRows = g.Count(),
+                        TotalProperties = g.Select(x => x.ValuationKey).Distinct().Count(),
+                        TotalValuers = g.Where(x => x.Username != null && x.Username != "")
+                                        .Select(x => x.Username)
+                                        .Distinct()
+                                        .Count(),
+                        UnmatchedRows = g.Count(x => x.Username == null || x.Username == "")
+                    })
+                    .OrderBy(x => x.Sector)
+                    .ToListAsync(ct);
+
+            }
 
             if (sectorGroups.Count == 0)
                 throw new InvalidOperationException("No extract rows found for this batch.");
@@ -219,28 +247,49 @@ namespace Valuer_Verification_System.Services.Upload
                     continue;
                 }
 
-                var valuers = await _db.ExtractRows
-                    .AsNoTracking()
-                    .Where(x =>
-                        x.BatchId == batchId &&
-                        (string.IsNullOrWhiteSpace(x.Sector) ? "Unassigned" : x.Sector!.Trim()) == sectorName)
-                    .GroupBy(x => new
-                    {
-                        Username = string.IsNullOrWhiteSpace(x.Username) ? "Unmatched" : x.Username!.Trim(),
-                        Valuer = string.IsNullOrWhiteSpace(x.Valuer) ? "Unmatched" : x.Valuer!.Trim()
-                    })
-                    .Select(g => new ValuerNotifySummary
-                    {
-                        Username = g.Key.Username,
-                        Valuer = g.Key.Valuer,
-                        TotalRows = g.Count(),
-                        TotalProperties = g.Select(x => x.ValuationKey).Distinct().Count()
-                    })
-                    .OrderByDescending(x => x.TotalProperties)
-                    .ThenBy(x => x.Valuer)
-                    .ToListAsync(ct);
+                List<ValuerNotifySummary> valuers;
 
-                var dashboardUrl = $"/Manager/Dashboard?batchId={batch.Id}&sector={Uri.EscapeDataString(sectorName)}";
+                if (weekSummary is not null)
+                {
+                    valuers = weekSummary.SectorValuers
+                        .Where(x => x.Sector == sectorName)
+                        .Select(x => new ValuerNotifySummary
+                        {
+                            Username = x.Username,
+                            Valuer = x.Valuer,
+                            TotalRows = x.TotalRows,
+                            TotalProperties = x.TotalProperties
+                        })
+                        .OrderByDescending(x => x.TotalProperties)
+                        .ThenBy(x => x.Valuer)
+                        .ToList();
+                }
+                else
+                {
+                    valuers = await _db.ExtractRows
+                        .AsNoTracking()
+                        .Where(x =>
+                            x.BatchId == batchId &&
+                            (string.IsNullOrWhiteSpace(x.Sector) ? "Unassigned" : x.Sector!.Trim()) == sectorName)
+                        .GroupBy(x => new
+                        {
+                            Username = string.IsNullOrWhiteSpace(x.Username) ? "Unmatched" : x.Username!.Trim(),
+                            Valuer = string.IsNullOrWhiteSpace(x.Valuer) ? "Unmatched" : x.Valuer!.Trim()
+                        })
+                        .Select(g => new ValuerNotifySummary
+                        {
+                            Username = g.Key.Username,
+                            Valuer = g.Key.Valuer,
+                            TotalRows = g.Count(),
+                            TotalProperties = g.Select(x => x.ValuationKey).Distinct().Count()
+                        })
+                        .OrderByDescending(x => x.TotalProperties)
+                        .ThenBy(x => x.Valuer)
+                        .ToListAsync(ct);
+
+                }
+
+                var dashboardUrl = $"{_emailCfg.AppBaseUrl.TrimEnd('/')}/Manager/Dashboard?batchId={batch.Id}&sector={Uri.EscapeDataString(sectorName)}";
 
                 var rowsHtml = string.Join("", valuers.Select(v => $@"
 <tr>

@@ -1,0 +1,167 @@
+@model Valuer_Verification_System.Controllers.ExtractStepVm
+
+@{
+    ViewData["Title"] = "Extracts - Step 3";
+    var s = Model.Summary;
+    var sent = Model.ProjectManagerNotifiedAtUtc != null;
+}
+
+<link href="~/css/upload/intake-css.css" rel="stylesheet" />
+<link href="~/css/upload/intake-steps.css" rel="stylesheet" />
+
+<div class="intake-page">
+    <div class="intake-shell">
+
+        <div class="hero">
+            <div class="hero__eyebrow">Extracts · Step 3 of 4</div>
+            <h1>Email the managers: @Model.BatchName</h1>
+            <p>
+                The Project Manager and QA get a summary and approve it. After the approval the Sector Managers
+                are emailed that their valuers can verify.
+            </p>
+        </div>
+
+        @await Html.PartialAsync("_IntakeSteps", (3, (int?)Model.BatchId, Model.IsCleaned, sent))
+
+        @if (TempData["ExtractIntakeSuccess"] is string ok)
+        {
+            <div class="alert ok">@ok</div>
+        }
+        @if (TempData["ExtractIntakeError"] is string err)
+        {
+            <div class="alert err">@err</div>
+        }
+
+        @if (!Model.IsCleaned)
+        {
+            <div class="card full">
+                <h2>Step 2 is not finished</h2>
+                <p>The extract must be cleaned before the managers are emailed.</p>
+                <div class="step-actions">
+                    <a class="btn-run-now" href="/ExtractIntake/Clean/@Model.BatchId">Go to Step 2</a>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="grid">
+                <div class="card">
+                    <h2>Where this extract is</h2>
+                    <ul class="timeline">
+                        <li class="done"><span class="dot"></span><span>Cleaned (week table @Model.CleanWeekTableName)</span></li>
+                        <li class="@(sent ? "done" : "now")"><span class="dot"></span>
+                            <span>
+                                Project Manager and QA emailed
+                                @if (sent) { <span class="small-muted">@(Model.ProjectManagerNotifiedAtUtc?.ToString("yyyy-MM-dd HH:mm")) UTC</span> }
+                            </span>
+                        </li>
+                        <li class="@(Model.ProjectManagerApprovedAtUtc != null ? "done" : sent ? "now" : "")"><span class="dot"></span>
+                            <span>
+                                Project Manager approved
+                                @if (Model.ProjectManagerApprovedAtUtc != null) { <span class="small-muted">by @Model.ProjectManagerApprovedBy</span> }
+                            </span>
+                        </li>
+                        <li class="@(Model.ManagersNotifiedAtUtc != null ? "done" : Model.ProjectManagerApprovedAtUtc != null ? "now" : "")"><span class="dot"></span>
+                            <span>Sector Managers emailed</span>
+                        </li>
+                        <li class="@(Model.ManagersNotifiedAtUtc != null ? "now" : "")"><span class="dot"></span>
+                            <span>Valuers verify in the week table</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="card">
+                    <h2>Who gets the email now</h2>
+                    <table>
+                        <tbody>
+                            <tr><td>Project Manager</td><td>@Model.ProjectManagerEmail</td></tr>
+                            <tr><td>QA</td><td>@Model.QaManagerEmail</td></tr>
+                        </tbody>
+                    </table>
+
+                    @if (!sent)
+                    {
+                        @if (Model.CanRun)
+                        {
+                            <form method="post" action="/ExtractIntake/Notify/@Model.BatchId/Run" class="step-actions">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn-run-now"><i class="bi bi-envelope-fill"></i> Send the email</button>
+                                <a class="btn gray" href="/ExtractIntake/Clean/@Model.BatchId">Back to Step 2</a>
+                            </form>
+                        }
+                        else
+                        {
+                            <div class="step-note">Only the Data Team can send this email.</div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="step-actions">
+                            <a class="btn primary" href="/ExtractApproval/Batch/@Model.BatchId">Open the approval page</a>
+                            <a class="btn gray" href="/ExtractIntake">Back to Step 1</a>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            @if (s != null)
+            {
+                <div class="stats">
+                    <div class="stat"><label>Rows</label><strong>@s.TotalRows.ToString("N0")</strong></div>
+                    <div class="stat"><label>Properties</label><strong>@s.TotalProperties.ToString("N0")</strong></div>
+                    <div class="stat"><label>Valuers found</label><strong>@s.MatchedValuers.ToString("N0")</strong></div>
+                    <div class="stat"><label>Rows without a valuer</label><strong>@s.UnmatchedRows.ToString("N0")</strong></div>
+                    <div class="stat"><label>Verified (Yes + No)</label><strong>@s.Verified.ToString("N0")</strong></div>
+                    <div class="stat"><label>Progress</label><strong>@s.ProgressPercent%</strong></div>
+                </div>
+
+                <div class="card full" style="margin-bottom:20px;">
+                    <h2>By sector</h2>
+                    <table>
+                        <thead>
+                            <tr><th>Sector</th><th class="num">Properties</th><th class="num">Rows</th><th class="num">Valuers</th><th class="num">No valuer</th><th class="num">Yes</th><th class="num">No</th><th class="num">Pending</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var x in s.Sectors)
+                            {
+                                <tr>
+                                    <td>@x.Sector</td>
+                                    <td class="num">@x.TotalProperties.ToString("N0")</td>
+                                    <td class="num">@x.TotalRows.ToString("N0")</td>
+                                    <td class="num">@x.TotalValuers.ToString("N0")</td>
+                                    <td class="num">@x.UnmatchedRows.ToString("N0")</td>
+                                    <td class="num">@x.Yes.ToString("N0")</td>
+                                    <td class="num">@x.No.ToString("N0")</td>
+                                    <td class="num">@x.Pending.ToString("N0")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                @if (s.Unmatched.Any())
+                {
+                    <div class="card full" style="margin-bottom:20px;">
+                        <h2>Rows without a valuer</h2>
+                        <p class="small-muted">The valuer name in the extract was not found as a user. Managers can reassign these rows.</p>
+                        <table>
+                            <thead><tr><th>Valuer in the extract</th><th class="num">Properties</th><th class="num">Rows</th><th>Reason</th></tr></thead>
+                            <tbody>
+                                @foreach (var u in s.Unmatched)
+                                {
+                                    <tr>
+                                        <td>@u.Valuer</td>
+                                        <td class="num">@u.Properties.ToString("N0")</td>
+                                        <td class="num">@u.Rows.ToString("N0")</td>
+                                        <td>@(u.MatchComment ?? u.MatchStatus)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            }
+        }
+
+    </div>
+</div>

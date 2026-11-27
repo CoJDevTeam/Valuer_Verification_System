@@ -74,6 +74,8 @@ builder.Services.AddScoped<IValuerRowDetailsService,ValuerRowDetailsService>();
 builder.Services.AddScoped<IManagerReassignmentService,ManagerReassignmentService>();
 
 builder.Services.AddScoped<IManagerDashboardService,ManagerDashboardService>();
+builder.Services.AddScoped<IManagerWeekViewService, ManagerWeekViewService>();
+builder.Services.AddScoped<Valuer_Verification_System.Services.Valuer.IWeekRowStore, Valuer_Verification_System.Services.Valuer.WeekRowStore>();
 
 
 //---------------------------------Notice ---------------------------------
@@ -89,6 +91,11 @@ builder.Services.AddScoped<INoticeSendService, NoticeSendService>();
 builder.Services.AddScoped<INoticeQaService,NoticeQaService>();
 
 builder.Services.AddScoped<INoticeCleaningService, NoticeCleaningService>();
+builder.Services.AddScoped<IWeekTableSummaryService, WeekTableSummaryService>();
+builder.Services.Configure<Valuer_Verification_System.Infrastructure.Configuration.AppModeSettings>(
+    builder.Configuration.GetSection(Valuer_Verification_System.Infrastructure.Configuration.AppModeSettings.SectionName));
+builder.Services.AddSingleton<Valuer_Verification_System.Infrastructure.Configuration.IAppMode,
+    Valuer_Verification_System.Infrastructure.Configuration.AppMode>();
 
 builder.Services.AddScoped<ILatestCleaningTableResolver,LatestCleaningTableResolver>();
 

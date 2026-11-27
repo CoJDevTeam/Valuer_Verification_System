@@ -8,10 +8,13 @@ namespace Valuer_Verification_System.Services.Verifications
     public sealed class ValuerBulkVerificationService : IValuerBulkVerificationService
     {
         private readonly VvsDbContext _db;
+        private readonly Valuer_Verification_System.Services.Valuer.IWeekRowStore _weekRows;
 
-        public ValuerBulkVerificationService(VvsDbContext db)
+        public ValuerBulkVerificationService(VvsDbContext db,
+            Valuer_Verification_System.Services.Valuer.IWeekRowStore weekRows)
         {
             _db = db;
+            _weekRows = weekRows;
         }
 
         public async Task<ValuerBulkInboxVm> GetInboxAsync(
@@ -37,14 +40,9 @@ namespace Valuer_Verification_System.Services.Verifications
                 };
             }
 
-            var rows = await _db.ExtractRows
-                .AsNoTracking()
-                .Where(x =>
-                    x.BatchId == selectedBatchId &&
-                    x.Username != null &&
-                    x.Username.Trim() == username &&
-                    x.UnitKey != null &&
-                    x.UnitKey.Trim() != "")
+            // The week table is the working table (approved batches only).
+            var rows = (await _weekRows.LoadForValuerAsync(username, selectedBatchId, null, ct))
+                .Where(x => x.UnitKey != null && x.UnitKey.Trim() != "")
                 .Select(x => new
                 {
                     x.Id,
@@ -67,7 +65,7 @@ namespace Valuer_Verification_System.Services.Verifications
                     x.MarketValue,
                     x.Decision
                 })
-                .ToListAsync(ct);
+                .ToList();
 
             var groups = rows
                 .GroupBy(x => new
@@ -199,17 +197,11 @@ namespace Valuer_Verification_System.Services.Verifications
             username = Normalize(username);
             unitKey = Normalize(unitKey);
 
-            var rows = await _db.ExtractRows
-                .AsNoTracking()
-                .Where(x =>
-                    x.BatchId == batchId &&
-                    x.Username != null &&
-                    x.Username.Trim() == username &&
-                    x.UnitKey != null &&
-                    x.UnitKey.Trim() == unitKey)
+            var rows = (await _weekRows.LoadForValuerAsync(username, batchId, null, ct))
+                .Where(x => x.UnitKey != null && x.UnitKey.Trim() == unitKey)
                 .OrderBy(x => x.UnitNo)
                 .ThenBy(x => x.ValuationKey)
-                .ToListAsync(ct);
+                .ToList();
 
             if (!rows.Any())
                 return null;
@@ -321,14 +313,9 @@ namespace Valuer_Verification_System.Services.Verifications
             username = Normalize(username);
             var unitKey = Normalize(vm.UnitKey);
 
-            var rows = await _db.ExtractRows
-                .Where(x =>
-                    x.BatchId == vm.BatchId &&
-                    x.Username != null &&
-                    x.Username.Trim() == username &&
-                    x.UnitKey != null &&
-                    x.UnitKey.Trim() == unitKey)
-                .ToListAsync(ct);
+            var rows = (await _weekRows.LoadForValuerAsync(username, vm.BatchId, null, ct))
+                .Where(x => x.UnitKey != null && x.UnitKey.Trim() == unitKey)
+                .ToList();
 
             if (!rows.Any())
                 return 0;
@@ -374,24 +361,15 @@ namespace Valuer_Verification_System.Services.Verifications
                 .Where(x => x.Decision == VerificationDecision.Pending)
                 .ToList();
 
-            foreach (var row in pendingRows)
-            {
-                row.Decision = VerificationDecision.Yes;
-                row.DecisionAtUtc = DateTime.UtcNow;
-                row.DecisionBy = username;
-                row.DecisionComment = string.IsNullOrWhiteSpace(vm.Comment)
-                    ? "Bulk verified as correct."
-                    : vm.Comment.Trim();
+            var comment = string.IsNullOrWhiteSpace(vm.Comment)
+                ? "Bulk verified as correct."
+                : vm.Comment.Trim();
 
-                row.UpdatedBy = username;
-                row.UpdatedAt = DateTime.UtcNow;
-            }
+            var changed = await _weekRows.SetDecisionAsync(
+                pendingRows.Select(x => x.Id).ToList(), vm.BatchId, username, "Yes", comment, ct);
 
-            await _db.SaveChangesAsync(ct);
-
-            return pendingRows.Count;
+            return changed;
         }
-
         private static string Normalize(string? value)
         {
             return string.IsNullOrWhiteSpace(value)

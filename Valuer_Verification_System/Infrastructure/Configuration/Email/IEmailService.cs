@@ -13,12 +13,27 @@ namespace Valuer_Verification_System.Infrastructure.Configuration.Email
     public sealed class EmailService : IEmailService
     {
         private readonly EmailSettings _s;
+        private readonly IAppMode _mode;
 
-        public EmailService(IOptions<EmailSettings> opt) => _s = opt.Value;
+        public EmailService(IOptions<EmailSettings> opt, IAppMode mode)
+        {
+            _s = opt.Value;
+            _mode = mode;
+        }
 
         public async Task<EmailSendResult> SendAndArchiveAsync(
             EmailRequest req, string archiveEmlPath, CancellationToken ct)
         {
+            // Not Production and nobody to send to: send nothing, so a test can never reach a real person.
+            if (!_mode.IsProduction && _mode.RedirectEmails.Count == 0)
+                return new EmailSendResult
+                {
+                    Sent = false,
+                    Error = $"AppMode is {_mode.Label} but it has no email address (AppMode:Developer or AppMode:Testers). Nothing was sent.",
+                    ArchivePath = archiveEmlPath,
+                    FinalTo = ""
+                };
+
             Directory.CreateDirectory(Path.GetDirectoryName(archiveEmlPath)!);
 
             var msg = BuildMessage(req, out var finalToDisplay);
@@ -77,9 +92,15 @@ namespace Valuer_Verification_System.Infrastructure.Configuration.Email
 
             if (!string.IsNullOrWhiteSpace(_s.DefaultBcc)) allBcc.Add(_s.DefaultBcc.Trim());
 
-            if (!string.IsNullOrWhiteSpace(_s.DevRedirectAllTo))
+            string? redirectNote = null;
+
+            if (!_mode.IsProduction)
             {
-                allTo = new List<string> { _s.DevRedirectAllTo.Trim() };
+                // TEST: remember who this email was meant for, so it can be told apart in one inbox.
+                redirectNote = $"{_mode.Label.ToUpperInvariant()} MODE. This email was meant for - To: {string.Join("; ", allTo)}"
+                             + (allCc.Count > 0 ? $" | Cc: {string.Join("; ", allCc)}" : "");
+
+                allTo = _mode.RedirectEmails.ToList();
                 allCc.Clear();
                 allBcc.Clear();
                 msg.Headers.Add("X-VVS-Redirected", "true");
@@ -103,9 +124,18 @@ namespace Valuer_Verification_System.Infrastructure.Configuration.Email
             foreach (var c in allCc) msg.Cc.Add(MailboxAddress.Parse(c));
             foreach (var b in allBcc) msg.Bcc.Add(MailboxAddress.Parse(b));
 
-            msg.Subject = req.Subject;
+            msg.Subject = redirectNote is null ? req.Subject : $"[{_mode.Label.ToUpperInvariant()}] {req.Subject}";
 
-            var builder = new BodyBuilder { HtmlBody = req.BodyHtml, TextBody = req.BodyText };
+            var banner = redirectNote is null
+                ? ""
+                : "<div style='background:#fff3cd;border:1px solid #ffe69c;padding:8px 12px;margin-bottom:10px;" +
+                  "font:12px Segoe UI,Arial,sans-serif;'>" + System.Net.WebUtility.HtmlEncode(redirectNote) + "</div>";
+
+            var builder = new BodyBuilder
+            {
+                HtmlBody = req.BodyHtml is null ? null : banner + req.BodyHtml,
+                TextBody = redirectNote is null ? req.BodyText : redirectNote + Environment.NewLine + Environment.NewLine + req.BodyText
+            };
             foreach (var a in req.Attachments.Where(a => a.Content.Length > 0))
                 builder.Attachments.Add(a.FileName, a.Content, MimeKit.ContentType.Parse(a.ContentType));
 

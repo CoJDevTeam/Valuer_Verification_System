@@ -31,11 +31,13 @@ namespace Valuer_Verification_System.Services.Valuer
     {
         private readonly VvsDbContext _db;
         private readonly INotificationService _notif;
+        private readonly IWeekRowStore _weekRows;
 
-        public ValuerVerificationService(VvsDbContext db, INotificationService notif)
+        public ValuerVerificationService(VvsDbContext db, INotificationService notif, IWeekRowStore weekRows)
         {
             _db = db;
             _notif = notif;
+            _weekRows = weekRows;
         }
 
         // ── Inbox ─────────────────────────────────────────────────────────────
@@ -50,37 +52,27 @@ namespace Valuer_Verification_System.Services.Valuer
             if (string.IsNullOrWhiteSpace(valuer))
                 throw new InvalidOperationException("Valuer is required.");
 
-            var baseRowsQ = _db.ExtractRows
-                .AsNoTracking()
-                .Where(r => r.Username != null && r.Username.Trim() == valuer);
+            // The week table is the working table. Only batches the Project Manager approved are visible.
+            var approved = await _weekRows.ApprovedBatchesAsync(ct);
 
-            var batches = await _db.Batches
-                .Include(b => b.WeekWindow)
-                .Where(b => baseRowsQ.Any(r => r.BatchId == b.Id))
-                .OrderByDescending(b => b.Id)
-                .Take(200)
-                .ToListAsync(ct);
-
-            var q = baseRowsQ.AsQueryable();
-
-            if (batchId.HasValue && batchId.Value > 0)
-                q = q.Where(r => r.BatchId == batchId.Value);
+            var myAll = await _weekRows.LoadForValuerAsync(valuer, null, null, ct);
+            var myBatchIds = myAll.Select(r => r.BatchId).Distinct().ToHashSet();
+            var batches = approved.Where(x => myBatchIds.Contains(x.Id)).ToList();
 
             filter = (filter ?? "Pending").Trim();
-
-            q = filter switch
+            string? decision = filter switch
             {
-                "Yes" => q.Where(r => r.Decision == VerificationDecision.Yes),
-                "No" => q.Where(r => r.Decision == VerificationDecision.No),
-                "All" => q,
-                _ => q.Where(r => r.Decision == VerificationDecision.Pending)
+                "Yes" => "Yes",
+                "No" => "No",
+                "All" => null,
+                _ => "Pending"
             };
 
-            var rows = await q
+            var rows = (await _weekRows.LoadForValuerAsync(
+                    valuer, batchId.HasValue && batchId.Value > 0 ? batchId : null, decision, ct))
                 .OrderBy(r => r.Sector)
                 .ThenBy(r => r.ValuationKey)
-                .Take(5000)
-                .ToListAsync(ct);
+                .ToList();
 
             var unread = await _notif.GetUnreadCountForValuerAsync(valuer, ct);
             var latest = await _notif.GetLatestForValuerAsync(valuer, top: 8, ct);
@@ -103,28 +95,18 @@ namespace Valuer_Verification_System.Services.Valuer
             if (string.IsNullOrWhiteSpace(valuer))
                 throw new InvalidOperationException("Valuer is required.");
 
-                        var row = await _db.ExtractRows
-                .FirstOrDefaultAsync(r =>
-                    r.Id == extractRowId &&
-                    r.Username != null &&
-                    r.Username.Trim() == valuer,
-                    ct);
-
-            if (row is null)
-                throw new InvalidOperationException("You are not allowed to verify this record.");
-            
-
             if (decision == VerificationDecision.No && string.IsNullOrWhiteSpace(comment))
                 throw new InvalidOperationException("Comment is required when selecting No.");
 
-            row.Decision = decision;
-            row.DecisionAtUtc = DateTime.UtcNow;
-            row.DecisionComment = decision == VerificationDecision.No ? comment?.Trim() : null;
-            row.DecisionBy = valuer;
-            row.UpdatedAt = DateTime.UtcNow;
-            row.UpdatedBy = valuer;
+            var changed = await _weekRows.SetDecisionAsync(
+                new[] { extractRowId }, null, valuer,
+                decision == VerificationDecision.Yes ? "Yes" : "No",
+                decision == VerificationDecision.No ? comment?.Trim() : null,
+                ct);
 
-            await _db.SaveChangesAsync(ct);
+            if (changed == 0)
+                throw new InvalidOperationException(
+                    "You are not allowed to verify this record, or its extract has not been approved yet.");
         }
 
         public Task MarkNotificationReadAsync(long notificationId, string valuer, CancellationToken ct)
@@ -139,28 +121,17 @@ namespace Valuer_Verification_System.Services.Valuer
         {
             valuer = (valuer ?? "").Trim();
 
-            // Security: only rows assigned to this valuer
-            // Security: only rows assigned to this valuer through ExtractRows.Username
-            var row = await _db.ExtractRows
-                .AsNoTracking()
-                .Include(r => r.Batch)
-                    .ThenInclude(b => b.WeekWindow)
-                .Include(r => r.Assignment)
-                .FirstOrDefaultAsync(r =>
-                    r.Id == extractRowId &&
-                    r.Username != null &&
-                    r.Username.Trim() == valuer,
-                    ct);
-
+            // Security: only rows of this valuer, in approved batches (read from the week table)
+            var row = await _weekRows.GetRowAsync(extractRowId, valuer, ct);
             if (row is null) return null;
 
-            // All rows sharing the same ValuationKey in the same batch (for split/multipurpose)
-            var siblings = await _db.ExtractRows
+            var batch = await _db.Batches
                 .AsNoTracking()
-                .Where(r => r.BatchId == row.BatchId
-                         && r.ValuationKey == row.ValuationKey)
-                .OrderBy(r => r.ValuationSplitNo)
-                .ToListAsync(ct);
+                .Include(x => x.WeekWindow)
+                .FirstOrDefaultAsync(x => x.Id == row.BatchId, ct);
+
+            // All rows sharing the same ValuationKey in the same batch (for split/multipurpose)
+            var siblings = await _weekRows.GetSiblingsAsync(row.BatchId, row.ValuationKey, ct);
 
             bool isMulti = siblings.Count > 1 ||
                 siblings.Any(r =>
@@ -173,7 +144,7 @@ namespace Valuer_Verification_System.Services.Valuer
                 ExtractRowId = row.Id,
                 ValuationKey = row.ValuationKey,
                 BatchId = row.BatchId,
-                BatchName = row.Batch?.BatchName ?? "",
+                BatchName = batch?.BatchName ?? "",
 
                 // ── Property identification ───────────────────────────────────
                 PropertyDesc = row.PropertyDesc,
@@ -253,7 +224,7 @@ namespace Valuer_Verification_System.Services.Valuer
                 Decision = row.Decision,
                 DecisionComment = row.DecisionComment,
                 DecisionAtUtc = row.DecisionAtUtc,
-                AssignedTo = row.Username ?? row.Assignment?.AssignedToValuer,
+                AssignedTo = valuer,
 
                 // ── Split siblings ────────────────────────────────────────────
                 SplitRows = siblings.Select(s => new ValuerRowDetailsVm.SplitRowVm

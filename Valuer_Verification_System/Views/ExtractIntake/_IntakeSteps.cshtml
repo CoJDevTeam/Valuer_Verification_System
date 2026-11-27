@@ -1,0 +1,28 @@
+@* Step bar. Model: (int Current, int? BatchId, bool Step2Done, bool Step3Done) *@
+@model (int Current, int? BatchId, bool Step2Done, bool Step3Done)
+
+@{
+    string Cls(int n, bool done, bool enabled) =>
+        "step-tab" + (Model.Current == n ? " current" : "") + (done && Model.Current != n ? " done" : "") + (!enabled ? " off" : "");
+
+    var b = Model.BatchId;
+}
+
+<div class="steps-bar">
+    <a class="@Cls(1, Model.BatchId != null, true)" href="/ExtractIntake">
+        <span class="num">1</span>
+        <span><strong>Extracts in the folder</strong><small>See the files and import new ones</small></span>
+    </a>
+    <a class="@Cls(2, Model.Step2Done, b != null)" href="@(b != null ? $"/ExtractIntake/Clean/{b}" : "#")">
+        <span class="num">2</span>
+        <span><strong>Clean</strong><small>Create the week table and clean it</small></span>
+    </a>
+    <a class="@Cls(3, Model.Step3Done, b != null && Model.Step2Done)" href="@(b != null ? $"/ExtractIntake/Notify/{b}" : "#")">
+        <span class="num">3</span>
+        <span><strong>Email the managers</strong><small>Tell them valuers can verify</small></span>
+    </a>
+    <span class="@Cls(4, false, false)">
+        <span class="num">4</span>
+        <span><strong>Print and send</strong><small>On the day the notices go out</small></span>
+    </span>
+</div>

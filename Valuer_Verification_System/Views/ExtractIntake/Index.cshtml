@@ -1,119 +1,80 @@
-﻿@model Valuer_Verification_System.Controllers.ExtractIntakeIndexVm
+@model Valuer_Verification_System.Controllers.ExtractIntakeIndexVm
 
 @{
-    ViewData["Title"] = "Automatic Extract Intake";
-    var latestBatch = Model.Batches.FirstOrDefault();
+    ViewData["Title"] = "Extracts - Step 1";
+    var newFiles = Model.FilesInFolder.Count(f => !f.Imported);
 }
 
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-
 <link href="~/css/upload/intake-css.css" rel="stylesheet" />
+<link href="~/css/upload/intake-steps.css" rel="stylesheet" />
 
 <div class="intake-page">
-
-
-    <div class="top-bar">
-        <div class="top-bar__brand">
-            <div class="top-bar__logo">VVS</div>
-            <div>
-                <div class="top-bar__name">Valuation Services</div>
-                <div class="top-bar__dept">City of Johannesburg · Finance</div>
-            </div>
-        </div>
-        <div class="top-bar__right">
-            @if (Model.FolderExists)
-            {
-                <span class="top-bar__chip">
-                    <span class="dot"></span>
-                    Folder monitored
-                </span>
-            }
-            else
-            {
-                <span class="top-bar__chip" style="background:rgba(239,68,68,.1);color:#fca5a5;border-color:rgba(239,68,68,.35);">
-                    <span class="dot" style="background:#fca5a5;"></span>
-                    Folder not found
-                </span>
-            }
-        </div>
-    </div>
-
     <div class="intake-shell">
 
-
         <div class="hero">
-            <div class="hero__eyebrow">Automatic intake — Extract management</div>
-            <h1>Automatic Extract Intake</h1>
+            <div class="hero__eyebrow">Extracts · Step 1 of 4</div>
+            <h1>Extracts in the folder</h1>
             <p>
-                Monitor files detected by the folder job, import status, cleaning status,
-                Project Manager approval and Sector Manager notification progress.
+                The Data Team puts the extract in the folder. Here you see every file, which ones are already imported,
+                and what to do next for each extract.
             </p>
-
-            @if (Model.CanRunFolderImportNow)
-            {
-                if (Model.ImportIsRunning)
-                {
-                    <div class="import-running">
-                        <i class="bi bi-hourglass-split"></i>
-                        Uploading and cleaning is currently running.
-                        Started at @(Model.ImportStartedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "-") UTC
-                        by @Model.ImportStartedBy.
-                    </div>
-                }
-                else
-                {
-                    <form method="post" action="/ExtractIntake/RunNow" style="margin-top:16px;">
-                        @Html.AntiForgeryToken()
-                        <button type="submit"
-                                class="btn-run-now"
-                                onclick="return confirm('Start uploading and cleaning now? This will scan the configured folder, import new extract files, and run all cleaning steps.');">
-                            <i class="bi bi-play-circle-fill"></i>
-                            Start Uploading and Cleaning
-                        </button>
-                    </form>
-                }
-            }
         </div>
 
-        @if (TempData["ExtractIntakeSuccess"] is not null)
+        @await Html.PartialAsync("_IntakeSteps", (1, (int?)null, false, false))
+
+        @if (TempData["ExtractIntakeSuccess"] is string ok)
         {
-            <div class="alert ok">@TempData["ExtractIntakeSuccess"]</div>
+            <div class="alert ok">@ok</div>
+        }
+        @if (TempData["ExtractIntakeError"] is string err)
+        {
+            <div class="alert err">@err</div>
         }
 
-        @if (TempData["ExtractIntakeError"] is not null)
-        {
-            <div class="alert err">@TempData["ExtractIntakeError"]</div>
-        }
-
-       
         <div class="grid">
             <div class="card">
-                <h2>Configured Extract Folder</h2>
-
-                <div class="folder-path">
-                    @(string.IsNullOrWhiteSpace(Model.FolderPath) ? "Not configured" : Model.FolderPath)
-                </div>
-
+                <h2>Folder</h2>
+                <div class="folder-path">@Model.FolderPath</div>
                 @if (Model.FolderExists)
                 {
-                    <div class="alert ok" style="margin-top:12px;margin-bottom:0;">
-                        Folder exists and can be monitored.
-                    </div>
+                    <div class="alert ok" style="margin-top:12px;margin-bottom:0;">Folder found.</div>
                 }
                 else
                 {
                     <div class="alert err" style="margin-top:12px;margin-bottom:0;">
-                        Folder does not exist or is not configured correctly.
+                        Folder not found. Check <code>ExtractInbox:FolderPath</code> in appsettings.
                     </div>
                 }
+
+                <div class="step-actions">
+                    @if (Model.ImportIsRunning)
+                    {
+                        <span class="pill warn">
+                            An import is running (started @(Model.ImportStartedAtUtc?.ToString("HH:mm") ?? "-") UTC by @Model.ImportStartedBy)
+                        </span>
+                    }
+                    else if (Model.CanRunFolderImportNow)
+                    {
+                        <form method="post" action="/ExtractIntake/RunNow">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn-run-now">
+                                <i class="bi bi-arrow-repeat"></i> Check the folder and import new files
+                            </button>
+                        </form>
+                    }
+                    else
+                    {
+                        <span class="small-muted">The folder is also checked automatically every day.</span>
+                    }
+                </div>
             </div>
 
             <div class="card">
-                <h2>Files Currently In Folder</h2>
+                <h2>Files in the folder <span class="small-muted">(@Model.FilesInFolder.Count, @newFiles new)</span></h2>
 
                 @if (!Model.FilesInFolder.Any())
                 {
-                    <p class="small-muted">No Excel/CSV extract files currently found in the folder.</p>
+                    <p class="small-muted">No extract files in the folder.</p>
                 }
                 else
                 {
@@ -123,6 +84,7 @@
                                 <th>File</th>
                                 <th class="num">Size</th>
                                 <th>Modified</th>
+                                <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -132,6 +94,16 @@
                                     <td>@f.FileName</td>
                                     <td class="num">@f.SizeDisplay</td>
                                     <td>@f.LastModified.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td>
+                                        @if (f.Imported)
+                                        {
+                                            <span class="pill ok">Imported as @f.BatchName</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="pill warn">New, not imported yet</span>
+                                        }
+                                    </td>
                                 </tr>
                             }
                         </tbody>
@@ -140,30 +112,92 @@
             </div>
         </div>
 
-     
-        <div class="card">
-            <h2>Folder Import Audit Log</h2>
+        <div class="card full" style="margin-bottom:20px;">
+            <h2>Imported extracts and what to do next</h2>
 
-            @if (!Model.Audits.Any())
+            @if (!Model.Batches.Any())
             {
-                <p class="small-muted">No folder import runs have been logged yet.</p>
+                <p class="small-muted">Nothing imported yet.</p>
             }
             else
             {
-                <div style="overflow-x:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Extract</th>
+                            <th>File</th>
+                            <th>Week</th>
+                            <th class="num">Rows</th>
+                            <th>Week table</th>
+                            <th>Where it is now</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var b in Model.Batches)
+                        {
+                            <tr>
+                                <td><strong>@b.BatchName</strong></td>
+                                <td>@b.OriginalFileName</td>
+                                <td>@b.WeekStart.ToString("dd MMM") to @b.WeekEnd.ToString("dd MMM yyyy")</td>
+                                <td class="num">@b.TotalRows.ToString("N0")</td>
+                                <td>
+                                    @if (string.IsNullOrWhiteSpace(b.CleanWeekTableName))
+                                    {
+                                        <span class="pill grey">Not created</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="small-muted">@b.CleanWeekTableName</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (b.NextStep == 4 && b.ManagersNotifiedAtUtc != null)
+                                    {
+                                        <span class="pill ok">@b.NextStepText</span>
+                                    }
+                                    else if (string.Equals(b.ExtractCleaningStatus, "Failed", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        <span class="pill err">@b.NextStepText</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="pill warn">@b.NextStepText</span>
+                                    }
+                                </td>
+                                <td style="white-space:nowrap;">
+                                    @if (b.NextStep == 2)
+                                    {
+                                        <a class="btn primary" href="/ExtractIntake/Clean/@b.BatchId">Step 2: Clean</a>
+                                    }
+                                    else if (b.NextStep == 3)
+                                    {
+                                        <a class="btn primary" href="/ExtractIntake/Notify/@b.BatchId">Step 3: Email managers</a>
+                                    }
+                                    else
+                                    {
+                                        <a class="btn gray" href="/ExtractIntake/Notify/@b.BatchId">Details</a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+        <details>
+            <summary>Folder check log (last @Model.Audits.Count)</summary>
+            @if (!Model.Audits.Any())
+            {
+                <p class="small-muted">No folder checks logged yet.</p>
+            }
+            else
+            {
+                <div class="card">
                     <table>
                         <thead>
-                            <tr>
-                                <th>Started</th>
-                                <th>Run Type</th>
-                                <th>Started By</th>
-                                <th>Status</th>
-                                <th class="num">Imported</th>
-                                <th class="num">Skipped</th>
-                                <th class="num">Failed</th>
-                                <th>Duration</th>
-                                <th>Message</th>
-                            </tr>
+                            <tr><th>When</th><th>Type</th><th>By</th><th class="num">New</th><th class="num">Skipped</th><th class="num">Failed</th><th>Message</th></tr>
                         </thead>
                         <tbody>
                             @foreach (var a in Model.Audits)
@@ -172,401 +206,17 @@
                                     <td>@a.StartedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
                                     <td>@a.RunType</td>
                                     <td>@a.StartedBy</td>
-                                    <td>
-                                        @if (a.Success)
-                                        {
-                                            <span class="pill ok">Success</span>
-                                        }
-                                        else if (a.FinishedAtUtc == null)
-                                        {
-                                            <span class="pill warn">Running</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="pill bad">Failed / Skipped</span>
-                                        }
-                                    </td>
                                     <td class="num">@a.ImportedCount</td>
                                     <td class="num">@a.SkippedCount</td>
                                     <td class="num">@a.FailedCount</td>
-                                    <td>@a.DurationDisplay</td>
-                                    <td>
-                                        <div style="max-width:360px;white-space:normal;">
-                                            @a.Message
-
-                                            @if (!string.IsNullOrWhiteSpace(a.ErrorMessage))
-                                            {
-                                                <details style="margin-top:6px;">
-                                                    <summary>Error details</summary>
-                                                    <pre style="white-space:pre-wrap;font-size:11px;color:var(--ink3);">@a.ErrorMessage</pre>
-                                                </details>
-                                            }
-                                        </div>
-                                    </td>
+                                    <td>@(a.ErrorMessage ?? a.Message)</td>
                                 </tr>
                             }
                         </tbody>
                     </table>
                 </div>
             }
-        </div>
-
-        <div class="card">
-            <h2>Upload and Cleaning Progress</h2>
-
-            @if (latestBatch is null)
-            {
-                <p class="small-muted">
-                    No batch found yet. Click <strong>Start Uploading and Cleaning</strong> to import and clean the extract.
-                </p>
-            }
-            else
-            {
-                <div class="actions" style="margin-bottom:14px;">
-                    <button type="button"
-                            class="btn-run-now"
-                            onclick="startCleaningProgress(@latestBatch.BatchId)">
-                        <i class="bi bi-bar-chart-line-fill"></i>
-                        View Latest Cleaning Progress
-                    </button>
-                </div>
-
-                <div id="cleaningProgressWrap" style="display:none;">
-                    <div class="cleaning-progress-outer">
-                        <div id="cleaningProgressBar" class="cleaning-progress-inner"></div>
-                    </div>
-
-                    <p id="cleaningProgressText" class="small-muted" style="margin-top:8px;">
-                        Waiting...
-                    </p>
-
-                    <div style="overflow-x:auto;margin-top:12px;">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Step</th>
-                                    <th>Status</th>
-                                    <th>Rows</th>
-                                    <th>Duration</th>
-                                    <th>Message</th>
-                                </tr>
-                            </thead>
-                            <tbody id="cleaningStepsBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-            }
-        </div>
-
-        
-        @if (!Model.Batches.Any())
-        {
-            <div class="card">
-                <h2>No imported batches yet</h2>
-                <p class="small-muted">
-                    Once the folder job imports an extract, the batch will appear here.
-                </p>
-            </div>
-        }
-
-        @if (Model.Batches.Any())
-        {
-            <div class="section-label">Imported batches</div>
-        }
-
-        @foreach (var b in Model.Batches)
-        {
-            <div class="batch-card">
-                <div class="batch-head">
-                    <div>
-                        <h2>@b.BatchName</h2>
-                        <p>
-                            @b.OriginalFileName —
-                            Week @b.WeekStart.ToString("yyyy-MM-dd") to @b.WeekEnd.ToString("yyyy-MM-dd")
-                        </p>
-
-                        <div class="pill-row">
-                            <span class="pill dark">@b.Status</span>
-
-                            @if (string.Equals(b.ExtractCleaningStatus, "Cleaned", StringComparison.OrdinalIgnoreCase))
-                            {
-                                <span class="pill ok">Cleaned</span>
-                            }
-                            else if (string.Equals(b.ExtractCleaningStatus, "Failed", StringComparison.OrdinalIgnoreCase))
-                            {
-                                <span class="pill bad">Cleaning Failed</span>
-                            }
-                            else if (string.Equals(b.ExtractCleaningStatus, "Running", StringComparison.OrdinalIgnoreCase))
-                            {
-                                <span class="pill info">Cleaning Running</span>
-                            }
-                            else
-                            {
-                                <span class="pill warn">Cleaning Pending</span>
-                            }
-
-                            @if (b.ProjectManagerNotifiedAtUtc != null)
-                            {
-                                <span class="pill info">PM Notified</span>
-                            }
-                            else
-                            {
-                                <span class="pill warn">PM Not Notified</span>
-                            }
-
-                            @if (b.ProjectManagerApprovedAtUtc != null)
-                            {
-                                <span class="pill ok">PM Approved</span>
-                            }
-                            else
-                            {
-                                <span class="pill warn">PM Approval Pending</span>
-                            }
-
-                            @if (b.ManagersNotifiedAtUtc != null)
-                            {
-                                <span class="pill ok">Sector Managers Notified</span>
-                            }
-                            else
-                            {
-                                <span class="pill warn">Sector Managers Pending</span>
-                            }
-
-                            @if (b.UnmatchedRows > 0)
-                            {
-                                <span class="pill bad">@b.UnmatchedRows unmatched rows</span>
-                            }
-                        </div>
-                    </div>
-
-                    <div style="text-align:right;">
-                        <div class="small-muted" style="margin-bottom:4px;">Verification Progress</div>
-                        <strong style="font-size:24px;font-weight:900;color:var(--gold-d);">
-                            @b.ProgressPercent.ToString("N2")%
-                        </strong>
-                        <div class="progress-wrap" style="width:180px;margin-left:auto;">
-                            <div class="progress-bar" style="width:@b.ProgressPercent%;"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="batch-body">
-                    <div class="stats">
-                        <div class="stat">
-                            <label>Properties</label>
-                            <strong>@b.TotalProperties.ToString("N0")</strong>
-                        </div>
-                        <div class="stat">
-                            <label>Rows</label>
-                            <strong>@b.TotalRows.ToString("N0")</strong>
-                        </div>
-                        <div class="stat">
-                            <label>Pending</label>
-                            <strong>@b.Pending.ToString("N0")</strong>
-                        </div>
-                        <div class="stat">
-                            <label>Verified Yes</label>
-                            <strong>@b.Yes.ToString("N0")</strong>
-                        </div>
-                        <div class="stat">
-                            <label>Verified No</label>
-                            <strong>@b.No.ToString("N0")</strong>
-                        </div>
-                        <div class="stat">
-                            <label>Valuers</label>
-                            <strong>@b.MatchedValuers.ToString("N0")</strong>
-                        </div>
-                    </div>
-
-                    <div class="details">
-                        <div class="detail-box">
-                            <label>Source File</label>
-                            <div>@b.SavedPath</div>
-                            <div class="small-muted" style="margin-top:4px;">
-                                Size: @b.FileSizeDisplay |
-                                Imported: @b.UploadedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC
-                            </div>
-                        </div>
-                        <div class="detail-box">
-                            <label>Important Dates</label>
-                            <div>
-                                Notice: @b.NoticeSendDate.ToString("yyyy-MM-dd")<br />
-                                Review: @b.ReviewOpenDate.ToString("yyyy-MM-dd") to @b.ReviewCloseDate.ToString("yyyy-MM-dd")
-                            </div>
-                        </div>
-                        <div class="detail-box">
-                            <label>Cleaning</label>
-                            <div>
-                                Status: @b.ExtractCleaningStatus<br />
-                                Cleaned At: @(b.ExtractCleanedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "-") UTC<br />
-                                Week Table: @b.CleanWeekTableName
-                            </div>
-                        </div>
-                        <div class="detail-box">
-                            <label>Approval</label>
-                            <div>
-                                PM Notified: @(b.ProjectManagerNotifiedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "-") UTC<br />
-                                PM Approved: @(b.ProjectManagerApprovedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "-") UTC<br />
-                                Sector Managers: @(b.ManagersNotifiedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "-") UTC
-                            </div>
-                        </div>
-                    </div>
-
-                    <details>
-                        <summary>Cleaning message</summary>
-                        <div class="folder-path">@b.ExtractCleaningMessage</div>
-                    </details>
-
-                    @if (b.Sectors.Any())
-                    {
-                        <details>
-                            <summary>Sector breakdown</summary>
-                            <div style="overflow-x:auto;margin-top:8px;">
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th>Sector</th>
-                                            <th class="num">Properties</th>
-                                            <th class="num">Rows</th>
-                                            <th class="num">Pending</th>
-                                            <th class="num">Yes</th>
-                                            <th class="num">No</th>
-                                            <th class="num">Unmatched</th>
-                                            <th class="num">Progress</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var s in b.Sectors)
-                                        {
-                                            <tr>
-                                                <td>@s.Sector</td>
-                                                <td class="num">@s.TotalProperties.ToString("N0")</td>
-                                                <td class="num">@s.TotalRows.ToString("N0")</td>
-                                                <td class="num">@s.Pending.ToString("N0")</td>
-                                                <td class="num">@s.Yes.ToString("N0")</td>
-                                                <td class="num">@s.No.ToString("N0")</td>
-                                                <td class="num">@s.UnmatchedRows.ToString("N0")</td>
-                                                <td class="num">@s.ProgressPercent.ToString("N2")%</td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-                        </details>
-                    }
-
-                    <div class="actions">
-                        <button type="button"
-                                class="btn gray"
-                                onclick="startCleaningProgress(@b.BatchId)">
-                            View Cleaning Progress
-                        </button>
-
-                        <a class="btn primary" href="/ExtractApproval/Batch/@b.BatchId">
-                            Open Approval Page
-                        </a>
-
-                        @if (b.ManagersNotifiedAtUtc != null)
-                        {
-                            <a class="btn green" href="/Manager/Dashboard?batchId=@b.BatchId">
-                                Open Manager Dashboard
-                            </a>
-                        }
-
-                        <a class="btn gray" href="/Valuer">
-                            Open Valuer Dashboard
-                        </a>
-                    </div>
-                </div>
-            </div>
-        }
+        </details>
 
     </div>
 </div>
-
-<script>
-    let currentBatchId = null;
-    let progressTimer = null;
-
-    function startCleaningProgress(batchId) {
-        currentBatchId = batchId;
-
-        const wrap = document.getElementById('cleaningProgressWrap');
-        if (!wrap) return;
-
-        wrap.style.display = 'block';
-
-        if (progressTimer) {
-            clearInterval(progressTimer);
-        }
-
-        loadCleaningProgress();
-
-        progressTimer = setInterval(loadCleaningProgress, 2000);
-
-        wrap.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
-        });
-    }
-
-    async function loadCleaningProgress() {
-        if (!currentBatchId) return;
-
-        const response = await fetch(`/ExtractIntake/Progress/${currentBatchId}`);
-
-        if (!response.ok) return;
-
-        const data = await response.json();
-
-        const bar = document.getElementById('cleaningProgressBar');
-        const text = document.getElementById('cleaningProgressText');
-        const body = document.getElementById('cleaningStepsBody');
-
-        if (!bar || !text || !body) return;
-
-        const percent = data.percent ?? 0;
-
-        bar.style.width = `${percent}%`;
-
-        text.textContent =
-            `${data.extractCleaningStatus ?? 'Running'} - ${data.completedSteps ?? 0}/${data.totalSteps ?? 0} steps complete (${percent}%)`;
-
-        body.innerHTML = '';
-
-        (data.steps ?? []).forEach(step => {
-            const tr = document.createElement('tr');
-
-            const status = step.finishedAtUtc
-                ? (step.success ? 'Complete' : 'Failed')
-                : 'Running';
-
-            const duration = step.durationMs
-                ? `${(step.durationMs / 1000).toFixed(1)} sec`
-                : '-';
-
-            tr.innerHTML = `
-                <td>${escapeHtml(step.stepName ?? '')}</td>
-                <td>${escapeHtml(status)}</td>
-                <td>${step.rowsAffected ?? 0}</td>
-                <td>${escapeHtml(duration)}</td>
-                <td>${escapeHtml(step.message ?? step.errorMessage ?? '')}</td>
-            `;
-
-            body.appendChild(tr);
-        });
-
-        if (data.extractCleaningStatus === 'Cleaned' || data.extractCleaningStatus === 'Failed') {
-            clearInterval(progressTimer);
-        }
-    }
-
-    function escapeHtml(value) {
-        return String(value)
-            .replaceAll('&', '&amp;')
-            .replaceAll('<', '&lt;')
-            .replaceAll('>', '&gt;')
-            .replaceAll('"', '&quot;')
-            .replaceAll("'", '&#039;');
-    }
-</script>

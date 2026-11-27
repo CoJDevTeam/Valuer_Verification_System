@@ -23,9 +23,9 @@ namespace Valuer_Verification_System.Controllers
         }
         [RequirePageAccess("ManagerDashboard")]
         [HttpGet("/Manager/Dashboard")]
-        public async Task<IActionResult> Dashboard(int? batchId, CancellationToken ct)
+        public async Task<IActionResult> Dashboard(int? batchId, string? sector, CancellationToken ct)
         {
-            var vm = await _dash.BuildAsync(batchId, ct);
+            var vm = await _dash.BuildAsync(batchId, sector, ct);
             return View(vm);
         }
         [RequirePageAccess("ManagerDashboard")]

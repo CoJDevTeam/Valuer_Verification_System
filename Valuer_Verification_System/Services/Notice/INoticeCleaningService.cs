@@ -1,4 +1,4 @@
-﻿using Valuer_Verification_System.Models.ViewModels;
+using Valuer_Verification_System.Models.ViewModels;
 
 namespace Valuer_Verification_System.Services.Notice
 {
@@ -51,8 +51,8 @@ namespace Valuer_Verification_System.Services.Notice
         /// </summary>
         Task<CleaningStepResultVm> RunSendDayCleaningAsync(int batchId, string by, string lisTable, string sapTable, CancellationToken ct);
 
-        /// <summary>DEV/TEST: allocates the first N rows of a week table to a developer without touching Username.</summary>
-        Task<int> DevAllocateAsync(string weekTable, string username, int count, CancellationToken ct);
+        /// <summary>DEV/TEST: allocates N rows (after skipping "skip") of a week table to a developer/tester without touching Username. reset = clear earlier test allocations first.</summary>
+        Task<int> DevAllocateAsync(string weekTable, string username, int count, int skip, bool reset, CancellationToken ct);
 
         Task<CleaningStepResultVm> InsertVerifiedRowsIntoWeekTableAsync(
     int batchId,

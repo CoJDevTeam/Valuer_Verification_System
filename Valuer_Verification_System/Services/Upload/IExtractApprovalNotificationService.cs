@@ -4,6 +4,7 @@ using Valuer_Verification_System.Data;
 using Valuer_Verification_System.Infrastructure.Configuration;
 using Valuer_Verification_System.Infrastructure.Configuration.Email;
 using Valuer_Verification_System.Models.Data;
+using Valuer_Verification_System.Services.Notice;
 
 namespace Valuer_Verification_System.Services.Upload
 {
@@ -17,12 +18,15 @@ namespace Valuer_Verification_System.Services.Upload
         private readonly VvsDbContext _db;
         private readonly IEmailService _email;
         private readonly EmailSettings _emailCfg;
+        private readonly IWeekTableSummaryService _summary;
 
         public ExtractApprovalNotificationService(
             VvsDbContext db,
             IEmailService email,
-            IOptions<EmailSettings> emailCfg)
+            IOptions<EmailSettings> emailCfg,
+            IWeekTableSummaryService summary)
         {
+            _summary = summary;
             _db = db;
             _email = email;
             _emailCfg = emailCfg.Value;
@@ -53,48 +57,73 @@ namespace Valuer_Verification_System.Services.Upload
             if (string.IsNullOrWhiteSpace(_emailCfg.AppBaseUrl))
                 throw new InvalidOperationException("Email:AppBaseUrl is missing in appsettings.");
 
-            var totalRows = await _db.ExtractRows
-                .AsNoTracking()
-                .CountAsync(x => x.BatchId == batchId, ct);
+            int totalRows, totalProperties, matchedValuers, unmatchedRows;
+            List<SectorSummaryRow> sectorSummary;
 
-            var totalProperties = await _db.ExtractRows
-                .AsNoTracking()
-                .Where(x => x.BatchId == batchId)
-                .Select(x => x.ValuationKey)
-                .Distinct()
-                .CountAsync(ct);
+            if (!string.IsNullOrWhiteSpace(batch.CleanWeekTableName))
+            {
+                // The week table is the working table: counts come from it.
+                var ws = await _summary.GetAsync(batch.CleanWeekTableName!, ct);
 
-            var matchedValuers = await _db.ExtractRows
-                .AsNoTracking()
-                .Where(x => x.BatchId == batchId &&
-                            x.Username != null &&
-                            x.Username != "")
-                .Select(x => x.Username)
-                .Distinct()
-                .CountAsync(ct);
-
-            var unmatchedRows = await _db.ExtractRows
-                .AsNoTracking()
-                .CountAsync(x => x.BatchId == batchId &&
-                                 (x.Username == null || x.Username == ""), ct);
-
-            var sectorSummary = await _db.ExtractRows
-                .AsNoTracking()
-                .Where(x => x.BatchId == batchId)
-                .GroupBy(x => x.Sector ?? "Unassigned")
-                .Select(g => new SectorSummaryRow
+                totalRows = ws.TotalRows;
+                totalProperties = ws.TotalProperties;
+                matchedValuers = ws.MatchedValuers;
+                unmatchedRows = ws.UnmatchedRows;
+                sectorSummary = ws.Sectors.Select(x => new SectorSummaryRow
                 {
-                    Sector = g.Key,
-                    TotalRows = g.Count(),
-                    TotalProperties = g.Select(x => x.ValuationKey).Distinct().Count(),
-                    TotalValuers = g.Where(x => x.Username != null && x.Username != "")
-                                    .Select(x => x.Username)
-                                    .Distinct()
-                                    .Count(),
-                    UnmatchedRows = g.Count(x => x.Username == null || x.Username == "")
-                })
-                .OrderBy(x => x.Sector)
-                .ToListAsync(ct);
+                    Sector = x.Sector,
+                    TotalRows = x.TotalRows,
+                    TotalProperties = x.TotalProperties,
+                    TotalValuers = x.TotalValuers,
+                    UnmatchedRows = x.UnmatchedRows
+                }).ToList();
+            }
+            else
+            {
+                totalRows = await _db.ExtractRows
+                    .AsNoTracking()
+                    .CountAsync(x => x.BatchId == batchId, ct);
+
+                totalProperties = await _db.ExtractRows
+                    .AsNoTracking()
+                    .Where(x => x.BatchId == batchId)
+                    .Select(x => x.ValuationKey)
+                    .Distinct()
+                    .CountAsync(ct);
+
+                matchedValuers = await _db.ExtractRows
+                    .AsNoTracking()
+                    .Where(x => x.BatchId == batchId &&
+                                x.Username != null &&
+                                x.Username != "")
+                    .Select(x => x.Username)
+                    .Distinct()
+                    .CountAsync(ct);
+
+                unmatchedRows = await _db.ExtractRows
+                    .AsNoTracking()
+                    .CountAsync(x => x.BatchId == batchId &&
+                                     (x.Username == null || x.Username == ""), ct);
+
+                sectorSummary = await _db.ExtractRows
+                    .AsNoTracking()
+                    .Where(x => x.BatchId == batchId)
+                    .GroupBy(x => x.Sector ?? "Unassigned")
+                    .Select(g => new SectorSummaryRow
+                    {
+                        Sector = g.Key,
+                        TotalRows = g.Count(),
+                        TotalProperties = g.Select(x => x.ValuationKey).Distinct().Count(),
+                        TotalValuers = g.Where(x => x.Username != null && x.Username != "")
+                                        .Select(x => x.Username)
+                                        .Distinct()
+                                        .Count(),
+                        UnmatchedRows = g.Count(x => x.Username == null || x.Username == "")
+                    })
+                    .OrderBy(x => x.Sector)
+                    .ToListAsync(ct);
+
+            }
 
             var approveUrl = $"{_emailCfg.AppBaseUrl.TrimEnd('/')}/ExtractApproval/Batch/{batch.Id}";
 

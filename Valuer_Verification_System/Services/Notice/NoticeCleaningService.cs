@@ -1,4 +1,4 @@
-﻿using Microsoft.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Valuer_Verification_System.Data;
 using Valuer_Verification_System.Models.Data;
@@ -529,43 +529,43 @@ namespace Valuer_Verification_System.Services.Notice
                 copied = await WeekTableRowCountAsync(tableName, ct);
             }
             else
-                try
+            try
+            {
+                var conn = _db.Database.GetDbConnection();
+                if (conn.State != System.Data.ConnectionState.Open)
+                    await conn.OpenAsync(ct);
+
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText = "sp_VVS_ImportWeekTable";
+                cmd.CommandType = System.Data.CommandType.StoredProcedure;
+                cmd.CommandTimeout = 600;
+
+                cmd.Parameters.Add(new SqlParameter("@BatchId", batchId));
+
+                var nameParam = new SqlParameter("@TableName", System.Data.SqlDbType.NVarChar, 200)
                 {
-                    var conn = _db.Database.GetDbConnection();
-                    if (conn.State != System.Data.ConnectionState.Open)
-                        await conn.OpenAsync(ct);
-
-                    await using var cmd = conn.CreateCommand();
-                    cmd.CommandText = "sp_VVS_ImportWeekTable";
-                    cmd.CommandType = System.Data.CommandType.StoredProcedure;
-                    cmd.CommandTimeout = 600;
-
-                    cmd.Parameters.Add(new SqlParameter("@BatchId", batchId));
-
-                    var nameParam = new SqlParameter("@TableName", System.Data.SqlDbType.NVarChar, 200)
-                    {
-                        Direction = System.Data.ParameterDirection.InputOutput,
-                        Value = DBNull.Value
-                    };
-                    var rowsParam = new SqlParameter("@RowsAffected", System.Data.SqlDbType.Int)
-                    {
-                        Direction = System.Data.ParameterDirection.Output
-                    };
-                    cmd.Parameters.Add(nameParam);
-                    cmd.Parameters.Add(rowsParam);
-
-                    await cmd.ExecuteNonQueryAsync(ct);
-
-                    tableName = Convert.ToString(nameParam.Value) ?? "";
-                    copied = rowsParam.Value != DBNull.Value ? Convert.ToInt32(rowsParam.Value) : 0;
-                }
-                catch (Exception ex)
+                    Direction = System.Data.ParameterDirection.InputOutput,
+                    Value = DBNull.Value
+                };
+                var rowsParam = new SqlParameter("@RowsAffected", System.Data.SqlDbType.Int)
                 {
-                    batch.ExtractCleaningStatus = "Failed";
-                    batch.ExtractCleaningMessage = $"Week table creation failed: {ex.Message}";
-                    await _db.SaveChangesAsync(ct);
-                    return new WeekTableImportResult { Message = batch.ExtractCleaningMessage };
-                }
+                    Direction = System.Data.ParameterDirection.Output
+                };
+                cmd.Parameters.Add(nameParam);
+                cmd.Parameters.Add(rowsParam);
+
+                await cmd.ExecuteNonQueryAsync(ct);
+
+                tableName = Convert.ToString(nameParam.Value) ?? "";
+                copied = rowsParam.Value != DBNull.Value ? Convert.ToInt32(rowsParam.Value) : 0;
+            }
+            catch (Exception ex)
+            {
+                batch.ExtractCleaningStatus = "Failed";
+                batch.ExtractCleaningMessage = $"Week table creation failed: {ex.Message}";
+                await _db.SaveChangesAsync(ct);
+                return new WeekTableImportResult { Message = batch.ExtractCleaningMessage };
+            }
 
             var rawCount = await _db.ExtractRows.CountAsync(r => r.BatchId == batchId, ct);
             if (copied != rawCount)
@@ -597,7 +597,7 @@ namespace Valuer_Verification_System.Services.Notice
 
             batch.ExtractCleanedAtUtc = DateTime.UtcNow;
             batch.ExtractCleanedBy = by;
-            batch.ExtractCleaningStatus = "Imported";
+            batch.ExtractCleaningStatus = "Cleaned";
             batch.ExtractCleaningMessage =
                 $"Week table {tableName} created with {copied:N0} rows. Import steps done (sector, valuer, trim). Send-day cleaning pending.";
             batch.UpdatedBy = by;
@@ -654,8 +654,7 @@ namespace Valuer_Verification_System.Services.Notice
             return result;
         }
 
-      
-        public async Task<int> DevAllocateAsync(string weekTable, string username, int count, CancellationToken ct)
+        public async Task<int> DevAllocateAsync(string weekTable, string username, int count, int skip, bool reset, CancellationToken ct)
         {
             var conn = _db.Database.GetDbConnection();
             if (conn.State != System.Data.ConnectionState.Open)
@@ -668,6 +667,8 @@ namespace Valuer_Verification_System.Services.Notice
             cmd.Parameters.Add(new SqlParameter("@WeekTable", weekTable));
             cmd.Parameters.Add(new SqlParameter("@Username", username));
             cmd.Parameters.Add(new SqlParameter("@Count", count));
+            cmd.Parameters.Add(new SqlParameter("@Skip", skip));
+            cmd.Parameters.Add(new SqlParameter("@Reset", reset));
             var rows = new SqlParameter("@RowsAffected", System.Data.SqlDbType.Int)
             { Direction = System.Data.ParameterDirection.Output };
             cmd.Parameters.Add(rows);
@@ -819,7 +820,7 @@ namespace Valuer_Verification_System.Services.Notice
                 };
             }
 
-
+           
 
             if (string.IsNullOrWhiteSpace(batch.CleanWeekTableName))
             {

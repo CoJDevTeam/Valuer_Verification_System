@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Valuer_Verification_System.Data;
+using Valuer_Verification_System.Services.Notice;
 using Valuer_Verification_System.Services.Upload;
 
 namespace Valuer_Verification_System.Controllers
@@ -11,11 +12,14 @@ namespace Valuer_Verification_System.Controllers
     {
         private readonly VvsDbContext _db;
         private readonly IExtractUploadService _uploadService;
+        private readonly IWeekTableSummaryService _summary;
 
         public ExtractApprovalController(
             VvsDbContext db,
-            IExtractUploadService uploadService)
+            IExtractUploadService uploadService,
+            IWeekTableSummaryService summary)
         {
+            _summary = summary;
             _db = db;
             _uploadService = uploadService;
         }
@@ -31,42 +35,72 @@ namespace Valuer_Verification_System.Controllers
             if (batch is null)
                 return NotFound();
 
-            var sectorSummary = await _db.ExtractRows
-                .AsNoTracking()
-                .Where(x => x.BatchId == batchId)
-                .GroupBy(x => x.Sector ?? "Unassigned")
-                .Select(g => new ExtractApprovalSectorVm
-                {
-                    Sector = g.Key,
-                    TotalRows = g.Count(),
-                    TotalProperties = g.Select(x => x.ValuationKey).Distinct().Count(),
-                    TotalValuers = g.Where(x => x.Username != null && x.Username != "")
-                                    .Select(x => x.Username)
-                                    .Distinct()
-                                    .Count(),
-                    UnmatchedRows = g.Count(x => x.Username == null || x.Username == "")
-                })
-                .OrderBy(x => x.Sector)
-                .ToListAsync(ct);
+            List<ExtractApprovalSectorVm> sectorSummary;
+            List<ExtractApprovalUnmatchedVm> unmatchedValuers;
 
-            var unmatchedValuers = await _db.ExtractRows
-                .AsNoTracking()
-                .Where(x =>
-                    x.BatchId == batchId &&
-                    (x.Username == null || x.Username == ""))
-                .GroupBy(x => x.Valuer ?? "Unknown")
-                .Select(g => new ExtractApprovalUnmatchedVm
+            if (!string.IsNullOrWhiteSpace(batch.CleanWeekTableName))
+            {
+                // The week table is the working table: counts come from it.
+                var ws = await _summary.GetAsync(batch.CleanWeekTableName!, ct);
+
+                sectorSummary = ws.Sectors.Select(x => new ExtractApprovalSectorVm
                 {
-                    Valuer = g.Key,
-                    Rows = g.Count(),
-                    Properties = g.Select(x => x.ValuationKey).Distinct().Count(),
-                    MatchStatus = g.Select(x => x.ValuerMatchStatus).FirstOrDefault(),
-                    MatchComment = g.Select(x => x.ValuerMatchComment).FirstOrDefault()
-                })
-                .OrderByDescending(x => x.Properties)
-                .ThenBy(x => x.Valuer)
-                .Take(50)
-                .ToListAsync(ct);
+                    Sector = x.Sector,
+                    TotalRows = x.TotalRows,
+                    TotalProperties = x.TotalProperties,
+                    TotalValuers = x.TotalValuers,
+                    UnmatchedRows = x.UnmatchedRows
+                }).ToList();
+
+                unmatchedValuers = ws.Unmatched.Select(x => new ExtractApprovalUnmatchedVm
+                {
+                    Valuer = x.Valuer,
+                    Rows = x.Rows,
+                    Properties = x.Properties,
+                    MatchStatus = x.MatchStatus,
+                    MatchComment = x.MatchComment
+                }).ToList();
+            }
+            else
+            {
+                sectorSummary = await _db.ExtractRows
+                    .AsNoTracking()
+                    .Where(x => x.BatchId == batchId)
+                    .GroupBy(x => x.Sector ?? "Unassigned")
+                    .Select(g => new ExtractApprovalSectorVm
+                    {
+                        Sector = g.Key,
+                        TotalRows = g.Count(),
+                        TotalProperties = g.Select(x => x.ValuationKey).Distinct().Count(),
+                        TotalValuers = g.Where(x => x.Username != null && x.Username != "")
+                                        .Select(x => x.Username)
+                                        .Distinct()
+                                        .Count(),
+                        UnmatchedRows = g.Count(x => x.Username == null || x.Username == "")
+                    })
+                    .OrderBy(x => x.Sector)
+                    .ToListAsync(ct);
+
+                unmatchedValuers = await _db.ExtractRows
+                    .AsNoTracking()
+                    .Where(x =>
+                        x.BatchId == batchId &&
+                        (x.Username == null || x.Username == ""))
+                    .GroupBy(x => x.Valuer ?? "Unknown")
+                    .Select(g => new ExtractApprovalUnmatchedVm
+                    {
+                        Valuer = g.Key,
+                        Rows = g.Count(),
+                        Properties = g.Select(x => x.ValuationKey).Distinct().Count(),
+                        MatchStatus = g.Select(x => x.ValuerMatchStatus).FirstOrDefault(),
+                        MatchComment = g.Select(x => x.ValuerMatchComment).FirstOrDefault()
+                    })
+                    .OrderByDescending(x => x.Properties)
+                    .ThenBy(x => x.Valuer)
+                    .Take(50)
+                    .ToListAsync(ct);
+
+            }
 
             var vm = new ExtractApprovalVm
             {
@@ -113,7 +147,7 @@ namespace Valuer_Verification_System.Controllers
                 return RedirectToAction(nameof(Batch), new { batchId });
             }
 
-            if (!string.Equals(batch.ExtractCleaningStatus, "Cleaned", StringComparison.OrdinalIgnoreCase))
+            if (!Valuer_Verification_System.Infrastructure.CleaningStatus.IsDone(batch.ExtractCleaningStatus, batch.ExtractCleanedAtUtc))
             {
                 TempData["ApprovalError"] = "Extract cleaning is not completed successfully.";
                 return RedirectToAction(nameof(Batch), new { batchId });
@@ -189,8 +223,7 @@ namespace Valuer_Verification_System.Controllers
         public int TotalUnmatchedRows => Sectors.Sum(x => x.UnmatchedRows);
 
         public bool IsCleaned =>
-            string.Equals(ExtractCleaningStatus, "Cleaned", StringComparison.OrdinalIgnoreCase)
-            && ExtractCleanedAtUtc != null;
+            Valuer_Verification_System.Infrastructure.CleaningStatus.IsDone(ExtractCleaningStatus, ExtractCleanedAtUtc);
 
         public bool SectorManagersNotified => ManagersNotifiedAtUtc != null;
     }
